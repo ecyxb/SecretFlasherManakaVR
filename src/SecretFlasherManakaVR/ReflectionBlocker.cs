@@ -1,0 +1,77 @@
+using System;
+using UnityEngine;
+
+namespace SecretFlasherManakaVR;
+
+internal static class ReflectionBlocker
+{
+    public static bool IsReflectionCameraCandidate(Camera camera)
+    {
+        if (camera == null || camera.gameObject == null || IsPluginEyeCamera(camera))
+        {
+            return false;
+        }
+
+        if (NameContainsReflectionKeyword(camera.gameObject.name))
+        {
+            return true;
+        }
+
+        RenderTexture target = camera.targetTexture;
+        return Plugin.Settings != null &&
+            Plugin.Settings.DisableTargetTextureCameras.Value &&
+            target != null &&
+            !IsPluginEyeTexture(target);
+    }
+
+    public static bool NameContainsReflectionKeyword(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        string rawKeywords = Plugin.Settings == null
+            ? "mirror,reflect,reflection,planar,water"
+            : Plugin.Settings.ReflectionCameraNameKeywords.Value;
+        string[] keywords = rawKeywords.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < keywords.Length; i++)
+        {
+            string keyword = keywords[i].Trim();
+            if (keyword.Length > 0 && value.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static string CameraDescription(Camera camera)
+    {
+        if (camera == null || camera.gameObject == null)
+        {
+            return "<null>";
+        }
+
+        RenderTexture target = camera.targetTexture;
+        string targetName = target == null
+            ? "none"
+            : (string.IsNullOrEmpty(target.name) ? "<unnamed>" : target.name);
+        return camera.gameObject.name + " targetTexture=" + targetName;
+    }
+
+    private static bool IsPluginEyeCamera(Camera camera)
+    {
+        string name = camera.gameObject.name;
+        return string.Equals(name, "Left Eye", StringComparison.Ordinal) ||
+            string.Equals(name, "Right Eye", StringComparison.Ordinal);
+    }
+
+    private static bool IsPluginEyeTexture(Texture texture)
+    {
+        return texture != null &&
+            !string.IsNullOrEmpty(texture.name) &&
+            texture.name.IndexOf("SecretFlasherManakaVR", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+}

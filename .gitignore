@@ -1,0 +1,18 @@
+# Build intermediates
+src/**/bin/
+src/**/obj/
+
+# Local IDE/editor state
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Runtime logs and temp files
+*.log
+*.tmp
+*.bak
+
+# OS noise
+Thumbs.db
+Desktop.ini

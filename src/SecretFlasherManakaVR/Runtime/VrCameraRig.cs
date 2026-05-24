@@ -1,0 +1,400 @@
+using System;
+using SecretFlasherManakaVR.OpenVR;
+using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+
+namespace SecretFlasherManakaVR.Runtime
+{
+    internal sealed class VrCameraRig
+    {
+        private const string RigName = "SecretFlasherManakaVR Camera Rig";
+
+        private readonly IVrRuntimeLogger logger;
+
+        private GameObject root;
+        private Camera leftEye;
+        private Camera rightEye;
+        private RenderTexture leftTexture;
+        private RenderTexture rightTexture;
+        private D3D11SharedTexture leftSharedTexture;
+        private D3D11SharedTexture rightSharedTexture;
+        private int textureWidth;
+        private int textureHeight;
+        private int antiAliasing;
+        private bool leftSharedTextureFailed;
+        private bool rightSharedTextureFailed;
+
+        public VrCameraRig(IVrRuntimeLogger logger)
+        {
+            this.logger = logger ?? NullVrRuntimeLogger.Instance;
+        }
+
+        public Camera LeftEyeCamera
+        {
+            get { return leftEye; }
+        }
+
+        public Camera RightEyeCamera
+        {
+            get { return rightEye; }
+        }
+
+        public RenderTexture LeftTexture
+        {
+            get { return leftTexture; }
+        }
+
+        public RenderTexture RightTexture
+        {
+            get { return rightTexture; }
+        }
+
+        public IntPtr LeftSubmitTexturePtr
+        {
+            get { return GetSubmitPointer(leftTexture, leftSharedTexture); }
+        }
+
+        public IntPtr RightSubmitTexturePtr
+        {
+            get { return GetSubmitPointer(rightTexture, rightSharedTexture); }
+        }
+
+        public OpenVRTextureSubmitType LeftSubmitTextureType
+        {
+            get { return GetSubmitType(leftSharedTexture); }
+        }
+
+        public OpenVRTextureSubmitType RightSubmitTextureType
+        {
+            get { return GetSubmitType(rightSharedTexture); }
+        }
+
+        public bool IsOurCamera(Camera camera)
+        {
+            return camera != null && (camera == leftEye || camera == rightEye);
+        }
+
+        public void EnsureCreated()
+        {
+            if (root != null)
+            {
+                return;
+            }
+
+            root = new GameObject(RigName);
+            UnityEngine.Object.DontDestroyOnLoad(root);
+            root.hideFlags = HideFlags.HideAndDontSave;
+
+            leftEye = CreateEyeCamera("Left Eye");
+            rightEye = CreateEyeCamera("Right Eye");
+            logger.Info("VR camera rig created.");
+        }
+
+        public void EnsureRenderTextures(int width, int height, int aa)
+        {
+            EnsureCreated();
+            width = Mathf.Clamp(width, 256, 8192);
+            height = Mathf.Clamp(height, 256, 8192);
+            aa = Mathf.Clamp(aa, 1, 8);
+
+            if (leftTexture != null && rightTexture != null &&
+                textureWidth == width && textureHeight == height && antiAliasing == aa)
+            {
+                return;
+            }
+
+            ReleaseRenderTextures();
+            textureWidth = width;
+            textureHeight = height;
+            antiAliasing = aa;
+            leftTexture = CreateRenderTexture("SecretFlasherManakaVR Left Eye", width, height, aa);
+            rightTexture = CreateRenderTexture("SecretFlasherManakaVR Right Eye", width, height, aa);
+            leftEye.targetTexture = leftTexture;
+            rightEye.targetTexture = rightTexture;
+            logger.Info(
+                "VR render textures created: " + width + "x" + height +
+                " AA " + aa +
+                " format " + leftTexture.graphicsFormat + "/" + rightTexture.graphicsFormat + ".");
+            logger.Info("VR left eye native texture: " + D3D11TextureDiagnostics.Describe(leftTexture.GetNativeTexturePtr()));
+            logger.Info("VR right eye native texture: " + D3D11TextureDiagnostics.Describe(rightTexture.GetNativeTexturePtr()));
+        }
+
+        public void CopyFromSource(Camera source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            CopyCamera(source, leftEye);
+            CopyCamera(source, rightEye);
+        }
+
+        public void ApplyPose(Vector3 headPosition, Quaternion headRotation, float ipdMeters, float ipdScale, float worldScale)
+        {
+            Vector3 halfIpd = Vector3.right * (ipdMeters * 0.5f * ipdScale * worldScale);
+            leftEye.transform.SetPositionAndRotation(headPosition + headRotation * -halfIpd, headRotation);
+            rightEye.transform.SetPositionAndRotation(headPosition + headRotation * halfIpd, headRotation);
+        }
+
+        public void ApplyProjection(RuntimeEye eye, Matrix4x4 projection)
+        {
+            if (eye == RuntimeEye.Left)
+            {
+                leftEye.projectionMatrix = projection;
+            }
+            else
+            {
+                rightEye.projectionMatrix = projection;
+            }
+        }
+
+        public void ApplyCullingFromSourceProjection(Camera source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            if (leftEye != null)
+            {
+                leftEye.cullingMatrix = source.projectionMatrix * leftEye.worldToCameraMatrix;
+            }
+
+            if (rightEye != null)
+            {
+                rightEye.cullingMatrix = source.projectionMatrix * rightEye.worldToCameraMatrix;
+            }
+        }
+
+        public void ResetCullingMatrices()
+        {
+            if (leftEye != null)
+            {
+                leftEye.ResetCullingMatrix();
+            }
+
+            if (rightEye != null)
+            {
+                rightEye.ResetCullingMatrix();
+            }
+        }
+
+        public void Render()
+        {
+            VrRuntimeState.BeginVrEyeRender(leftEye, rightEye);
+            try
+            {
+                if (leftEye != null && leftTexture != null)
+                {
+                    if (!leftTexture.IsCreated())
+                    {
+                        leftTexture.Create();
+                    }
+
+                    leftEye.Render();
+                }
+
+                if (rightEye != null && rightTexture != null)
+                {
+                    if (!rightTexture.IsCreated())
+                    {
+                        rightTexture.Create();
+                    }
+
+                    rightEye.Render();
+                }
+            }
+            finally
+            {
+                VrRuntimeState.EndVrEyeRender();
+            }
+
+            GL.Flush();
+
+            // Keep all texture ownership inside Unity. Direct D3D11 copy/submit
+            // paths were accepted by OpenVR but crashed in the NVIDIA user-mode
+            // driver on some runs.
+        }
+
+        public void Mirror(VrMirrorMode mode)
+        {
+            if (mode == VrMirrorMode.LeftEye && leftTexture != null)
+            {
+                Graphics.Blit(leftTexture, (RenderTexture)null);
+            }
+            else if (mode == VrMirrorMode.RightEye && rightTexture != null)
+            {
+                Graphics.Blit(rightTexture, (RenderTexture)null);
+            }
+        }
+
+        public void Shutdown()
+        {
+            ReleaseRenderTextures();
+
+            if (root != null)
+            {
+                UnityEngine.Object.Destroy(root);
+                root = null;
+            }
+
+            leftEye = null;
+            rightEye = null;
+        }
+
+        private Camera CreateEyeCamera(string name)
+        {
+            GameObject cameraObject = new GameObject(name);
+            cameraObject.hideFlags = HideFlags.HideAndDontSave;
+            cameraObject.transform.SetParent(root.transform, false);
+            Camera camera = cameraObject.AddComponent<Camera>();
+            camera.enabled = false;
+            camera.stereoTargetEye = StereoTargetEyeMask.None;
+            return camera;
+        }
+
+        private RenderTexture CreateRenderTexture(string name, int width, int height, int aa)
+        {
+            var descriptor = new RenderTextureDescriptor(width, height)
+            {
+                graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat,
+                depthBufferBits = 24,
+                msaaSamples = aa,
+                useMipMap = false,
+                autoGenerateMips = false,
+                dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
+                volumeDepth = 1
+            };
+            RenderTexture texture = new RenderTexture(descriptor);
+            texture.name = name;
+            texture.Create();
+            return texture;
+        }
+
+        private void ReleaseRenderTextures()
+        {
+            if (leftEye != null)
+            {
+                leftEye.targetTexture = null;
+            }
+
+            if (rightEye != null)
+            {
+                rightEye.targetTexture = null;
+            }
+
+            ReleaseTexture(leftTexture);
+            ReleaseTexture(rightTexture);
+            ReleaseSharedTextures();
+            leftTexture = null;
+            rightTexture = null;
+            leftSharedTextureFailed = false;
+            rightSharedTextureFailed = false;
+        }
+
+        private void ReleaseTexture(RenderTexture texture)
+        {
+            if (texture == null)
+            {
+                return;
+            }
+
+            texture.Release();
+            UnityEngine.Object.Destroy(texture);
+        }
+
+        private void CopyCamera(Camera source, Camera target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            target.fieldOfView = source.fieldOfView;
+            target.nearClipPlane = source.nearClipPlane;
+            target.farClipPlane = source.farClipPlane;
+            target.cullingMask = source.cullingMask;
+            target.clearFlags = source.clearFlags;
+            target.backgroundColor = source.backgroundColor;
+            target.orthographic = source.orthographic;
+            target.orthographicSize = source.orthographicSize;
+            target.depth = source.depth;
+            target.allowHDR = source.allowHDR;
+            target.allowMSAA = source.allowMSAA;
+            target.useOcclusionCulling = source.useOcclusionCulling;
+            target.ResetCullingMatrix();
+        }
+
+        private void PrepareSharedSubmitTextures()
+        {
+            PrepareSharedSubmitTexture(leftTexture, ref leftSharedTexture, ref leftSharedTextureFailed, "left");
+            PrepareSharedSubmitTexture(rightTexture, ref rightSharedTexture, ref rightSharedTextureFailed, "right");
+        }
+
+        private void PrepareSharedSubmitTexture(RenderTexture source, ref D3D11SharedTexture sharedTexture, ref bool failed, string label)
+        {
+            if (source == null || !source.IsCreated())
+            {
+                return;
+            }
+
+            if (sharedTexture == null && !failed)
+            {
+                if (D3D11SharedTexture.TryCreate(source, out sharedTexture, out var createError))
+                {
+                    logger.Info("VR " + label + " eye shared submit texture created: " + sharedTexture.Description);
+                }
+                else
+                {
+                    failed = true;
+                    logger.Warning("VR " + label + " eye shared submit texture unavailable; falling back to Unity RenderTexture. " + createError);
+                    return;
+                }
+            }
+
+            if (sharedTexture != null && !sharedTexture.CopyFromSource(out var copyError))
+            {
+                logger.Warning("VR " + label + " eye shared submit texture copy failed; falling back to Unity RenderTexture. " + copyError);
+                sharedTexture.Dispose();
+                sharedTexture = null;
+                failed = true;
+            }
+        }
+
+        private void ReleaseSharedTextures()
+        {
+            if (leftSharedTexture != null)
+            {
+                leftSharedTexture.Dispose();
+                leftSharedTexture = null;
+            }
+
+            if (rightSharedTexture != null)
+            {
+                rightSharedTexture.Dispose();
+                rightSharedTexture = null;
+            }
+        }
+
+        private static IntPtr GetNativePointer(RenderTexture texture)
+        {
+            return texture == null ? IntPtr.Zero : texture.GetNativeTexturePtr();
+        }
+
+        private static IntPtr GetSubmitPointer(RenderTexture texture, D3D11SharedTexture sharedTexture)
+        {
+            if (sharedTexture != null)
+            {
+                return sharedTexture.NativePointer;
+            }
+
+            return GetNativePointer(texture);
+        }
+
+        private static OpenVRTextureSubmitType GetSubmitType(D3D11SharedTexture sharedTexture)
+        {
+            return OpenVRTextureSubmitType.DirectX;
+        }
+    }
+}
