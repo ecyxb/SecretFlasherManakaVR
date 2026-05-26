@@ -9,6 +9,8 @@ internal static class VrRuntimeState
 
     public static bool IsRenderingVrEyes { get; private set; }
 
+    public static bool IsRestoringSuppressedObjects { get; private set; }
+
     private static readonly HashSet<int> AllowedRenderCameraIds = new HashSet<int>();
 
     public static void BeginVrEyeRender(Camera leftEye, Camera rightEye)
@@ -36,5 +38,15 @@ internal static class VrRuntimeState
     public static bool IsAllowedVrEyeRenderCamera(Camera camera)
     {
         return camera != null && AllowedRenderCameraIds.Contains(camera.GetInstanceID());
+    }
+
+    public static void BeginSuppressedObjectRestore()
+    {
+        IsRestoringSuppressedObjects = true;
+    }
+
+    public static void EndSuppressedObjectRestore()
+    {
+        IsRestoringSuppressedObjects = false;
     }
 }

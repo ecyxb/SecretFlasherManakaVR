@@ -38,11 +38,16 @@ namespace SecretFlasherManakaVR.Runtime
         public bool UseSourceProjectionForCulling = true;
         public bool FlipSubmitV = true;
         public bool DisableReflectionCameras = true;
+        public bool DisableSourceCameraRendering = false;
+        public bool DisableMirrorManagersWhileVrActive = false;
         public bool DisableTargetTextureCameras = true;
         public bool KeepReflectionCamerasDisabledWhileVrActive = true;
         public bool PreventReflectionReenableWhileVrActive = true;
         public bool BlockReflectionCameraRenderWhileVrActive = true;
         public bool BlockNestedCameraRenderDuringVrRender = true;
+        public bool DisableReflectionProbes = false;
+        public bool BlockReflectionProbeRenderWhileVrActive = false;
+        public bool LogReflectionProbeDiagnostics = true;
         public bool LogReflectionCameraDiagnostics = true;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
 

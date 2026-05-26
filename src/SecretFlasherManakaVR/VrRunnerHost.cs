@@ -260,11 +260,16 @@ public sealed class VrRunnerHost : MonoBehaviour
             UseSourceProjectionForCulling = settings.UseSourceProjectionForCulling.Value,
             FlipSubmitV = settings.FlipSubmitV.Value,
             DisableReflectionCameras = settings.DisableReflectionCameras.Value,
+            DisableSourceCameraRendering = settings.DisableSourceCameraRendering.Value,
+            DisableMirrorManagersWhileVrActive = settings.DisableMirrorManagersWhileVrActive.Value,
             DisableTargetTextureCameras = settings.DisableTargetTextureCameras.Value,
             KeepReflectionCamerasDisabledWhileVrActive = settings.KeepReflectionCamerasDisabledWhileVrActive.Value,
             PreventReflectionReenableWhileVrActive = settings.PreventReflectionReenableWhileVrActive.Value,
             BlockReflectionCameraRenderWhileVrActive = settings.BlockReflectionCameraRenderWhileVrActive.Value,
             BlockNestedCameraRenderDuringVrRender = settings.BlockNestedCameraRenderDuringVrRender.Value,
+            DisableReflectionProbes = settings.DisableReflectionProbes.Value,
+            BlockReflectionProbeRenderWhileVrActive = settings.BlockReflectionProbeRenderWhileVrActive.Value,
+            LogReflectionProbeDiagnostics = settings.LogReflectionProbeDiagnostics.Value,
             LogReflectionCameraDiagnostics = settings.LogReflectionCameraDiagnostics.Value,
             ReflectionCameraNameKeywords = settings.ReflectionCameraNameKeywords.Value
         };

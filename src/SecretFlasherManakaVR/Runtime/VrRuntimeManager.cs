@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AkilliMum.Standard.Mirror;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using SecretFlasherManakaVR.OpenVR;
@@ -35,10 +36,14 @@ namespace SecretFlasherManakaVR.Runtime
         private bool submitSuccessLogged;
         private bool projectionModeLogged;
         private bool reflectionCameraDiagnosticsLogged;
+        private bool reflectionProbeDiagnosticsLogged;
         private bool sceneTransitionPauseLogged;
         private string[] reflectionCameraKeywords = Array.Empty<string>();
+        private DisabledCameraState? disabledSourceCamera;
         private readonly List<DisabledCameraState> disabledReflectionCameras = new List<DisabledCameraState>();
         private readonly List<DisabledCameraState> persistentlyDisabledReflectionCameras = new List<DisabledCameraState>();
+        private readonly List<DisabledProbeState> persistentlyDisabledReflectionProbes = new List<DisabledProbeState>();
+        private readonly List<DisabledBehaviourState> persistentlyDisabledMirrorManagers = new List<DisabledBehaviourState>();
 
         public VrRuntimeManager()
             : this(NullVrRuntimeLogger.Instance)
@@ -86,6 +91,7 @@ namespace SecretFlasherManakaVR.Runtime
             settings.Sanitize();
             reflectionCameraKeywords = Array.Empty<string>();
             reflectionCameraDiagnosticsLogged = false;
+            reflectionProbeDiagnosticsLogged = false;
             initialized = true;
             vrReady = false;
 
@@ -158,6 +164,7 @@ namespace SecretFlasherManakaVR.Runtime
                 return;
             }
 
+            ApplySourceCameraRenderSuppression();
             RefreshRenderTargetSize(false);
             bridge.BeginFrame();
 
@@ -228,10 +235,14 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             RestorePersistentReflectionCameras();
+            RestorePersistentReflectionProbes();
+            RestorePersistentMirrorManagers();
+            RestoreSourceCameraRendering();
             lastSceneHandle = activeSceneHandle;
             sourceCamera = null;
             nextCameraSearchTime = 0.0f;
             reflectionCameraDiagnosticsLogged = false;
+            reflectionProbeDiagnosticsLogged = false;
             sceneTransitionPauseLogged = false;
             sceneTransitionPauseUntil = settings.SceneTransitionVrPauseSeconds <= 0.0f
                 ? 0.0f
@@ -250,12 +261,25 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 DisableReflectionCamerasBeforeVrRender();
             }
+
+            if (settings.DisableReflectionProbes)
+            {
+                DisableReflectionProbesEarly();
+            }
+
+            if (settings.DisableMirrorManagersWhileVrActive)
+            {
+                DisableMirrorManagersEarly();
+            }
         }
 
         public void Shutdown()
         {
             RestoreReflectionCameras();
             RestorePersistentReflectionCameras();
+            RestorePersistentReflectionProbes();
+            RestorePersistentMirrorManagers();
+            RestoreSourceCameraRendering();
 
             if (rig != null)
             {
@@ -281,6 +305,8 @@ namespace SecretFlasherManakaVR.Runtime
             renderHeight = 0;
             submitSuccessLogged = false;
             projectionModeLogged = false;
+            reflectionCameraDiagnosticsLogged = false;
+            reflectionProbeDiagnosticsLogged = false;
             nextCameraSearchTime = 0.0f;
             nextRenderTargetCheckTime = 0.0f;
             nextOpenVRRetryTime = 0.0f;
@@ -373,6 +399,7 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (sourceCamera != candidate)
             {
+                RestoreSourceCameraRendering();
                 sourceCamera = candidate;
                 logger.Info("VR source camera set to " + GetCameraName(sourceCamera) + ".");
             }
@@ -433,7 +460,53 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             GameObject cameraObject = camera.gameObject;
-            return camera.enabled && cameraObject != null && cameraObject.activeInHierarchy;
+            bool sourceSuppressed = settings.DisableSourceCameraRendering &&
+                sourceCamera == camera &&
+                disabledSourceCamera.HasValue &&
+                disabledSourceCamera.Value.Camera == camera;
+            return (camera.enabled || sourceSuppressed) && cameraObject != null && cameraObject.activeInHierarchy;
+        }
+
+        private void ApplySourceCameraRenderSuppression()
+        {
+            if (!settings.DisableSourceCameraRendering)
+            {
+                RestoreSourceCameraRendering();
+                return;
+            }
+
+            if (sourceCamera == null || rig != null && rig.IsOurCamera(sourceCamera))
+            {
+                return;
+            }
+
+            if (disabledSourceCamera.HasValue && disabledSourceCamera.Value.Camera == sourceCamera)
+            {
+                return;
+            }
+
+            RestoreSourceCameraRendering();
+            disabledSourceCamera = new DisabledCameraState(sourceCamera, sourceCamera.enabled);
+            if (sourceCamera.enabled)
+            {
+                sourceCamera.enabled = false;
+                logger.Info("Disabled source camera rendering while VR is active: " + GetCameraName(sourceCamera) + ".");
+            }
+        }
+
+        private void RestoreSourceCameraRendering()
+        {
+            if (!disabledSourceCamera.HasValue)
+            {
+                return;
+            }
+
+            DisabledCameraState state = disabledSourceCamera.Value;
+            disabledSourceCamera = null;
+            if (state.Camera != null)
+            {
+                state.Camera.enabled = state.WasEnabled;
+            }
         }
 
         private bool DisableReflectionCamerasBeforeVrRender()
@@ -529,6 +602,154 @@ namespace SecretFlasherManakaVR.Runtime
             persistentlyDisabledReflectionCameras.Clear();
         }
 
+        private void DisableReflectionProbesEarly()
+        {
+            ReflectionProbe[] probes = UnityEngine.Object.FindObjectsOfType<ReflectionProbe>();
+            if (settings.LogReflectionProbeDiagnostics && !reflectionProbeDiagnosticsLogged)
+            {
+                LogReflectionProbeDiagnostics(probes);
+                reflectionProbeDiagnosticsLogged = true;
+            }
+
+            for (int i = 0; i < probes.Length; i++)
+            {
+                ReflectionProbe probe = probes[i];
+                if (!IsReflectionProbeCandidate(probe))
+                {
+                    continue;
+                }
+
+                PersistentlyDisableReflectionProbe(probe);
+            }
+        }
+
+        private bool IsReflectionProbeCandidate(ReflectionProbe probe)
+        {
+            return probe != null &&
+                probe.enabled &&
+                probe.gameObject != null &&
+                probe.gameObject.activeInHierarchy;
+        }
+
+        private void PersistentlyDisableReflectionProbe(ReflectionProbe probe)
+        {
+            if (probe == null || IsPersistentlyDisabled(probe))
+            {
+                return;
+            }
+
+            persistentlyDisabledReflectionProbes.Add(new DisabledProbeState(probe, probe.enabled));
+            probe.enabled = false;
+            logger.Info("Persistently disabling ReflectionProbe while VR is active: " + ProbeDescription(probe));
+        }
+
+        private bool IsPersistentlyDisabled(ReflectionProbe probe)
+        {
+            for (int i = 0; i < persistentlyDisabledReflectionProbes.Count; i++)
+            {
+                DisabledProbeState state = persistentlyDisabledReflectionProbes[i];
+                if (state.Probe == probe)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void RestorePersistentReflectionProbes()
+        {
+            for (int i = 0; i < persistentlyDisabledReflectionProbes.Count; i++)
+            {
+                DisabledProbeState state = persistentlyDisabledReflectionProbes[i];
+                if (state.Probe != null)
+                {
+                    state.Probe.enabled = state.WasEnabled;
+                }
+            }
+
+            persistentlyDisabledReflectionProbes.Clear();
+        }
+
+        private void DisableMirrorManagersEarly()
+        {
+            MirrorManager[] managers = UnityEngine.Object.FindObjectsOfType<MirrorManager>();
+            for (int i = 0; i < managers.Length; i++)
+            {
+                MirrorManager manager = managers[i];
+                if (!IsMirrorManagerCandidate(manager))
+                {
+                    continue;
+                }
+
+                PersistentlyDisableMirrorManager(manager);
+            }
+        }
+
+        private bool IsMirrorManagerCandidate(MirrorManager manager)
+        {
+            try
+            {
+                return manager != null &&
+                    manager.enabled &&
+                    manager.gameObject != null &&
+                    manager.gameObject.activeInHierarchy;
+            }
+            catch (Exception ex)
+            {
+                limitedLog.Warning("mirror-manager-candidate-error", "Skipping MirrorManager candidate check after exception: " + ex.Message);
+                return false;
+            }
+        }
+
+        private void PersistentlyDisableMirrorManager(MirrorManager manager)
+        {
+            if (manager == null || IsPersistentlyDisabled(manager))
+            {
+                return;
+            }
+
+            persistentlyDisabledMirrorManagers.Add(new DisabledBehaviourState(manager, manager.enabled));
+            manager.enabled = false;
+            logger.Info("Persistently disabling MirrorManager while VR is active: " + SafeBehaviourDescription(manager));
+        }
+
+        private bool IsPersistentlyDisabled(Behaviour behaviour)
+        {
+            for (int i = 0; i < persistentlyDisabledMirrorManagers.Count; i++)
+            {
+                DisabledBehaviourState state = persistentlyDisabledMirrorManagers[i];
+                if (state.Behaviour == behaviour)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void RestorePersistentMirrorManagers()
+        {
+            VrRuntimeState.BeginSuppressedObjectRestore();
+            try
+            {
+                for (int i = 0; i < persistentlyDisabledMirrorManagers.Count; i++)
+                {
+                    DisabledBehaviourState state = persistentlyDisabledMirrorManagers[i];
+                    if (state.Behaviour != null)
+                    {
+                        state.Behaviour.enabled = state.WasEnabled;
+                    }
+                }
+            }
+            finally
+            {
+                VrRuntimeState.EndSuppressedObjectRestore();
+            }
+
+            persistentlyDisabledMirrorManagers.Clear();
+        }
+
         private bool IsReflectionCameraCandidate(Camera camera)
         {
             if (camera == null || camera == sourceCamera)
@@ -594,6 +815,28 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             logger.Info("VR camera/reflection diagnostics: " + string.Join(" | ", entries.ToArray()));
+        }
+
+        private void LogReflectionProbeDiagnostics(ReflectionProbe[] probes)
+        {
+            var entries = new List<string>();
+            for (int i = 0; i < probes.Length; i++)
+            {
+                ReflectionProbe probe = probes[i];
+                if (probe == null || probe.gameObject == null)
+                {
+                    continue;
+                }
+
+                entries.Add(ProbeDescription(probe));
+                if (entries.Count >= 16)
+                {
+                    entries.Add("...");
+                    break;
+                }
+            }
+
+            logger.Info("VR reflection probe diagnostics: " + string.Join(" | ", entries.ToArray()));
         }
 
         private bool NameContainsReflectionKeyword(string value)
@@ -789,6 +1032,67 @@ namespace SecretFlasherManakaVR.Runtime
             return camera.gameObject.name;
         }
 
+        private static string ProbeDescription(ReflectionProbe probe)
+        {
+            if (probe == null || probe.gameObject == null)
+            {
+                return "<null>";
+            }
+
+            return GetPath(probe.gameObject) +
+                " scene=" + probe.gameObject.scene.name +
+                " enabled=" + probe.enabled +
+                " mode=" + probe.mode +
+                " refreshMode=" + probe.refreshMode +
+                " timeSlicing=" + probe.timeSlicingMode +
+                " resolution=" + probe.resolution +
+                " cullingMask=0x" + probe.cullingMask.ToString("X");
+        }
+
+        private static string BehaviourDescription(Behaviour behaviour)
+        {
+            if (behaviour == null || behaviour.gameObject == null)
+            {
+                return "<null>";
+            }
+
+            return GetPath(behaviour.gameObject) +
+                " scene=" + behaviour.gameObject.scene.name +
+                " type=" + behaviour.GetType().FullName +
+                " enabled=" + behaviour.enabled;
+        }
+
+        private static string SafeBehaviourDescription(Behaviour behaviour)
+        {
+            try
+            {
+                return BehaviourDescription(behaviour);
+            }
+            catch (Exception ex)
+            {
+                string typeName = behaviour == null ? "<null>" : behaviour.GetType().FullName;
+                return typeName + " description failed: " + ex.Message;
+            }
+        }
+
+        private static string GetPath(GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return "<null>";
+            }
+
+            Transform current = gameObject.transform;
+            string path = gameObject.name;
+            while (current.parent != null)
+            {
+                current = current.parent;
+                path = current.gameObject.name + "/" + path;
+            }
+
+            return path;
+        }
+
         private readonly struct DisabledCameraState
         {
             public DisabledCameraState(Camera camera, bool wasEnabled)
@@ -798,6 +1102,32 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             public Camera Camera { get; }
+
+            public bool WasEnabled { get; }
+        }
+
+        private readonly struct DisabledBehaviourState
+        {
+            public DisabledBehaviourState(Behaviour behaviour, bool wasEnabled)
+            {
+                Behaviour = behaviour;
+                WasEnabled = wasEnabled;
+            }
+
+            public Behaviour Behaviour { get; }
+
+            public bool WasEnabled { get; }
+        }
+
+        private readonly struct DisabledProbeState
+        {
+            public DisabledProbeState(ReflectionProbe probe, bool wasEnabled)
+            {
+                Probe = probe;
+                WasEnabled = wasEnabled;
+            }
+
+            public ReflectionProbe Probe { get; }
 
             public bool WasEnabled { get; }
         }

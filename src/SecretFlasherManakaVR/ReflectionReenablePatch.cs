@@ -21,8 +21,8 @@ internal static class BehaviourSetEnabledPatch
         {
             nextLogTime = Time.unscaledTime + 5.0f;
             Plugin.Logger.LogInfo(
-                "Blocked reflection camera re-enable while VR is active: " +
-                ReflectionBlocker.CameraDescription((Camera)__instance) +
+                "Blocked reflection object re-enable while VR is active: " +
+                Description(__instance) +
                 " count=" + blockedSinceLastLog + ".");
             blockedSinceLastLog = 0;
         }
@@ -33,9 +33,26 @@ internal static class BehaviourSetEnabledPatch
     private static bool ShouldBlock(Behaviour behaviour)
     {
         return VrRuntimeState.IsVrReady &&
+            !VrRuntimeState.IsRestoringSuppressedObjects &&
             Plugin.Settings != null &&
             Plugin.Settings.PreventReflectionReenableWhileVrActive.Value &&
-            behaviour is Camera camera &&
-            ReflectionBlocker.IsReflectionCameraCandidate(camera);
+            ((behaviour is Camera camera && ReflectionBlocker.IsReflectionCameraCandidate(camera)) ||
+             (behaviour is ReflectionProbe probe && ReflectionBlocker.IsReflectionProbeCandidate(probe)) ||
+             ReflectionBlocker.IsMirrorManagerCandidate(behaviour));
+    }
+
+    private static string Description(Behaviour behaviour)
+    {
+        if (behaviour is Camera camera)
+        {
+            return ReflectionBlocker.CameraDescription(camera);
+        }
+
+        if (behaviour is ReflectionProbe probe)
+        {
+            return ReflectionBlocker.ProbeDescription(probe);
+        }
+
+        return behaviour == null ? "<null>" : behaviour.GetType().FullName;
     }
 }

@@ -148,6 +148,18 @@ public sealed class ModConfig
             true,
             "Disable likely mirror/reflection cameras while VR is active. This avoids recursive or duplicate mirror rendering from injected stereo eye cameras.");
 
+        DisableSourceCameraRendering = config.Bind(
+            CompatibilitySection,
+            nameof(DisableSourceCameraRendering),
+            false,
+            "Disable the game source camera component while VR is active, using it only as a transform/settings template for the VR eye cameras.");
+
+        DisableMirrorManagersWhileVrActive = config.Bind(
+            CompatibilitySection,
+            nameof(DisableMirrorManagersWhileVrActive),
+            false,
+            "Disable AkilliMum MirrorManager components while VR is active. This is safer than patching mirror render callbacks and allows experimenting with source-camera desktop rendering.");
+
         DisableTargetTextureCameras = config.Bind(
             CompatibilitySection,
             nameof(DisableTargetTextureCameras),
@@ -177,6 +189,24 @@ public sealed class ModConfig
             nameof(BlockNestedCameraRenderDuringVrRender),
             true,
             "Skip manual Camera.Render calls from non-VR-eye cameras while the plugin is rendering VR eyes. This targets reflection scripts that render recursively during stereo rendering.");
+
+        DisableReflectionProbes = config.Bind(
+            CompatibilitySection,
+            nameof(DisableReflectionProbes),
+            false,
+            "Disable ReflectionProbe components while VR is active. Night scenes can create internal reflection probe cameras that bypass Camera.Render patches.");
+
+        BlockReflectionProbeRenderWhileVrActive = config.Bind(
+            CompatibilitySection,
+            nameof(BlockReflectionProbeRenderWhileVrActive),
+            false,
+            "Block manual ReflectionProbe.RenderProbe/ScheduleRender calls while VR is active.");
+
+        LogReflectionProbeDiagnostics = config.Bind(
+            CompatibilitySection,
+            nameof(LogReflectionProbeDiagnostics),
+            true,
+            "Log a one-shot list of active ReflectionProbe components per scene while VR is active.");
 
         LogReflectionCameraDiagnostics = config.Bind(
             CompatibilitySection,
@@ -210,11 +240,16 @@ public sealed class ModConfig
     public ConfigEntry<bool> FlipSubmitV { get; }
     public ConfigEntry<bool> SuppressBlackCensorOnChangeNullRefs { get; }
     public ConfigEntry<bool> DisableReflectionCameras { get; }
+    public ConfigEntry<bool> DisableSourceCameraRendering { get; }
+    public ConfigEntry<bool> DisableMirrorManagersWhileVrActive { get; }
     public ConfigEntry<bool> DisableTargetTextureCameras { get; }
     public ConfigEntry<bool> KeepReflectionCamerasDisabledWhileVrActive { get; }
     public ConfigEntry<bool> PreventReflectionReenableWhileVrActive { get; }
     public ConfigEntry<bool> BlockReflectionCameraRenderWhileVrActive { get; }
     public ConfigEntry<bool> BlockNestedCameraRenderDuringVrRender { get; }
+    public ConfigEntry<bool> DisableReflectionProbes { get; }
+    public ConfigEntry<bool> BlockReflectionProbeRenderWhileVrActive { get; }
+    public ConfigEntry<bool> LogReflectionProbeDiagnostics { get; }
     public ConfigEntry<bool> LogReflectionCameraDiagnostics { get; }
     public ConfigEntry<string> ReflectionCameraNameKeywords { get; }
 

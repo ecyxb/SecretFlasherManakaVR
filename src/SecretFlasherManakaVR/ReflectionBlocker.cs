@@ -24,6 +24,25 @@ internal static class ReflectionBlocker
             !IsPluginEyeTexture(target);
     }
 
+    public static bool IsReflectionProbeCandidate(ReflectionProbe probe)
+    {
+        return probe != null &&
+            probe.gameObject != null &&
+            Plugin.Settings != null &&
+            Plugin.Settings.DisableReflectionProbes.Value;
+    }
+
+    public static bool IsMirrorManagerCandidate(Behaviour behaviour)
+    {
+        return behaviour != null &&
+            Plugin.Settings != null &&
+            Plugin.Settings.DisableMirrorManagersWhileVrActive.Value &&
+            string.Equals(
+                behaviour.GetType().FullName,
+                "AkilliMum.Standard.Mirror.MirrorManager",
+                StringComparison.Ordinal);
+    }
+
     public static bool NameContainsReflectionKeyword(string value)
     {
         if (string.IsNullOrEmpty(value))
@@ -59,6 +78,40 @@ internal static class ReflectionBlocker
             ? "none"
             : (string.IsNullOrEmpty(target.name) ? "<unnamed>" : target.name);
         return camera.gameObject.name + " targetTexture=" + targetName;
+    }
+
+    public static string ProbeDescription(ReflectionProbe probe)
+    {
+        if (probe == null || probe.gameObject == null)
+        {
+            return "<null>";
+        }
+
+        return GetPath(probe.gameObject) +
+            " enabled=" + probe.enabled +
+            " mode=" + probe.mode +
+            " refreshMode=" + probe.refreshMode +
+            " timeSlicing=" + probe.timeSlicingMode +
+            " resolution=" + probe.resolution +
+            " cullingMask=0x" + probe.cullingMask.ToString("X");
+    }
+
+    public static string GetPath(GameObject gameObject)
+    {
+        if (gameObject == null)
+        {
+            return "<null>";
+        }
+
+        Transform current = gameObject.transform;
+        string path = gameObject.name;
+        while (current.parent != null)
+        {
+            current = current.parent;
+            path = current.gameObject.name + "/" + path;
+        }
+
+        return path;
     }
 
     private static bool IsPluginEyeCamera(Camera camera)
