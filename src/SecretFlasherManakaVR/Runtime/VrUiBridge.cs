@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ExposureUnnoticed2.Object3D.IngameManager;
 using UnityEngine;
 
 namespace SecretFlasherManakaVR.Runtime
@@ -287,6 +288,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             var states = new List<CanvasCaptureState>();
+            var hudLayout = new HudLayoutScope(logger);
             try
             {
                 for (int i = 0; i < activeCanvases.Count; i++)
@@ -301,6 +303,7 @@ namespace SecretFlasherManakaVR.Runtime
                     canvas.renderMode = RenderMode.ScreenSpaceCamera;
                     canvas.worldCamera = captureCamera;
                     canvas.planeDistance = 10.0f;
+                    hudLayout.Apply(canvas);
                 }
 
                 captureCamera.targetTexture = uiTexture;
@@ -318,6 +321,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
             finally
             {
+                hudLayout.Restore();
                 for (int i = 0; i < states.Count; i++)
                 {
                     states[i].Restore();
@@ -422,6 +426,359 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             return false;
+        }
+
+        private sealed class HudLayoutScope
+        {
+            private const float HudReferenceWidth = 2560.0f;
+            private const float HudReferenceHeight = 1440.0f;
+
+            private readonly List<RectState> rectStates = new List<RectState>();
+            private readonly List<ActiveState> activeStates = new List<ActiveState>();
+            private readonly List<ParentState> parentStates = new List<ParentState>();
+            private readonly HashSet<int> savedRects = new HashSet<int>();
+            private readonly HashSet<int> savedObjects = new HashSet<int>();
+            private readonly HashSet<int> savedParents = new HashSet<int>();
+
+            public HudLayoutScope(IVrRuntimeLogger logger)
+            {
+            }
+
+            public void Apply(Canvas canvas)
+            {
+                if (canvas == null || canvas.name != "InGameCanvas")
+                {
+                    return;
+                }
+
+                RectTransform root = canvas.GetComponent<RectTransform>();
+                if (root == null)
+                {
+                    return;
+                }
+
+                InGameUiManager manager = canvas.GetComponentInParent<InGameUiManager>();
+                if (manager != null)
+                {
+                    HideObject(manager.shortcutSlotParent);
+                    HideObject(manager.shortcutSlotParent2);
+                    HideObject(manager.sexManualParent);
+                    HideObject(manager.nomalManualParent);
+                    HideComponent(manager.ingameUiManualView);
+                    HideComponent(manager.ecstasyHeartIcon);
+
+                    MovePathToRoot(root, "MiddleLayer/PlayerInfo/StaminaGauge", ReferencePointToRoot(root, 1135.0f, 1315.0f), null, 1.0f, 0.0f, true);
+                    MovePathToRoot(root, "MiddleLayer/PlayerInfo/MoistureIcon", ReferencePointToRoot(root, 980.0f, 1327.0f), null, 0.72f, 0.0f, true);
+                    MoveComponentToRoot(root, manager.ecstasyGauge, ReferencePointToRoot(root, 700.0f, 1300.0f), null, 1.65f, 0.0f);
+                    MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1495.0f, 1326.0f), null, 0.46f, 0.0f, true);
+                }
+
+                HideIfNameContains(root, "Shortcut");
+                HideIfNameContains(root, "Manual");
+                HideIfNameContains(root, "EcstasyHeart");
+            }
+
+            private static Vector2 ReferencePointToRoot(RectTransform root, float referenceX, float referenceY)
+            {
+                Rect rect = root.rect;
+                float width = rect.width > 0.0f ? rect.width : FallbackTextureWidth;
+                float height = rect.height > 0.0f ? rect.height : FallbackTextureHeight;
+                return new Vector2(referenceX * width / HudReferenceWidth, -referenceY * height / HudReferenceHeight);
+            }
+
+            public void Restore()
+            {
+                for (int i = parentStates.Count - 1; i >= 0; i--)
+                {
+                    parentStates[i].Restore();
+                }
+
+                for (int i = rectStates.Count - 1; i >= 0; i--)
+                {
+                    rectStates[i].Restore();
+                }
+
+                for (int i = activeStates.Count - 1; i >= 0; i--)
+                {
+                    activeStates[i].Restore();
+                }
+
+                rectStates.Clear();
+                activeStates.Clear();
+                parentStates.Clear();
+                savedRects.Clear();
+                savedObjects.Clear();
+                savedParents.Clear();
+            }
+
+            private void HidePath(RectTransform root, string path)
+            {
+                Transform target = root.Find(path);
+                if (target != null)
+                {
+                    HideObject(target.gameObject);
+                }
+            }
+
+            private void HideComponent(Component component)
+            {
+                if (component != null)
+                {
+                    HideObject(component.gameObject);
+                }
+            }
+
+            private void HideObject(GameObject gameObject)
+            {
+                if (gameObject == null)
+                {
+                    return;
+                }
+
+                SaveActive(gameObject);
+                gameObject.SetActive(false);
+            }
+
+            private void MoveComponentToRoot(RectTransform root, Component component, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
+            {
+                if (root == null || component == null)
+                {
+                    return;
+                }
+
+                RectTransform rect = component.GetComponent<RectTransform>();
+                if (rect == null)
+                {
+                    rect = component.transform as RectTransform;
+                }
+
+                if (rect == null)
+                {
+                    return;
+                }
+
+                SaveRect(rect);
+                SaveParent(rect);
+                rect.SetParent(root, false);
+                MoveRect(rect, anchoredPosition, sizeDelta, scale, zRotation);
+            }
+
+            private void MovePathToRoot(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
+            {
+                MovePathToRoot(root, path, anchoredPosition, sizeDelta, scale, zRotation, false);
+            }
+
+            private void MovePathToRoot(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation, bool preservePivot)
+            {
+                if (root == null)
+                {
+                    return;
+                }
+
+                Transform target = root.Find(path);
+                RectTransform rect = target == null ? null : target.GetComponent<RectTransform>();
+                if (rect == null)
+                {
+                    return;
+                }
+
+                SaveRect(rect);
+                SaveParent(rect);
+                rect.SetParent(root, false);
+                MoveRect(rect, anchoredPosition, sizeDelta, scale, zRotation, preservePivot);
+            }
+
+            private void HideIfNameContains(RectTransform root, string keyword)
+            {
+                RectTransform[] children = root.GetComponentsInChildren<RectTransform>(true);
+                for (int i = 0; i < children.Length; i++)
+                {
+                    RectTransform child = children[i];
+                    if (child == null || child == root || child.gameObject == null)
+                    {
+                        continue;
+                    }
+
+                    string name = child.gameObject.name ?? string.Empty;
+                    if (name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        continue;
+                    }
+
+                    HideObject(child.gameObject);
+                }
+            }
+
+            private void MovePath(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale)
+            {
+                Transform target = root.Find(path);
+                RectTransform rect = target == null ? null : target.GetComponent<RectTransform>();
+                if (rect == null)
+                {
+                    return;
+                }
+
+                MoveRect(rect, anchoredPosition, sizeDelta, scale, 0.0f, false);
+            }
+
+            private void MoveRect(RectTransform rect, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
+            {
+                MoveRect(rect, anchoredPosition, sizeDelta, scale, zRotation, false);
+            }
+
+            private void MoveRect(RectTransform rect, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation, bool preservePivot)
+            {
+                if (rect == null)
+                {
+                    return;
+                }
+
+                SaveRect(rect);
+                rect.anchorMin = new Vector2(0.0f, 1.0f);
+                rect.anchorMax = new Vector2(0.0f, 1.0f);
+                if (!preservePivot)
+                {
+                    rect.pivot = new Vector2(0.0f, 1.0f);
+                }
+
+                rect.anchoredPosition = anchoredPosition;
+                rect.localRotation = Quaternion.Euler(0.0f, 0.0f, zRotation);
+                if (scale > 0.0f)
+                {
+                    rect.localScale = Vector3.one * scale;
+                }
+
+                if (sizeDelta.HasValue)
+                {
+                    rect.sizeDelta = sizeDelta.Value;
+                }
+            }
+
+            private void SaveRect(RectTransform rect)
+            {
+                int id = rect.GetInstanceID();
+                if (savedRects.Contains(id))
+                {
+                    return;
+                }
+
+                savedRects.Add(id);
+                rectStates.Add(new RectState(rect));
+            }
+
+            private void SaveParent(RectTransform rect)
+            {
+                int id = rect.GetInstanceID();
+                if (savedParents.Contains(id))
+                {
+                    return;
+                }
+
+                savedParents.Add(id);
+                parentStates.Add(new ParentState(rect));
+            }
+
+            private void SaveActive(GameObject gameObject)
+            {
+                if (gameObject == null)
+                {
+                    return;
+                }
+
+                int id = gameObject.GetInstanceID();
+                if (savedObjects.Contains(id))
+                {
+                    return;
+                }
+
+                savedObjects.Add(id);
+                activeStates.Add(new ActiveState(gameObject));
+            }
+
+            private readonly struct RectState
+            {
+                private readonly RectTransform rect;
+                private readonly Vector2 anchorMin;
+                private readonly Vector2 anchorMax;
+                private readonly Vector2 pivot;
+                private readonly Vector2 anchoredPosition;
+                private readonly Vector2 sizeDelta;
+                private readonly Vector3 localScale;
+                private readonly Quaternion localRotation;
+
+                public RectState(RectTransform rect)
+                {
+                    this.rect = rect;
+                    anchorMin = rect.anchorMin;
+                    anchorMax = rect.anchorMax;
+                    pivot = rect.pivot;
+                    anchoredPosition = rect.anchoredPosition;
+                    sizeDelta = rect.sizeDelta;
+                    localScale = rect.localScale;
+                    localRotation = rect.localRotation;
+                }
+
+                public void Restore()
+                {
+                    if (rect == null)
+                    {
+                        return;
+                    }
+
+                    rect.anchorMin = anchorMin;
+                    rect.anchorMax = anchorMax;
+                    rect.pivot = pivot;
+                    rect.anchoredPosition = anchoredPosition;
+                    rect.sizeDelta = sizeDelta;
+                    rect.localScale = localScale;
+                    rect.localRotation = localRotation;
+                }
+            }
+
+            private readonly struct ParentState
+            {
+                private readonly RectTransform rect;
+                private readonly Transform parent;
+                private readonly int siblingIndex;
+
+                public ParentState(RectTransform rect)
+                {
+                    this.rect = rect;
+                    parent = rect.parent;
+                    siblingIndex = rect.GetSiblingIndex();
+                }
+
+                public void Restore()
+                {
+                    if (rect == null || parent == null)
+                    {
+                        return;
+                    }
+
+                    rect.SetParent(parent, false);
+                    rect.SetSiblingIndex(siblingIndex);
+                }
+            }
+
+            private readonly struct ActiveState
+            {
+                private readonly GameObject gameObject;
+                private readonly bool activeSelf;
+
+                public ActiveState(GameObject gameObject)
+                {
+                    this.gameObject = gameObject;
+                    activeSelf = gameObject.activeSelf;
+                }
+
+                public void Restore()
+                {
+                    if (gameObject != null)
+                    {
+                        gameObject.SetActive(activeSelf);
+                    }
+                }
+            }
         }
 
         private readonly struct CanvasCaptureState
