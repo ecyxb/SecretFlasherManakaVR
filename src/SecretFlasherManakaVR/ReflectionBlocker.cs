@@ -7,7 +7,7 @@ internal static class ReflectionBlocker
 {
     public static bool IsReflectionCameraCandidate(Camera camera)
     {
-        if (camera == null || camera.gameObject == null || IsPluginEyeCamera(camera))
+        if (camera == null || camera.gameObject == null || IsPluginEyeCamera(camera) || IsUiPreviewCamera(camera))
         {
             return false;
         }
@@ -22,6 +22,24 @@ internal static class ReflectionBlocker
             Plugin.Settings.DisableTargetTextureCameras.Value &&
             target != null &&
             !IsPluginEyeTexture(target);
+    }
+
+    public static bool IsUiPreviewCamera(Camera camera)
+    {
+        if (camera == null || camera.gameObject == null)
+        {
+            return false;
+        }
+
+        string cameraName = camera.gameObject.name ?? string.Empty;
+        if (NameEqualsAny(cameraName, "BodyCamera", "FaceCamera"))
+        {
+            return true;
+        }
+
+        RenderTexture target = camera.targetTexture;
+        string targetName = target == null ? string.Empty : target.name ?? string.Empty;
+        return NameContainsAny(targetName, "BodyCamera", "FaceCamera");
     }
 
     public static bool IsReflectionProbeCandidate(ReflectionProbe probe)
@@ -118,7 +136,10 @@ internal static class ReflectionBlocker
     {
         string name = camera.gameObject.name;
         return string.Equals(name, "Left Eye", StringComparison.Ordinal) ||
-            string.Equals(name, "Right Eye", StringComparison.Ordinal);
+            string.Equals(name, "Right Eye", StringComparison.Ordinal) ||
+            string.Equals(name, "Left UI Overlay", StringComparison.Ordinal) ||
+            string.Equals(name, "Right UI Overlay", StringComparison.Ordinal) ||
+            string.Equals(name, "SecretFlasherManakaVR UI Capture Camera", StringComparison.Ordinal);
     }
 
     private static bool IsPluginEyeTexture(Texture texture)
@@ -126,5 +147,36 @@ internal static class ReflectionBlocker
         return texture != null &&
             !string.IsNullOrEmpty(texture.name) &&
             texture.name.IndexOf("SecretFlasherManakaVR", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool NameEqualsAny(string value, params string[] names)
+    {
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (string.Equals(value, names[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool NameContainsAny(string value, params string[] names)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (value.IndexOf(names[i], StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

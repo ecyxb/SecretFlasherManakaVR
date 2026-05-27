@@ -18,6 +18,7 @@ namespace SecretFlasherManakaVR.Runtime
         private VrRuntimeSettings settings;
         private IOpenVRBridge bridge;
         private VrCameraRig rig;
+        private VrUiBridge uiBridge;
         private Camera sourceCamera;
         private RuntimePose lastPose;
         private Quaternion recenterYaw = Quaternion.identity;
@@ -188,10 +189,17 @@ namespace SecretFlasherManakaVR.Runtime
             rig.CopyFromSource(sourceCamera);
             ApplyPoseToRig();
             ApplyProjectionOrCameraFallback();
+            int uiOverlayLayerMask = 0;
+            if (uiBridge != null)
+            {
+                uiBridge.Tick(settings, sourceCamera, rig.HeadPosition, rig.HeadRotation);
+                uiOverlayLayerMask = uiBridge.ConvertedLayerMask;
+            }
+
             bool restoreFrameDisabledCameras = DisableReflectionCamerasBeforeVrRender();
             try
             {
-                rig.Render();
+                rig.Render(uiOverlayLayerMask);
             }
             finally
             {
@@ -238,6 +246,11 @@ namespace SecretFlasherManakaVR.Runtime
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
             RestoreSourceCameraRendering();
+            if (uiBridge != null)
+            {
+                uiBridge.OnSceneChanged(settings);
+            }
+
             lastSceneHandle = activeSceneHandle;
             sourceCamera = null;
             nextCameraSearchTime = 0.0f;
@@ -280,6 +293,12 @@ namespace SecretFlasherManakaVR.Runtime
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
             RestoreSourceCameraRendering();
+
+            if (uiBridge != null)
+            {
+                uiBridge.Shutdown();
+                uiBridge = null;
+            }
 
             if (rig != null)
             {
@@ -335,6 +354,11 @@ namespace SecretFlasherManakaVR.Runtime
             if (rig == null)
             {
                 rig = new VrCameraRig(logger);
+            }
+
+            if (uiBridge == null)
+            {
+                uiBridge = new VrUiBridge(logger);
             }
 
             vrReady = true;
@@ -752,7 +776,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         private bool IsReflectionCameraCandidate(Camera camera)
         {
-            if (camera == null || camera == sourceCamera)
+            if (camera == null || camera == sourceCamera || ReflectionBlocker.IsUiPreviewCamera(camera))
             {
                 return false;
             }

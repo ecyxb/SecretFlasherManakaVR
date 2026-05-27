@@ -14,6 +14,8 @@ namespace SecretFlasherManakaVR.Runtime
         private GameObject root;
         private Camera leftEye;
         private Camera rightEye;
+        private Camera leftUiOverlay;
+        private Camera rightUiOverlay;
         private RenderTexture leftTexture;
         private RenderTexture rightTexture;
         private D3D11SharedTexture leftSharedTexture;
@@ -69,9 +71,28 @@ namespace SecretFlasherManakaVR.Runtime
             get { return GetSubmitType(rightSharedTexture); }
         }
 
+        public Vector3 HeadPosition
+        {
+            get
+            {
+                if (leftEye != null && rightEye != null)
+                {
+                    return (leftEye.transform.position + rightEye.transform.position) * 0.5f;
+                }
+
+                return leftEye == null ? Vector3.zero : leftEye.transform.position;
+            }
+        }
+
+        public Quaternion HeadRotation
+        {
+            get { return leftEye == null ? Quaternion.identity : leftEye.transform.rotation; }
+        }
+
         public bool IsOurCamera(Camera camera)
         {
-            return camera != null && (camera == leftEye || camera == rightEye);
+            return camera != null &&
+                (camera == leftEye || camera == rightEye || camera == leftUiOverlay || camera == rightUiOverlay);
         }
 
         public void EnsureCreated()
@@ -87,6 +108,8 @@ namespace SecretFlasherManakaVR.Runtime
 
             leftEye = CreateEyeCamera("Left Eye");
             rightEye = CreateEyeCamera("Right Eye");
+            leftUiOverlay = CreateEyeCamera("Left UI Overlay");
+            rightUiOverlay = CreateEyeCamera("Right UI Overlay");
             logger.Info("VR camera rig created.");
         }
 
@@ -111,6 +134,16 @@ namespace SecretFlasherManakaVR.Runtime
             rightTexture = CreateRenderTexture("SecretFlasherManakaVR Right Eye", width, height, aa);
             leftEye.targetTexture = leftTexture;
             rightEye.targetTexture = rightTexture;
+            if (leftUiOverlay != null)
+            {
+                leftUiOverlay.targetTexture = leftTexture;
+            }
+
+            if (rightUiOverlay != null)
+            {
+                rightUiOverlay.targetTexture = rightTexture;
+            }
+
             logger.Info(
                 "VR render textures created: " + width + "x" + height +
                 " AA " + aa +
@@ -180,9 +213,9 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        public void Render()
+        public void Render(int uiOverlayLayerMask)
         {
-            VrRuntimeState.BeginVrEyeRender(leftEye, rightEye);
+            VrRuntimeState.BeginVrEyeRender(leftEye, rightEye, leftUiOverlay, rightUiOverlay);
             try
             {
                 if (leftEye != null && leftTexture != null)
@@ -193,6 +226,7 @@ namespace SecretFlasherManakaVR.Runtime
                     }
 
                     leftEye.Render();
+                    RenderUiOverlay(leftEye, leftUiOverlay, leftTexture, uiOverlayLayerMask);
                 }
 
                 if (rightEye != null && rightTexture != null)
@@ -203,6 +237,7 @@ namespace SecretFlasherManakaVR.Runtime
                     }
 
                     rightEye.Render();
+                    RenderUiOverlay(rightEye, rightUiOverlay, rightTexture, uiOverlayLayerMask);
                 }
             }
             finally
@@ -241,6 +276,8 @@ namespace SecretFlasherManakaVR.Runtime
 
             leftEye = null;
             rightEye = null;
+            leftUiOverlay = null;
+            rightUiOverlay = null;
         }
 
         private Camera CreateEyeCamera(string name)
@@ -284,6 +321,16 @@ namespace SecretFlasherManakaVR.Runtime
                 rightEye.targetTexture = null;
             }
 
+            if (leftUiOverlay != null)
+            {
+                leftUiOverlay.targetTexture = null;
+            }
+
+            if (rightUiOverlay != null)
+            {
+                rightUiOverlay.targetTexture = null;
+            }
+
             ReleaseTexture(leftTexture);
             ReleaseTexture(rightTexture);
             ReleaseSharedTextures();
@@ -324,6 +371,31 @@ namespace SecretFlasherManakaVR.Runtime
             target.allowMSAA = source.allowMSAA;
             target.useOcclusionCulling = source.useOcclusionCulling;
             target.ResetCullingMatrix();
+        }
+
+        private void RenderUiOverlay(Camera eyeCamera, Camera overlayCamera, RenderTexture targetTexture, int layerMask)
+        {
+            if (eyeCamera == null || overlayCamera == null || targetTexture == null || layerMask == 0)
+            {
+                return;
+            }
+
+            overlayCamera.transform.SetPositionAndRotation(eyeCamera.transform.position, eyeCamera.transform.rotation);
+            overlayCamera.targetTexture = targetTexture;
+            overlayCamera.clearFlags = CameraClearFlags.Depth;
+            overlayCamera.backgroundColor = Color.clear;
+            overlayCamera.cullingMask = layerMask;
+            overlayCamera.fieldOfView = eyeCamera.fieldOfView;
+            overlayCamera.nearClipPlane = eyeCamera.nearClipPlane;
+            overlayCamera.farClipPlane = eyeCamera.farClipPlane;
+            overlayCamera.orthographic = eyeCamera.orthographic;
+            overlayCamera.orthographicSize = eyeCamera.orthographicSize;
+            overlayCamera.allowHDR = eyeCamera.allowHDR;
+            overlayCamera.allowMSAA = eyeCamera.allowMSAA;
+            overlayCamera.useOcclusionCulling = false;
+            overlayCamera.projectionMatrix = eyeCamera.projectionMatrix;
+            overlayCamera.cullingMatrix = eyeCamera.projectionMatrix * overlayCamera.worldToCameraMatrix;
+            overlayCamera.Render();
         }
 
         private void PrepareSharedSubmitTextures()

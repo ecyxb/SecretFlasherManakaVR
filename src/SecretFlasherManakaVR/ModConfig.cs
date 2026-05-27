@@ -20,6 +20,7 @@ public sealed class ModConfig
     private const string StereoSection = "Stereo";
     private const string InputSection = "Input";
     private const string CompatibilitySection = "Compatibility";
+    private const string VrUiSection = "VR UI";
     private const string DebugSection = "Debug";
 
     private ModConfig(ConfigFile config)
@@ -196,12 +197,6 @@ public sealed class ModConfig
             false,
             "Disable ReflectionProbe components while VR is active. Night scenes can create internal reflection probe cameras that bypass Camera.Render patches.");
 
-        BlockReflectionProbeRenderWhileVrActive = config.Bind(
-            CompatibilitySection,
-            nameof(BlockReflectionProbeRenderWhileVrActive),
-            false,
-            "Block manual ReflectionProbe.RenderProbe/ScheduleRender calls while VR is active.");
-
         LogReflectionProbeDiagnostics = config.Bind(
             CompatibilitySection,
             nameof(LogReflectionProbeDiagnostics),
@@ -219,6 +214,74 @@ public sealed class ModConfig
             nameof(ReflectionCameraNameKeywords),
             "mirror,reflect,reflection,planar,water",
             "Comma-separated name keywords used to identify mirror/reflection cameras for DisableReflectionCameras.");
+
+        EnableVrUiBridge = config.Bind(
+            VrUiSection,
+            nameof(EnableVrUiBridge),
+            true,
+            "Convert supported game UI canvases so they are visible in the VR eye cameras.");
+
+        ConvertOverlayCanvasToWorldSpace = config.Bind(
+            VrUiSection,
+            nameof(ConvertOverlayCanvasToWorldSpace),
+            true,
+            "Capture supported screen-space canvases into a VR texture panel while VR is active.");
+
+        VrUiFollowMode = config.Bind(
+            VrUiSection,
+            nameof(VrUiFollowMode),
+            SecretFlasherManakaVR.Runtime.VrUiFollowMode.HeadLocked,
+            "Controls where converted UI appears. HeadLocked keeps it in front of the headset.");
+
+        VrUiDistance = config.Bind(
+            VrUiSection,
+            nameof(VrUiDistance),
+            1.4f,
+            new ConfigDescription(
+                "Distance in Unity world units from the headset/source camera to the converted UI plane.",
+                new AcceptableValueRange<float>(0.25f, 5.0f)));
+
+        VrUiScale = config.Bind(
+            VrUiSection,
+            nameof(VrUiScale),
+            0.001f,
+            new ConfigDescription(
+                "Legacy UI scale setting kept for config compatibility. The RenderTexture panel size is driven by VrUiDistance.",
+                new AcceptableValueRange<float>(0.0001f, 0.02f)));
+
+        VrUiVerticalOffset = config.Bind(
+            VrUiSection,
+            nameof(VrUiVerticalOffset),
+            -0.1f,
+            new ConfigDescription(
+                "Vertical offset in headset/source-camera local space for converted UI.",
+                new AcceptableValueRange<float>(-2.0f, 2.0f)));
+
+        VrUiMaxScanInterval = config.Bind(
+            VrUiSection,
+            nameof(VrUiMaxScanInterval),
+            1.0f,
+            new ConfigDescription(
+                "How often the UI bridge scans for new overlay canvases after scene changes or menu changes.",
+                new AcceptableValueRange<float>(0.25f, 10.0f)));
+
+        VrUiCanvasNameWhitelist = config.Bind(
+            VrUiSection,
+            nameof(VrUiCanvasNameWhitelist),
+            string.Empty,
+            "Optional comma-separated canvas name keywords. When set, only matching canvases are converted.");
+
+        VrUiCanvasNameBlacklist = config.Bind(
+            VrUiSection,
+            nameof(VrUiCanvasNameBlacklist),
+            string.Empty,
+            "Optional comma-separated canvas name keywords. Matching canvases are not converted.");
+
+        LogVrUiDiagnostics = config.Bind(
+            VrUiSection,
+            nameof(LogVrUiDiagnostics),
+            false,
+            "Log UI capture panel diagnostics from the VR UI bridge.");
     }
 
     public ConfigEntry<bool> EnableVR { get; }
@@ -248,10 +311,19 @@ public sealed class ModConfig
     public ConfigEntry<bool> BlockReflectionCameraRenderWhileVrActive { get; }
     public ConfigEntry<bool> BlockNestedCameraRenderDuringVrRender { get; }
     public ConfigEntry<bool> DisableReflectionProbes { get; }
-    public ConfigEntry<bool> BlockReflectionProbeRenderWhileVrActive { get; }
     public ConfigEntry<bool> LogReflectionProbeDiagnostics { get; }
     public ConfigEntry<bool> LogReflectionCameraDiagnostics { get; }
     public ConfigEntry<string> ReflectionCameraNameKeywords { get; }
+    public ConfigEntry<bool> EnableVrUiBridge { get; }
+    public ConfigEntry<bool> ConvertOverlayCanvasToWorldSpace { get; }
+    public ConfigEntry<VrUiFollowMode> VrUiFollowMode { get; }
+    public ConfigEntry<float> VrUiDistance { get; }
+    public ConfigEntry<float> VrUiScale { get; }
+    public ConfigEntry<float> VrUiVerticalOffset { get; }
+    public ConfigEntry<float> VrUiMaxScanInterval { get; }
+    public ConfigEntry<string> VrUiCanvasNameWhitelist { get; }
+    public ConfigEntry<string> VrUiCanvasNameBlacklist { get; }
+    public ConfigEntry<bool> LogVrUiDiagnostics { get; }
 
     public static ModConfig Bind(ConfigFile config, ManualLogSource logger)
     {

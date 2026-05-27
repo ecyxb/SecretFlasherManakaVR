@@ -268,10 +268,19 @@ public sealed class VrRunnerHost : MonoBehaviour
             BlockReflectionCameraRenderWhileVrActive = settings.BlockReflectionCameraRenderWhileVrActive.Value,
             BlockNestedCameraRenderDuringVrRender = settings.BlockNestedCameraRenderDuringVrRender.Value,
             DisableReflectionProbes = settings.DisableReflectionProbes.Value,
-            BlockReflectionProbeRenderWhileVrActive = settings.BlockReflectionProbeRenderWhileVrActive.Value,
             LogReflectionProbeDiagnostics = settings.LogReflectionProbeDiagnostics.Value,
             LogReflectionCameraDiagnostics = settings.LogReflectionCameraDiagnostics.Value,
-            ReflectionCameraNameKeywords = settings.ReflectionCameraNameKeywords.Value
+            ReflectionCameraNameKeywords = settings.ReflectionCameraNameKeywords.Value,
+            EnableVrUiBridge = settings.EnableVrUiBridge.Value,
+            ConvertOverlayCanvasToWorldSpace = settings.ConvertOverlayCanvasToWorldSpace.Value,
+            VrUiFollowMode = settings.VrUiFollowMode.Value,
+            VrUiDistance = settings.VrUiDistance.Value,
+            VrUiScale = settings.VrUiScale.Value,
+            VrUiVerticalOffset = settings.VrUiVerticalOffset.Value,
+            VrUiMaxScanInterval = settings.VrUiMaxScanInterval.Value,
+            VrUiCanvasNameWhitelist = settings.VrUiCanvasNameWhitelist.Value,
+            VrUiCanvasNameBlacklist = settings.VrUiCanvasNameBlacklist.Value,
+            LogVrUiDiagnostics = settings.LogVrUiDiagnostics.Value
         };
     }
 

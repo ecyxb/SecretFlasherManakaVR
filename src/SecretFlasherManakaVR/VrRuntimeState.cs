@@ -13,17 +13,16 @@ internal static class VrRuntimeState
 
     private static readonly HashSet<int> AllowedRenderCameraIds = new HashSet<int>();
 
-    public static void BeginVrEyeRender(Camera leftEye, Camera rightEye)
+    public static void BeginVrEyeRender(params Camera[] cameras)
     {
         AllowedRenderCameraIds.Clear();
-        if (leftEye != null)
+        for (int i = 0; i < cameras.Length; i++)
         {
-            AllowedRenderCameraIds.Add(leftEye.GetInstanceID());
-        }
-
-        if (rightEye != null)
-        {
-            AllowedRenderCameraIds.Add(rightEye.GetInstanceID());
+            Camera camera = cameras[i];
+            if (camera != null)
+            {
+                AllowedRenderCameraIds.Add(camera.GetInstanceID());
+            }
         }
 
         IsRenderingVrEyes = true;

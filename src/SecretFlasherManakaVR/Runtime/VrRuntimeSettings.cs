@@ -19,6 +19,13 @@ namespace SecretFlasherManakaVR.Runtime
         HmdOnly = 3
     }
 
+    public enum VrUiFollowMode
+    {
+        HeadLocked = 0,
+        SourceCameraLocked = 1,
+        WorldFixed = 2
+    }
+
     public sealed class VrRuntimeSettings
     {
         public bool EnableVR = true;
@@ -46,10 +53,19 @@ namespace SecretFlasherManakaVR.Runtime
         public bool BlockReflectionCameraRenderWhileVrActive = true;
         public bool BlockNestedCameraRenderDuringVrRender = true;
         public bool DisableReflectionProbes = false;
-        public bool BlockReflectionProbeRenderWhileVrActive = false;
         public bool LogReflectionProbeDiagnostics = true;
         public bool LogReflectionCameraDiagnostics = true;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
+        public bool EnableVrUiBridge = true;
+        public bool ConvertOverlayCanvasToWorldSpace = true;
+        public VrUiFollowMode VrUiFollowMode = VrUiFollowMode.HeadLocked;
+        public float VrUiDistance = 1.4f;
+        public float VrUiScale = 0.001f;
+        public float VrUiVerticalOffset = -0.1f;
+        public float VrUiMaxScanInterval = 1.0f;
+        public string VrUiCanvasNameWhitelist = string.Empty;
+        public string VrUiCanvasNameBlacklist = string.Empty;
+        public bool LogVrUiDiagnostics = false;
 
         public float RenderScale = 1.0f;
         public int FallbackRenderWidth = 1512;
@@ -69,6 +85,10 @@ namespace SecretFlasherManakaVR.Runtime
             AntiAliasing = Mathf.Clamp(AntiAliasing, 1, 8);
             MissingCameraRetrySeconds = Mathf.Clamp(MissingCameraRetrySeconds, 0.1f, 10.0f);
             RenderTargetCheckSeconds = Mathf.Clamp(RenderTargetCheckSeconds, 0.25f, 30.0f);
+            VrUiDistance = Mathf.Clamp(VrUiDistance, 0.25f, 5.0f);
+            VrUiScale = Mathf.Clamp(VrUiScale, 0.0001f, 0.02f);
+            VrUiVerticalOffset = Mathf.Clamp(VrUiVerticalOffset, -2.0f, 2.0f);
+            VrUiMaxScanInterval = Mathf.Clamp(VrUiMaxScanInterval, 0.25f, 10.0f);
             if (string.IsNullOrWhiteSpace(ReflectionCameraNameKeywords))
             {
                 ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
