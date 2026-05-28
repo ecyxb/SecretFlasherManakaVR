@@ -7,7 +7,7 @@ namespace SecretFlasherManakaVR.Runtime
 {
     internal sealed class VrUiBridge
     {
-        private const int VrUiOverlayLayer = 30;
+        internal const int VrUiOverlayLayer = 30;
         private const int FallbackTextureWidth = 1920;
         private const int FallbackTextureHeight = 1080;
 

@@ -19,6 +19,7 @@ namespace SecretFlasherManakaVR.Runtime
         private IOpenVRBridge bridge;
         private VrCameraRig rig;
         private VrUiBridge uiBridge;
+        private NpcWorldSpaceUiFixer npcWorldSpaceUiFixer;
         private Camera sourceCamera;
         private RuntimePose lastPose;
         private Quaternion recenterYaw = Quaternion.identity;
@@ -189,11 +190,16 @@ namespace SecretFlasherManakaVR.Runtime
             rig.CopyFromSource(sourceCamera);
             ApplyPoseToRig();
             ApplyProjectionOrCameraFallback();
-            int uiOverlayLayerMask = 0;
+            if (npcWorldSpaceUiFixer != null)
+            {
+                npcWorldSpaceUiFixer.Tick(settings, sourceCamera, rig.HeadPosition, rig.HeadRotation);
+            }
+
+            int uiOverlayLayerMask = settings.FixNpcWorldSpaceUi ? 1 << VrUiBridge.VrUiOverlayLayer : 0;
             if (uiBridge != null)
             {
                 uiBridge.Tick(settings, sourceCamera, rig.HeadPosition, rig.HeadRotation);
-                uiOverlayLayerMask = uiBridge.ConvertedLayerMask;
+                uiOverlayLayerMask |= uiBridge.ConvertedLayerMask;
             }
 
             bool restoreFrameDisabledCameras = DisableReflectionCamerasBeforeVrRender();
@@ -300,6 +306,8 @@ namespace SecretFlasherManakaVR.Runtime
                 uiBridge = null;
             }
 
+            npcWorldSpaceUiFixer = null;
+
             if (rig != null)
             {
                 rig.Shutdown();
@@ -316,6 +324,7 @@ namespace SecretFlasherManakaVR.Runtime
             initialized = false;
             vrReady = false;
             VrRuntimeState.IsVrReady = false;
+            VrRuntimeState.ClearHeadPose();
             recenterYaw = Quaternion.identity;
             recenterPosition = Vector3.zero;
             recenterSourceYaw = Quaternion.identity;
@@ -359,6 +368,11 @@ namespace SecretFlasherManakaVR.Runtime
             if (uiBridge == null)
             {
                 uiBridge = new VrUiBridge(logger);
+            }
+
+            if (npcWorldSpaceUiFixer == null)
+            {
+                npcWorldSpaceUiFixer = new NpcWorldSpaceUiFixer(logger);
             }
 
             vrReady = true;
@@ -960,6 +974,7 @@ namespace SecretFlasherManakaVR.Runtime
             Quaternion headRotation = baseRotation * rawRotation;
             float ipdMeters = bridge == null ? DefaultIpdMeters : GetIpdMeters(DefaultIpdMeters);
             rig.ApplyPose(headPosition, headRotation, ipdMeters, settings.IPDScale, settings.WorldScale);
+            VrRuntimeState.SetHeadPose(headPosition, headRotation);
         }
 
         private Quaternion GetSourceBaseRotation()

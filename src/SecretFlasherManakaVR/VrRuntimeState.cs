@@ -11,7 +11,27 @@ internal static class VrRuntimeState
 
     public static bool IsRestoringSuppressedObjects { get; private set; }
 
+    public static bool HasHeadPose { get; private set; }
+
+    public static Vector3 HeadPosition { get; private set; }
+
+    public static Quaternion HeadRotation { get; private set; } = Quaternion.identity;
+
     private static readonly HashSet<int> AllowedRenderCameraIds = new HashSet<int>();
+
+    public static void SetHeadPose(Vector3 position, Quaternion rotation)
+    {
+        HeadPosition = position;
+        HeadRotation = rotation;
+        HasHeadPose = true;
+    }
+
+    public static void ClearHeadPose()
+    {
+        HeadPosition = Vector3.zero;
+        HeadRotation = Quaternion.identity;
+        HasHeadPose = false;
+    }
 
     public static void BeginVrEyeRender(params Camera[] cameras)
     {

@@ -282,6 +282,50 @@ public sealed class ModConfig
             nameof(LogVrUiDiagnostics),
             false,
             "Log UI capture panel diagnostics from the VR UI bridge.");
+
+        FixNpcWorldSpaceUi = config.Bind(
+            VrUiSection,
+            nameof(FixNpcWorldSpaceUi),
+            false,
+            "Experimental. While VR is active, reproject NPC head markers with the HMD pose before the HUD is captured.");
+
+        NpcWorldSpaceUiVerticalOffset = config.Bind(
+            VrUiSection,
+            nameof(NpcWorldSpaceUiVerticalOffset),
+            0.25f,
+            new ConfigDescription(
+                "Additional world-space height above the NPC head for the NPC marker VR fix.",
+                new AcceptableValueRange<float>(-1.0f, 2.0f)));
+
+        NpcWorldSpaceUiScale = config.Bind(
+            VrUiSection,
+            nameof(NpcWorldSpaceUiScale),
+            0.0015f,
+            new ConfigDescription(
+                "World-space scale for NPC circular/question UI when the VR NPC UI fix is enabled.",
+                new AcceptableValueRange<float>(0.0002f, 0.02f)));
+
+        NpcWorldSpaceUiMinScaleDistance = config.Bind(
+            VrUiSection,
+            nameof(NpcWorldSpaceUiMinScaleDistance),
+            3.0f,
+            new ConfigDescription(
+                "Closest distance used for NPC world-space UI scale compensation.",
+                new AcceptableValueRange<float>(0.25f, 50.0f)));
+
+        NpcWorldSpaceUiMaxScaleDistance = config.Bind(
+            VrUiSection,
+            nameof(NpcWorldSpaceUiMaxScaleDistance),
+            7.0f,
+            new ConfigDescription(
+                "Farthest distance used for NPC world-space UI scale compensation.",
+                new AcceptableValueRange<float>(0.25f, 100.0f)));
+
+        LogNpcWorldSpaceUiDiagnostics = config.Bind(
+            VrUiSection,
+            nameof(LogNpcWorldSpaceUiDiagnostics),
+            false,
+            "Log one-shot hierarchy diagnostics for NPC head markers and nearby UI canvases while VR is active.");
     }
 
     public ConfigEntry<bool> EnableVR { get; }
@@ -324,6 +368,12 @@ public sealed class ModConfig
     public ConfigEntry<string> VrUiCanvasNameWhitelist { get; }
     public ConfigEntry<string> VrUiCanvasNameBlacklist { get; }
     public ConfigEntry<bool> LogVrUiDiagnostics { get; }
+    public ConfigEntry<bool> FixNpcWorldSpaceUi { get; }
+    public ConfigEntry<float> NpcWorldSpaceUiVerticalOffset { get; }
+    public ConfigEntry<float> NpcWorldSpaceUiScale { get; }
+    public ConfigEntry<float> NpcWorldSpaceUiMinScaleDistance { get; }
+    public ConfigEntry<float> NpcWorldSpaceUiMaxScaleDistance { get; }
+    public ConfigEntry<bool> LogNpcWorldSpaceUiDiagnostics { get; }
 
     public static ModConfig Bind(ConfigFile config, ManualLogSource logger)
     {

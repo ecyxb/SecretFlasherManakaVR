@@ -280,7 +280,13 @@ public sealed class VrRunnerHost : MonoBehaviour
             VrUiMaxScanInterval = settings.VrUiMaxScanInterval.Value,
             VrUiCanvasNameWhitelist = settings.VrUiCanvasNameWhitelist.Value,
             VrUiCanvasNameBlacklist = settings.VrUiCanvasNameBlacklist.Value,
-            LogVrUiDiagnostics = settings.LogVrUiDiagnostics.Value
+            LogVrUiDiagnostics = settings.LogVrUiDiagnostics.Value,
+            FixNpcWorldSpaceUi = settings.FixNpcWorldSpaceUi.Value,
+            NpcWorldSpaceUiVerticalOffset = settings.NpcWorldSpaceUiVerticalOffset.Value,
+            NpcWorldSpaceUiScale = settings.NpcWorldSpaceUiScale.Value,
+            NpcWorldSpaceUiMinScaleDistance = settings.NpcWorldSpaceUiMinScaleDistance.Value,
+            NpcWorldSpaceUiMaxScaleDistance = settings.NpcWorldSpaceUiMaxScaleDistance.Value,
+            LogNpcWorldSpaceUiDiagnostics = settings.LogNpcWorldSpaceUiDiagnostics.Value
         };
     }
 

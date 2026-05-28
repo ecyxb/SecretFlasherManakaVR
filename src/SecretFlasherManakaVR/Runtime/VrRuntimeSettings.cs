@@ -66,6 +66,12 @@ namespace SecretFlasherManakaVR.Runtime
         public string VrUiCanvasNameWhitelist = string.Empty;
         public string VrUiCanvasNameBlacklist = string.Empty;
         public bool LogVrUiDiagnostics = false;
+        public bool FixNpcWorldSpaceUi = false;
+        public float NpcWorldSpaceUiVerticalOffset = 0.25f;
+        public float NpcWorldSpaceUiScale = 0.0015f;
+        public float NpcWorldSpaceUiMinScaleDistance = 3.0f;
+        public float NpcWorldSpaceUiMaxScaleDistance = 7.0f;
+        public bool LogNpcWorldSpaceUiDiagnostics = false;
 
         public float RenderScale = 1.0f;
         public int FallbackRenderWidth = 1512;
@@ -89,6 +95,10 @@ namespace SecretFlasherManakaVR.Runtime
             VrUiScale = Mathf.Clamp(VrUiScale, 0.0001f, 0.02f);
             VrUiVerticalOffset = Mathf.Clamp(VrUiVerticalOffset, -2.0f, 2.0f);
             VrUiMaxScanInterval = Mathf.Clamp(VrUiMaxScanInterval, 0.25f, 10.0f);
+            NpcWorldSpaceUiVerticalOffset = Mathf.Clamp(NpcWorldSpaceUiVerticalOffset, -1.0f, 2.0f);
+            NpcWorldSpaceUiScale = Mathf.Clamp(NpcWorldSpaceUiScale, 0.0002f, 0.02f);
+            NpcWorldSpaceUiMinScaleDistance = Mathf.Clamp(NpcWorldSpaceUiMinScaleDistance, 0.25f, 50.0f);
+            NpcWorldSpaceUiMaxScaleDistance = Mathf.Clamp(NpcWorldSpaceUiMaxScaleDistance, NpcWorldSpaceUiMinScaleDistance, 100.0f);
             if (string.IsNullOrWhiteSpace(ReflectionCameraNameKeywords))
             {
                 ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
