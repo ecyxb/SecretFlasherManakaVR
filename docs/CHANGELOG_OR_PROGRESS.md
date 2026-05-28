@@ -123,6 +123,7 @@ Build a separate BepInEx IL2CPP plugin named `SecretFlasherManakaVR.dll` that at
 - 2026-05-24: Replaced the garbled `VRModSrc\README_VR.md` with a clean current-baseline development document covering build/install, known-good stereo config, mirror strategy, known limitations, and next development directions.
 - 2026-05-24: Build and install succeeded after cleanup. Installed `BepInEx\plugins\SecretFlasherManakaVR.dll`; `openvr_api.dll` was unchanged. Removed stale renderer-scan entries from `BepInEx\config\com.codex.secretflashermanaka.vr.cfg`.
 - 2026-05-24: Created `SecretFlasherManakaVR_Package\` as a self-contained handoff/development package. It includes cleaned source under `src\`, package-adapted build/install scripts, `dependencies\openvr_api.dll`, current config, docs/progress notes, third-party OpenVR note, and `dist\BepInEx\` with the ready-to-copy plugin/config layout. Game files, BepInEx runtime files, interop assemblies, ReShade files, and `SecretFlasherManakaMod.dll` are intentionally excluded.
+- 2026-05-29: User reported NPC headset/head mismatch in VR while the desktop camera remains correct. Added an `InGameManager.OnLateUpdate` Harmony postfix that drives the VR late tick after the game's NPC/head look-at late-update chain during gameplay, with a same-frame guard and a menu fallback to the runner's normal `LateUpdate`. Build/install succeeded and `dist\BepInEx\plugins\SecretFlasherManakaVR.dll` was refreshed.
 
 ## Current Validation Notes
 

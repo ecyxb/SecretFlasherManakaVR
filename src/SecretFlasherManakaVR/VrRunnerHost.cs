@@ -28,6 +28,11 @@ public sealed class VrRunnerHost : MonoBehaviour
     private bool _startupAttempted;
     private bool _runtimeDisabled;
     private bool _missingRuntimeReported;
+    private int _lastLateTickFrame = -1;
+    private float _preferGameLateUpdateUntil;
+    private bool _gameLateUpdateHookLogged;
+
+    private const float GameLateUpdateGraceSeconds = 2.0f;
 
     public VrRunnerHost(IntPtr pointer)
         : base(pointer)
@@ -71,7 +76,29 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     private void LateUpdate()
     {
-        InvokeLifecycle(_lateUpdateMethod, "late update");
+        if (Time.unscaledTime < _preferGameLateUpdateUntil)
+        {
+            return;
+        }
+
+        InvokeLateTick("late update");
+    }
+
+    public void LateTickFromGame()
+    {
+        _preferGameLateUpdateUntil = Time.unscaledTime + GameLateUpdateGraceSeconds;
+        if (!_gameLateUpdateHookLogged)
+        {
+            _gameLateUpdateHookLogged = true;
+            _logger?.LogInfo("VR late tick is now driven after InGameManager.OnLateUpdate while gameplay is active.");
+        }
+
+        if (!_startupAttempted)
+        {
+            TryStartRuntime();
+        }
+
+        InvokeLateTick("game late update");
     }
 
     private void OnDestroy()
@@ -330,6 +357,18 @@ public sealed class VrRunnerHost : MonoBehaviour
         {
             DisableRuntime($"VR runtime {phase} failed.", ex);
         }
+    }
+
+    private void InvokeLateTick(string phase)
+    {
+        int frame = Time.frameCount;
+        if (_lastLateTickFrame == frame)
+        {
+            return;
+        }
+
+        _lastLateTickFrame = frame;
+        InvokeLifecycle(_lateUpdateMethod, phase);
     }
 
     private sealed class BepInExRuntimeLogger : IVrRuntimeLogger
