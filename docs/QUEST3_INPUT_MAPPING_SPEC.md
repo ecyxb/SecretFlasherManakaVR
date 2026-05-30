@@ -42,13 +42,15 @@ Quest 3 肩键约定：
 
 | 操作 | 结果 |
 | --- | --- |
-| `L3 + R3` | 切换光标模式 |
+| L3 单独按下并释放 | 重置视角 |
+| L3 + R3 | 切换光标模式 |
 | 退出光标模式 | 固定回到 `mode0` |
 | `mode0` 下 L2 短按 | 切到 `mode1` |
 | `mode0` 下 L2 长按 | 切到 `mode2` |
 | `mode1` / `mode2` 下 L2 短按或长按 | 回到 `mode0` |
 
 长按阈值由 `Quest3LongPressSeconds` 配置控制。
+如果 L3 与 R3 在同一次按住期间发生重叠，则按组合键处理，只切换光标模式，不再触发 L3 单独重置视角或 R3 的 L1 输出。
 
 ### mode0: normal mode
 
@@ -136,7 +138,7 @@ ABXY 在该模式下映射为十字键，方向按当前 PS 图形位置决定�
 
 ### 光标模式
 
-`L3 + R3` 切换进入或退出光标模式。退出时固定回到 `mode0`。
+L3 + R3 会进入或退出光标模式。退出时固定回到 `mode0`。
 
 光标模式下不执行普通 mode 按键映射，而是使用右手射线和虚拟鼠标。
 
@@ -146,6 +148,7 @@ ABXY 在该模式下映射为十字键，方向按当前 PS 图形位置决定�
 | Left Trigger | 鼠标右键 + `InputManager.InputType.RightClick` |
 | Left Grip | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | Right Grip | `UiRingRight` / `TabRight` / `Tab2Right` |
+| Right Stick Click | L1 |
 | A | `Interact` / `Accept` |
 | B | `Cancel` / `SystemMenu` |
 | Y | Square |
@@ -200,13 +203,15 @@ Quest 3 shoulder/stick-click naming:
 
 | Input | Result |
 | --- | --- |
-| `L3 + R3` | Toggle cursor mode |
+| L3 press and release without R3 overlap | Recenter view |
+| L3 + R3 | Toggle cursor mode |
 | Exit cursor mode | Always return to `mode0` |
 | L2 short press in `mode0` | Switch to `mode1` |
 | L2 long press in `mode0` | Switch to `mode2` |
 | L2 short or long press in `mode1` / `mode2` | Return to `mode0` |
 
 The long-press threshold is controlled by `Quest3LongPressSeconds`.
+If L3 and R3 overlap during the same press, the mapper treats it as the combo only: it toggles cursor mode and suppresses L3-only recenter plus R3-as-L1 for that combo press.
 
 ### mode0: normal mode
 
@@ -294,7 +299,7 @@ Rules:
 
 ### Cursor Mode
 
-`L3 + R3` toggles cursor mode. Exiting cursor mode always returns to `mode0`.
+L3 + R3 toggles cursor mode. Exiting cursor mode always returns to `mode0`.
 
 Cursor mode skips normal controller-mode button mapping and uses the right-hand ray plus virtual mouse input.
 
@@ -304,6 +309,7 @@ Cursor mode skips normal controller-mode button mapping and uses the right-hand 
 | Left Trigger | Right mouse button + `InputManager.InputType.RightClick` |
 | Left Grip | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | Right Grip | `UiRingRight` / `TabRight` / `Tab2Right` |
+| Right Stick Click | L1 |
 | A | `Interact` / `Accept` |
 | B | `Cancel` / `SystemMenu` |
 | Y | Square |

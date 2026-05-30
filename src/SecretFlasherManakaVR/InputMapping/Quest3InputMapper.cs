@@ -19,6 +19,9 @@ internal sealed class Quest3InputMapper
 {
     private bool trackingAbxyPress;
     private bool circleOpenedSinceAbxyDown;
+    private bool l3PressOverlappedR3;
+    private bool r3PressOverlappedL3;
+    private bool stickClickComboConsumed;
 
     public Quest3ControllerMode ControllerMode { get; private set; }
 
@@ -44,18 +47,18 @@ internal sealed class Quest3InputMapper
             return state;
         }
 
-        bool consumedCursorToggle = UpdateModes(buttons, settings.Quest3LongPressSeconds.Value, state, out bool suppressRightTrigger);
+        bool suppressRightStickClick = UpdateModes(buttons, settings.Quest3LongPressSeconds.Value, state, out bool suppressRightTrigger);
         state.ControllerMode = ControllerMode;
         state.IsCursorMode = IsCursorMode;
 
         if (!IsCursorMode)
         {
-            MapModeButtons(snapshot, buttons, settings.Quest3LongPressSeconds.Value, consumedCursorToggle, suppressRightTrigger, state);
+            MapModeButtons(snapshot, buttons, settings.Quest3LongPressSeconds.Value, suppressRightStickClick, suppressRightTrigger, state);
         }
 
         if (IsCursorMode)
         {
-            MapCursorMode(snapshot, settings, state);
+            MapCursorMode(snapshot, settings, suppressRightStickClick, state);
             return state;
         }
 
@@ -67,25 +70,59 @@ internal sealed class Quest3InputMapper
     private bool UpdateModes(Quest3ButtonTrackerSet buttons, float longPressSeconds, Quest3VirtualInputState state, out bool suppressRightTrigger)
     {
         suppressRightTrigger = false;
-        bool l3 = buttons[Quest3Button.LeftStickClick].IsDownFrame;
-        bool r3 = buttons[Quest3Button.RightStickClick].IsDownFrame;
-        bool bothStickClicks = (l3 && buttons[Quest3Button.RightStickClick].IsDown) ||
-            (r3 && buttons[Quest3Button.LeftStickClick].IsDown);
+        var l3 = buttons[Quest3Button.LeftStickClick];
+        var r3 = buttons[Quest3Button.RightStickClick];
 
-        if (bothStickClicks)
+        if (l3.IsDownFrame)
         {
-            IsCursorMode = !IsCursorMode;
-            if (!IsCursorMode)
-            {
-                SetControllerMode(Quest3ControllerMode.Mode0);
-            }
-
-            return true;
+            l3PressOverlappedR3 = r3.IsDown;
         }
 
+        if (r3.IsDownFrame)
+        {
+            r3PressOverlappedL3 = l3.IsDown;
+        }
+
+        if (l3.IsDown && r3.IsDown)
+        {
+            l3PressOverlappedR3 = true;
+            r3PressOverlappedL3 = true;
+            if (!stickClickComboConsumed)
+            {
+                IsCursorMode = !IsCursorMode;
+                if (!IsCursorMode)
+                {
+                    SetControllerMode(Quest3ControllerMode.Mode0);
+                }
+
+                stickClickComboConsumed = true;
+            }
+        }
+
+        if (l3.IsUpFrame)
+        {
+            if (!l3PressOverlappedR3)
+            {
+                SecretFlasherManakaVR.VrRuntimeState.RequestRecenter();
+            }
+
+            l3PressOverlappedR3 = false;
+        }
+
+        if (r3.IsUpFrame)
+        {
+            r3PressOverlappedL3 = false;
+        }
+
+        if (!l3.IsDown && !r3.IsDown)
+        {
+            stickClickComboConsumed = false;
+        }
+
+        bool suppressRightStickClick = r3.IsDown && (r3PressOverlappedL3 || stickClickComboConsumed);
         if (IsCursorMode)
         {
-            return false;
+            return suppressRightStickClick;
         }
 
         var l2 = buttons[Quest3Button.LeftTrigger];
@@ -113,7 +150,7 @@ internal sealed class Quest3InputMapper
             SetControllerMode(ControllerMode == Quest3ControllerMode.Mode0 ? Quest3ControllerMode.Mode1 : Quest3ControllerMode.Mode0);
         }
 
-        return false;
+        return suppressRightStickClick;
     }
 
     private static void MapModeButtons(
@@ -308,6 +345,7 @@ internal sealed class Quest3InputMapper
     private static void MapCursorMode(
         Quest3InputSnapshot snapshot,
         ModConfig settings,
+        bool suppressRightStickClick,
         Quest3VirtualInputState state)
     {
         if (snapshot.IsPressed(Quest3Button.RightTrigger))
@@ -330,6 +368,11 @@ internal sealed class Quest3InputMapper
         if (snapshot.IsPressed(Quest3Button.RightGrip))
         {
             PressSemanticInput(state, Quest3SemanticInput.Right);
+        }
+
+        if (!suppressRightStickClick && snapshot.IsPressed(Quest3Button.RightStickClick))
+        {
+            state.Gamepad.Press(Quest3VirtualGamepadButton.L1);
         }
 
         if (snapshot.IsPressed(Quest3Button.A))
