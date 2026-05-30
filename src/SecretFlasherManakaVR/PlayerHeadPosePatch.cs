@@ -45,6 +45,9 @@ internal static class PlayerHeadPoseController
     private static Transform? cachedHead;
     private static Transform? cachedFpCameraTarget;
     private static Transform? cachedCameraTarget;
+    private static BoneOffsetState chestOffsetState;
+    private static BoneOffsetState neckOffsetState;
+    private static BoneOffsetState headOffsetState;
 
     public static bool IsActiveRecently
     {
@@ -74,6 +77,7 @@ internal static class PlayerHeadPoseController
                 return;
             }
 
+            RestoreAppliedOffsets();
             cachedPlayerPtr = GetObjectPointer(player);
             CachePlayerMovementReferences(player);
             cachedChest = referencer.Chest;
@@ -99,10 +103,12 @@ internal static class PlayerHeadPoseController
     {
         if (!CanApply())
         {
+            RestoreAppliedOffsets();
             hasReset = false;
             return;
         }
 
+        RestoreAppliedOffsets();
         if (!hasReset || resetRecenterSerial != VrRuntimeState.RecenterSerial)
         {
             resetHmdRotation = VrRuntimeState.HeadTrackingRotation;
@@ -128,9 +134,9 @@ internal static class PlayerHeadPoseController
 
         smoothedDelta = Smooth(smoothedDelta, limitedDelta);
 
-        ApplyWeightedOffset(cachedChest, smoothedDelta, Plugin.Settings.PlayerHeadPoseChestWeight.Value);
-        ApplyWeightedOffset(cachedNeck, smoothedDelta, Plugin.Settings.PlayerHeadPoseNeckWeight.Value);
-        ApplyWeightedOffset(cachedHead, smoothedDelta, Plugin.Settings.PlayerHeadPoseHeadWeight.Value);
+        ApplyWeightedOffset(cachedChest, smoothedDelta, Plugin.Settings.PlayerHeadPoseChestWeight.Value, ref chestOffsetState);
+        ApplyWeightedOffset(cachedNeck, smoothedDelta, Plugin.Settings.PlayerHeadPoseNeckWeight.Value, ref neckOffsetState);
+        ApplyWeightedOffset(cachedHead, smoothedDelta, Plugin.Settings.PlayerHeadPoseHeadWeight.Value, ref headOffsetState);
         lastActiveFrame = Time.frameCount;
     }
 
@@ -454,15 +460,25 @@ internal static class PlayerHeadPoseController
         return Quaternion.Slerp(current, target, Mathf.Clamp01(t));
     }
 
-    private static void ApplyWeightedOffset(Transform? bone, Quaternion delta, float weight)
+    private static void RestoreAppliedOffsets()
+    {
+        chestOffsetState.RestoreIfStillApplied();
+        neckOffsetState.RestoreIfStillApplied();
+        headOffsetState.RestoreIfStillApplied();
+    }
+
+    private static void ApplyWeightedOffset(Transform? bone, Quaternion delta, float weight, ref BoneOffsetState state)
     {
         if (bone == null || weight <= 0.0f)
         {
+            state.Clear();
             return;
         }
 
         Quaternion weighted = Quaternion.Slerp(Quaternion.identity, delta, Mathf.Clamp01(weight));
-        bone.rotation = bone.rotation * weighted;
+        Quaternion finalRotation = bone.rotation * weighted;
+        bone.rotation = finalRotation;
+        state.Save(bone, weighted, finalRotation);
     }
 
     private static float NormalizeAngle(float angle)
@@ -485,5 +501,54 @@ internal static class PlayerHeadPoseController
         return value == null
             ? IntPtr.Zero
             : IL2CPP.Il2CppObjectBaseToPtr(value);
+    }
+
+    private struct BoneOffsetState
+    {
+        private const float RotationMatchDot = 0.9999f;
+
+        private Transform? bone;
+        private Quaternion weightedOffset;
+        private Quaternion finalRotation;
+        private bool hasAppliedOffset;
+
+        public void Save(Transform bone, Quaternion weightedOffset, Quaternion finalRotation)
+        {
+            this.bone = bone;
+            this.weightedOffset = weightedOffset;
+            this.finalRotation = finalRotation;
+            hasAppliedOffset = true;
+        }
+
+        public void RestoreIfStillApplied()
+        {
+            if (!hasAppliedOffset || bone == null)
+            {
+                Clear();
+                return;
+            }
+
+            if (!ApproximatelySameRotation(bone.rotation, finalRotation))
+            {
+                Clear();
+                return;
+            }
+
+            bone.rotation = bone.rotation * Quaternion.Inverse(weightedOffset);
+            Clear();
+        }
+
+        public void Clear()
+        {
+            bone = null;
+            weightedOffset = Quaternion.identity;
+            finalRotation = Quaternion.identity;
+            hasAppliedOffset = false;
+        }
+
+        private static bool ApproximatelySameRotation(Quaternion left, Quaternion right)
+        {
+            return Mathf.Abs(Quaternion.Dot(left, right)) >= RotationMatchDot;
+        }
     }
 }
