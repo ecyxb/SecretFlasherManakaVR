@@ -309,9 +309,16 @@ namespace SecretFlasherManakaVR.Runtime
             nextScanTime = Time.unscaledTime + settings.VrUiMaxScanInterval;
             activeCanvases.Clear();
 
-            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
             string[] whitelist = SplitKeywords(settings.VrUiCanvasNameWhitelist);
             string[] blacklist = SplitKeywords(settings.VrUiCanvasNameBlacklist);
+            if (whitelist.Length == 0 && TryAddDefaultCapturedCanvas(blacklist))
+            {
+                SyncCapturedCanvasStates();
+                ClearFullscreenEffectCacheIfInactive();
+                return;
+            }
+
+            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
             bool hasDefaultCanvas = whitelist.Length == 0 && HasDefaultCapturedCanvas(canvases, blacklist);
 
             for (int i = 0; i < canvases.Length; i++)
@@ -325,6 +332,76 @@ namespace SecretFlasherManakaVR.Runtime
 
             SyncCapturedCanvasStates();
             ClearFullscreenEffectCacheIfInactive();
+        }
+
+        private bool TryAddDefaultCapturedCanvas(string[] blacklist)
+        {
+            Canvas canvas = FindDefaultCapturedCanvasFromInGameManager(blacklist);
+            if (canvas == null)
+            {
+                return false;
+            }
+
+            activeCanvases.Add(canvas);
+            return true;
+        }
+
+        private Canvas FindDefaultCapturedCanvasFromInGameManager(string[] blacklist)
+        {
+            InGameUiManager manager = InGameUiManager.Instance;
+            if (manager == null)
+            {
+                return null;
+            }
+
+            Canvas canvas = GetDefaultCapturedCanvas(manager, blacklist);
+            if (canvas != null)
+            {
+                return canvas;
+            }
+
+            canvas = GetDefaultCapturedCanvas(manager.middleCloneLayer, blacklist);
+            if (canvas != null)
+            {
+                return canvas;
+            }
+
+            canvas = GetDefaultCapturedCanvas(manager.frontLayer, blacklist);
+            if (canvas != null)
+            {
+                return canvas;
+            }
+
+            canvas = GetDefaultCapturedCanvas(manager.BackLayer, blacklist);
+            if (canvas != null)
+            {
+                return canvas;
+            }
+
+            return GetDefaultCapturedCanvas(manager.BlindVignette, blacklist);
+        }
+
+        private Canvas GetDefaultCapturedCanvas(Component component, string[] blacklist)
+        {
+            if (component == null)
+            {
+                return null;
+            }
+
+            Canvas canvas = component.GetComponent<Canvas>();
+            if (IsDefaultCapturedCanvas(canvas, blacklist))
+            {
+                return canvas;
+            }
+
+            canvas = component.GetComponentInParent<Canvas>();
+            return IsDefaultCapturedCanvas(canvas, blacklist) ? canvas : null;
+        }
+
+        private bool IsDefaultCapturedCanvas(Canvas canvas, string[] blacklist)
+        {
+            return IsCaptureCandidate(canvas, blacklist)
+                && string.Equals(canvas.name ?? string.Empty, DefaultCapturedCanvasName, StringComparison.Ordinal);
         }
 
         private bool HasDefaultCapturedCanvas(Canvas[] canvases, string[] blacklist)
@@ -581,10 +658,10 @@ namespace SecretFlasherManakaVR.Runtime
                 return;
             }
 
-            FullscreenEffectIsolationScope isolatedEffects = null;
+            CanvasGroupAlphaScope isolatedEffects = null;
             try
             {
-                isolatedEffects = FullscreenEffectIsolationScope.Isolate(fullscreenEffects.Root, fullscreenEffects.EffectObjects);
+                isolatedEffects = CanvasGroupAlphaScope.Hide(fullscreenEffects.HiddenBranches);
                 captureCamera.targetTexture = fullscreenEffectTexture;
                 captureCamera.Render();
                 if (fullscreenEffectPanelMaterial != null)
@@ -1286,116 +1363,6 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        private sealed class FullscreenEffectIsolationScope
-        {
-            private readonly GraphicAlphaScope alphaScope = new GraphicAlphaScope();
-
-            public static FullscreenEffectIsolationScope Isolate(RectTransform root, List<GameObject> effects)
-            {
-                var scope = new FullscreenEffectIsolationScope();
-                if (root == null || effects == null || effects.Count == 0)
-                {
-                    return scope;
-                }
-
-                Graphic[] graphics = root.GetComponentsInChildren<Graphic>(true);
-                for (int i = 0; i < graphics.Length; i++)
-                {
-                    Graphic graphic = graphics[i];
-                    if (graphic == null)
-                    {
-                        continue;
-                    }
-
-                    if (!ShouldRenderWithEffects(graphic.transform, effects))
-                    {
-                        scope.alphaScope.SetAlpha(graphic, 0.0f);
-                    }
-                }
-
-                return scope;
-            }
-
-            public void Restore()
-            {
-                alphaScope.Restore();
-            }
-
-            private static bool ShouldRenderWithEffects(Transform transform, List<GameObject> effects)
-            {
-                for (int i = 0; i < effects.Count; i++)
-                {
-                    GameObject effect = effects[i];
-                    if (effect == null)
-                    {
-                        continue;
-                    }
-
-                    Transform effectTransform = effect.transform;
-                    if (transform == effectTransform || transform.IsChildOf(effectTransform) || effectTransform.IsChildOf(transform))
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        }
-
-        private sealed class GraphicAlphaScope
-        {
-            private readonly List<GraphicState> states = new List<GraphicState>();
-            private readonly HashSet<int> savedGraphics = new HashSet<int>();
-
-            public void SetAlpha(Graphic graphic, float alpha)
-            {
-                if (graphic == null || graphic.canvasRenderer == null)
-                {
-                    return;
-                }
-
-                int id = graphic.GetInstanceID();
-                if (!savedGraphics.Contains(id))
-                {
-                    savedGraphics.Add(id);
-                    states.Add(new GraphicState(graphic));
-                }
-
-                graphic.canvasRenderer.SetAlpha(alpha);
-            }
-
-            public void Restore()
-            {
-                for (int i = states.Count - 1; i >= 0; i--)
-                {
-                    states[i].Restore();
-                }
-
-                states.Clear();
-                savedGraphics.Clear();
-            }
-
-            private readonly struct GraphicState
-            {
-                private readonly Graphic graphic;
-                private readonly float alpha;
-
-                public GraphicState(Graphic graphic)
-                {
-                    this.graphic = graphic;
-                    alpha = graphic.canvasRenderer.GetAlpha();
-                }
-
-                public void Restore()
-                {
-                    if (graphic != null && graphic.canvasRenderer != null)
-                    {
-                        graphic.canvasRenderer.SetAlpha(alpha);
-                    }
-                }
-            }
-        }
-
         private sealed class HudLayoutScope
         {
             private const float HudReferenceWidth = 2560.0f;
@@ -1445,10 +1412,12 @@ namespace SecretFlasherManakaVR.Runtime
                     ApplySelfCameraRt(manager.bodyCameraImage, HudRtKind.Body);
                     ShiftPath(root, "MiddleLayer/Right/StatusInfo", GetStatusInfoOffset());
                 }
-
-                HideIfNameContains(root, "Shortcut");
-                HideIfNameContains(root, "Manual");
-                HideIfNameContains(root, "EcstasyHeart");
+                else
+                {
+                    HideIfNameContains(root, "Shortcut");
+                    HideIfNameContains(root, "Manual");
+                    HideIfNameContains(root, "EcstasyHeart");
+                }
             }
 
             private static Vector2 ReferencePointToRoot(RectTransform root, float referenceX, float referenceY)
