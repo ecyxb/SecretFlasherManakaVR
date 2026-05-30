@@ -133,6 +133,11 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 Recenter();
             }
+
+            if (VrRuntimeState.ConsumeRecenterRequest())
+            {
+                Recenter();
+            }
         }
 
         public void LateTick()
@@ -970,6 +975,13 @@ namespace SecretFlasherManakaVR.Runtime
 
             Vector3 basePosition = sourceCamera.transform.position + sourceCamera.transform.up * settings.CameraHeightOffset;
             Quaternion baseRotation = GetSourceBaseRotation();
+            VrRuntimeState.SetTrackingToWorldTransform(
+                basePosition,
+                baseRotation,
+                recenterPosition,
+                recenterYaw,
+                settings.WorldScale,
+                recenterSet);
             Vector3 headPosition = basePosition + baseRotation * rawPosition;
             Quaternion headRotation = baseRotation * rawRotation;
             float ipdMeters = bridge == null ? DefaultIpdMeters : GetIpdMeters(DefaultIpdMeters);

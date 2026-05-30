@@ -14,6 +14,16 @@ public enum MirrorMode
     Disabled
 }
 
+public enum Quest3CursorRayDirection
+{
+    Forward,
+    Back,
+    Up,
+    Down,
+    Right,
+    Left
+}
+
 public sealed class ModConfig
 {
     private const string GeneralSection = "General";
@@ -78,6 +88,88 @@ public sealed class ModConfig
             nameof(SuppressMouseLookInput),
             true,
             "When VR is active, force legacy Mouse X/Y axes to zero so keyboard movement remains usable while HMD pose owns camera look.");
+
+        EnableQuest3InputMapping = config.Bind(
+            InputSection,
+            nameof(EnableQuest3InputMapping),
+            true,
+            "Enable Quest 3 controller mapping through SteamVR/OpenVR input. Disable to leave the game's original input untouched.");
+
+        Quest3InputActionManifestPath = config.Bind(
+            InputSection,
+            nameof(Quest3InputActionManifestPath),
+            string.Empty,
+            "Optional absolute path to the SteamVR action manifest. Empty uses BepInEx/plugins/SecretFlasherManakaVR_Input/actions.json when present.");
+
+        Quest3LongPressSeconds = config.Bind(
+            InputSection,
+            nameof(Quest3LongPressSeconds),
+            0.5f,
+            new ConfigDescription(
+                "Long-press threshold used by the Quest 3 input state machine.",
+                new AcceptableValueRange<float>(0.1f, 2.0f)));
+
+        Quest3RightStickDeadzone = config.Bind(
+            InputSection,
+            nameof(Quest3RightStickDeadzone),
+            0.35f,
+            new ConfigDescription(
+                "Deadzone for cursor-mode right-stick Q/E/scroll mapping.",
+                new AcceptableValueRange<float>(0.0f, 0.95f)));
+
+        Quest3RightStickDiagonalGuardDegrees = config.Bind(
+            InputSection,
+            nameof(Quest3RightStickDiagonalGuardDegrees),
+            15.0f,
+            new ConfigDescription(
+                "Invalid angle around right-stick diagonals in cursor mode.",
+                new AcceptableValueRange<float>(0.0f, 40.0f)));
+
+        Quest3TriggerPressThreshold = config.Bind(
+            InputSection,
+            nameof(Quest3TriggerPressThreshold),
+            0.35f,
+            new ConfigDescription(
+                "Analog Quest 3 trigger pull value treated as a button press.",
+                new AcceptableValueRange<float>(0.01f, 0.95f)));
+
+        Quest3CursorRayDirection = config.Bind(
+            InputSection,
+            nameof(Quest3CursorRayDirection),
+            SecretFlasherManakaVR.Quest3CursorRayDirection.Forward,
+            "Controller-local axis used for the visible cursor ray. Change if the ray starts at the controller but points in the wrong direction.");
+
+        Quest3CursorRayLength = config.Bind(
+            InputSection,
+            nameof(Quest3CursorRayLength),
+            6.0f,
+            new ConfigDescription(
+                "Visible length of the Quest 3 cursor ray in Unity world units.",
+                new AcceptableValueRange<float>(0.25f, 30.0f)));
+
+        Quest3CursorRayPitchOffsetDegrees = config.Bind(
+            InputSection,
+            nameof(Quest3CursorRayPitchOffsetDegrees),
+            0.0f,
+            new ConfigDescription(
+                "Extra local pitch correction for the Quest 3 cursor ray. Use this when SteamVR supplies a grip/raw pose instead of a true pointer pose.",
+                new AcceptableValueRange<float>(-90.0f, 90.0f)));
+
+        Quest3CursorRayYawOffsetDegrees = config.Bind(
+            InputSection,
+            nameof(Quest3CursorRayYawOffsetDegrees),
+            0.0f,
+            new ConfigDescription(
+                "Extra local yaw correction for the Quest 3 cursor ray.",
+                new AcceptableValueRange<float>(-90.0f, 90.0f)));
+
+        Quest3CursorRayRollOffsetDegrees = config.Bind(
+            InputSection,
+            nameof(Quest3CursorRayRollOffsetDegrees),
+            0.0f,
+            new ConfigDescription(
+                "Extra local roll correction for the Quest 3 cursor ray.",
+                new AcceptableValueRange<float>(-90.0f, 90.0f)));
 
         SourceRotationMode = config.Bind(
             StereoSection,
@@ -336,6 +428,17 @@ public sealed class ModConfig
     public ConfigEntry<KeyCode> RecenteringKey { get; }
     public ConfigEntry<bool> AutoRecenterOnStart { get; }
     public ConfigEntry<bool> SuppressMouseLookInput { get; }
+    public ConfigEntry<bool> EnableQuest3InputMapping { get; }
+    public ConfigEntry<string> Quest3InputActionManifestPath { get; }
+    public ConfigEntry<float> Quest3LongPressSeconds { get; }
+    public ConfigEntry<float> Quest3RightStickDeadzone { get; }
+    public ConfigEntry<float> Quest3RightStickDiagonalGuardDegrees { get; }
+    public ConfigEntry<float> Quest3TriggerPressThreshold { get; }
+    public ConfigEntry<Quest3CursorRayDirection> Quest3CursorRayDirection { get; }
+    public ConfigEntry<float> Quest3CursorRayLength { get; }
+    public ConfigEntry<float> Quest3CursorRayPitchOffsetDegrees { get; }
+    public ConfigEntry<float> Quest3CursorRayYawOffsetDegrees { get; }
+    public ConfigEntry<float> Quest3CursorRayRollOffsetDegrees { get; }
     public ConfigEntry<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
     public ConfigEntry<bool> LogPoseDebug { get; }

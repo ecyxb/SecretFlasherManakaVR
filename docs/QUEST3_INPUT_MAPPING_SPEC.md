@@ -1,0 +1,317 @@
+# Quest 3 Input Mapping Summary
+
+## 中文
+
+### 总体说明
+
+当前输入系统把 Quest 3 手柄输入转换为三类输出：
+
+- 虚拟 Unity InputSystem `Gamepad` 按键。
+- 游戏的 `InputManager.InputType` 语义输入。
+- 光标模式下的虚拟鼠标输入。
+
+系统优先读取 SteamVR Input actions；如果 action 不可用，会回退到 legacy OpenVR controller state。输入系统每帧更新一次，当前手柄模式会显示在 VR UI 左下角：
+
+- `normal mode`
+- `action14 mode`
+- `action58 mode`
+
+### 基础按键约定
+
+Quest 3 ABXY 按当前 PS 图形语义理解：
+
+| Quest 3 | PS 图形 | 位置 |
+| --- | --- | --- |
+| A | Cross | 下 |
+| B | Circle | 右 |
+| Y | Square | 左 |
+| X | Triangle | 上 |
+
+Quest 3 肩键约定：
+
+| Quest 3 | 代码/文档简称 |
+| --- | --- |
+| Left Grip | L1 |
+| Right Grip | R1 |
+| Left Trigger | L2 |
+| Right Trigger | R2 |
+| Left Stick Click | L3 |
+| Right Stick Click | R3 |
+
+### 模式切换
+
+| 操作 | 结果 |
+| --- | --- |
+| `L3 + R3` | 切换光标模式 |
+| 退出光标模式 | 固定回到 `mode0` |
+| `mode0` 下 L2 短按 | 切到 `mode1` |
+| `mode0` 下 L2 长按 | 切到 `mode2` |
+| `mode1` / `mode2` 下 L2 短按或长按 | 回到 `mode0` |
+
+长按阈值由 `Quest3LongPressSeconds` 配置控制。
+
+### mode0: normal mode
+
+| Quest 3 输入 | 输出 |
+| --- | --- |
+| A | Cross |
+| B | Circle |
+| Y | Square |
+| X | Triangle |
+| Left Grip 短按 | Select |
+| Left Grip 长按 | Start |
+| Right Grip | R1 |
+| Right Trigger | R2 |
+| Right Stick Click | L1 |
+
+### mode1: action14 mode
+
+ABXY 在该模式下映射为十字键，方向按当前 PS 图形位置决定：
+
+| Quest 3 输入 | PS 图形 | 输出 |
+| --- | --- | --- |
+| X | Triangle | DPadUp |
+| A | Cross | DPadDown |
+| Y | Square | DPadLeft |
+| B | Circle | DPadRight |
+
+其他输入：
+
+| Quest 3 输入 | 输出 |
+| --- | --- |
+| Left Grip | L1 |
+| Right Grip | R1 |
+| Right Stick Click | L1 |
+| Right Trigger 按下 | DrinkWater，并立刻回到 `mode0` |
+| Left Trigger 短按或长按 | 回到 `mode0` |
+
+### mode2: action58 mode
+
+| Quest 3 输入 | 输出 |
+| --- | --- |
+| 模式保持期间 | 持续输出 L2 |
+| A | Cross |
+| B | Circle |
+| Y | Square |
+| X | Triangle |
+| Left Grip | L1 |
+| Right Grip | R1 |
+| Right Stick Click | L1 |
+| Right Trigger 按下 | EyeMask，并立刻回到 `mode0` |
+| Left Trigger 短按或长按 | 回到 `mode0` |
+
+### POP UI 覆盖
+
+当输入系统识别到 POP UI 时，ABXY 使用 POP 导航映射。该覆盖优先于普通 mode 的 ABXY 映射。
+
+| Quest 3 输入 | 输出 |
+| --- | --- |
+| Y | DPadUp |
+| X | DPadDown |
+| A | Cross |
+| B | Circle |
+
+当前 POP 识别包含：
+
+- active `ChooseDildoPanelView`。
+- active `BasePanelView` 层级中包含 `ChooseDildoPanel`。
+- active UI 对象或层级中包含 `InteractMenuPanel`。
+
+### Circle UI 覆盖
+
+当输入系统识别到 Circle UI，也就是游戏的 ring menu 时，会启用特殊规则。
+
+当前 Circle 识别包含：
+
+- active `RingMenuParentView.Instance` 且 `IsOpenRing == true`。
+- 任意 active `RingMenuParentView` 且 `IsOpenRing == true`。
+
+规则：
+
+| 条件 | 结果 |
+| --- | --- |
+| `mode1` / `mode2` 下，Circle UI 打开，且只有 A 或 B 一个 ABXY 按键按住 | 交换移动摇杆和镜头摇杆 |
+| `mode1` / `mode2` 下，ABXY 按下后到抬起前从未检测到 Circle UI | 抬起时自动回到 `mode0` |
+| `mode1` / `mode2` 下，ABXY 按住期间检测到 Circle UI | 抬起时保留当前 mode |
+
+### 光标模式
+
+`L3 + R3` 切换进入或退出光标模式。退出时固定回到 `mode0`。
+
+光标模式下不执行普通 mode 按键映射，而是使用右手射线和虚拟鼠标。
+
+| Quest 3 输入 | 输出 |
+| --- | --- |
+| Right Trigger | 鼠标左键 + `InputManager.InputType.LeftClick` |
+| Left Trigger | 鼠标右键 + `InputManager.InputType.RightClick` |
+| Left Grip | `UiRingLeft` / `TabLeft` / `Tab2Left` |
+| Right Grip | `UiRingRight` / `TabRight` / `Tab2Right` |
+| A | `Interact` / `Accept` |
+| B | `Cancel` / `SystemMenu` |
+| Y | Square |
+| X | Triangle |
+| Right Stick Up | 鼠标滚轮向上 + `UIUp` |
+| Right Stick Down | 鼠标滚轮向下 + `UIDown` |
+
+右摇杆方向输入使用死区和斜向保护：
+
+- 死区由 `Quest3RightStickDeadzone` 控制。
+- 斜向保护角度由 `Quest3RightStickDiagonalGuardDegrees` 控制。
+
+## English
+
+### Overview
+
+The current input system maps Quest 3 controller input to three output layers:
+
+- Virtual Unity InputSystem `Gamepad` buttons.
+- Game `InputManager.InputType` semantic input.
+- Virtual mouse input in cursor mode.
+
+The system prefers SteamVR Input actions. If action input is unavailable, it falls back to legacy OpenVR controller state. The mapper updates once per frame, and the active controller mode is shown at the lower-left of the VR UI:
+
+- `normal mode`
+- `action14 mode`
+- `action58 mode`
+
+### Base Button Convention
+
+Quest 3 ABXY is interpreted as the current PlayStation face-button shape layout:
+
+| Quest 3 | PS shape | Position |
+| --- | --- | --- |
+| A | Cross | Bottom |
+| B | Circle | Right |
+| Y | Square | Left |
+| X | Triangle | Top |
+
+Quest 3 shoulder/stick-click naming:
+
+| Quest 3 | Code/doc name |
+| --- | --- |
+| Left Grip | L1 |
+| Right Grip | R1 |
+| Left Trigger | L2 |
+| Right Trigger | R2 |
+| Left Stick Click | L3 |
+| Right Stick Click | R3 |
+
+### Mode Switching
+
+| Input | Result |
+| --- | --- |
+| `L3 + R3` | Toggle cursor mode |
+| Exit cursor mode | Always return to `mode0` |
+| L2 short press in `mode0` | Switch to `mode1` |
+| L2 long press in `mode0` | Switch to `mode2` |
+| L2 short or long press in `mode1` / `mode2` | Return to `mode0` |
+
+The long-press threshold is controlled by `Quest3LongPressSeconds`.
+
+### mode0: normal mode
+
+| Quest 3 input | Output |
+| --- | --- |
+| A | Cross |
+| B | Circle |
+| Y | Square |
+| X | Triangle |
+| Left Grip short press | Select |
+| Left Grip long press | Start |
+| Right Grip | R1 |
+| Right Trigger | R2 |
+| Right Stick Click | L1 |
+
+### mode1: action14 mode
+
+ABXY maps to D-pad directions in this mode. Direction follows the current PlayStation shape position:
+
+| Quest 3 input | PS shape | Output |
+| --- | --- | --- |
+| X | Triangle | DPadUp |
+| A | Cross | DPadDown |
+| Y | Square | DPadLeft |
+| B | Circle | DPadRight |
+
+Other inputs:
+
+| Quest 3 input | Output |
+| --- | --- |
+| Left Grip | L1 |
+| Right Grip | R1 |
+| Right Stick Click | L1 |
+| Right Trigger down | DrinkWater, then immediately return to `mode0` |
+| Left Trigger short or long press | Return to `mode0` |
+
+### mode2: action58 mode
+
+| Quest 3 input | Output |
+| --- | --- |
+| While mode is active | Hold virtual L2 |
+| A | Cross |
+| B | Circle |
+| Y | Square |
+| X | Triangle |
+| Left Grip | L1 |
+| Right Grip | R1 |
+| Right Stick Click | L1 |
+| Right Trigger down | EyeMask, then immediately return to `mode0` |
+| Left Trigger short or long press | Return to `mode0` |
+
+### POP UI Override
+
+When POP UI is detected, ABXY uses POP navigation mapping. This takes priority over normal mode-specific ABXY mapping.
+
+| Quest 3 input | Output |
+| --- | --- |
+| Y | DPadUp |
+| X | DPadDown |
+| A | Cross |
+| B | Circle |
+
+Current POP detection includes:
+
+- An active `ChooseDildoPanelView`.
+- An active `BasePanelView` hierarchy containing `ChooseDildoPanel`.
+- An active UI object or hierarchy containing `InteractMenuPanel`.
+
+### Circle UI Override
+
+When Circle UI is detected, meaning the game's ring menu is open, special handling is enabled.
+
+Current Circle detection includes:
+
+- Active `RingMenuParentView.Instance` with `IsOpenRing == true`.
+- Any active `RingMenuParentView` with `IsOpenRing == true`.
+
+Rules:
+
+| Condition | Result |
+| --- | --- |
+| In `mode1` / `mode2`, Circle UI is open, and exactly one ABXY button is held, and it is A or B | Swap movement and camera sticks |
+| In `mode1` / `mode2`, ABXY was pressed and Circle UI was never detected before release | Return to `mode0` on release |
+| In `mode1` / `mode2`, Circle UI was detected while ABXY was held | Keep the current mode on release |
+
+### Cursor Mode
+
+`L3 + R3` toggles cursor mode. Exiting cursor mode always returns to `mode0`.
+
+Cursor mode skips normal controller-mode button mapping and uses the right-hand ray plus virtual mouse input.
+
+| Quest 3 input | Output |
+| --- | --- |
+| Right Trigger | Left mouse button + `InputManager.InputType.LeftClick` |
+| Left Trigger | Right mouse button + `InputManager.InputType.RightClick` |
+| Left Grip | `UiRingLeft` / `TabLeft` / `Tab2Left` |
+| Right Grip | `UiRingRight` / `TabRight` / `Tab2Right` |
+| A | `Interact` / `Accept` |
+| B | `Cancel` / `SystemMenu` |
+| Y | Square |
+| X | Triangle |
+| Right Stick Up | Mouse wheel up + `UIUp` |
+| Right Stick Down | Mouse wheel down + `UIDown` |
+
+Right-stick directional input uses a deadzone and diagonal guard:
+
+- Deadzone is controlled by `Quest3RightStickDeadzone`.
+- Diagonal guard angle is controlled by `Quest3RightStickDiagonalGuardDegrees`.

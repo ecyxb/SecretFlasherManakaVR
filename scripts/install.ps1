@@ -109,6 +109,8 @@ $plugin = Find-BuiltPlugin -ProjectRoot $projectRoot -BuildConfiguration $Config
 $pluginOutputDir = $plugin.Directory.FullName
 $pluginInstallDir = Join-Path $gameRootPath "BepInEx\plugins"
 $dependencyInstallDir = $pluginInstallDir
+$inputSourceDir = Join-Path $packageRoot.ProviderPath "input"
+$inputInstallDir = Join-Path $pluginInstallDir "SecretFlasherManakaVR_Input"
 $existingLegacyPlugin = Join-Path $gameRootPath "BepInEx\plugins\SecretFlasherManakaMod.dll"
 
 if (Test-Path -LiteralPath $existingLegacyPlugin -PathType Leaf) {
@@ -117,6 +119,7 @@ if (Test-Path -LiteralPath $existingLegacyPlugin -PathType Leaf) {
 }
 
 New-Item -ItemType Directory -Path $pluginInstallDir -Force | Out-Null
+New-Item -ItemType Directory -Path $inputInstallDir -Force | Out-Null
 
 $dependencyNames = @(
     "openvr_api.dll",
@@ -198,9 +201,28 @@ foreach ($file in ($dependencies | Sort-Object FullName -Unique)) {
     Write-Host "     -> $destination"
 }
 
+if (Test-Path -LiteralPath $inputSourceDir -PathType Container) {
+    foreach ($file in (Get-ChildItem -LiteralPath $inputSourceDir -File)) {
+        $destination = Join-Path $inputInstallDir $file.Name
+        if ((Test-Path -LiteralPath $destination -PathType Leaf) -and -not $Force) {
+            $sourceHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+            $destHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
+            if ($sourceHash -eq $destHash) {
+                Write-Host "Unchanged: $destination"
+                continue
+            }
+        }
+
+        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+        Write-Host "Copied: $($file.FullName)"
+        Write-Host "     -> $destination"
+    }
+}
+
 Write-Host ""
 Write-Host "Install complete:"
 Write-Host "  Plugin:       $pluginDestination"
 Write-Host "  Dependencies: $dependencyInstallDir"
+Write-Host "  Input:        $inputInstallDir"
 Write-Host ""
 Write-Host "Launch SteamVR first, then start SecretFlasherManaka.exe for headset testing."

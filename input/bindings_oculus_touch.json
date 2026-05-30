@@ -1,0 +1,95 @@
+{
+  "action_manifest_version": 0,
+  "alias_info": {},
+  "controller_type": "oculus_touch",
+  "category": "steamvr_input",
+  "description": "",
+  "name": "SecretFlasherManakaVR Quest 3",
+  "options": {},
+  "simulated_actions": [],
+  "bindings": {
+    "/actions/quest3": {
+      "chords": [],
+      "haptics": [],
+      "poses": [
+        {
+          "output": "/actions/quest3/in/left_pose",
+          "path": "/user/hand/left/pose/tip"
+        },
+        {
+          "output": "/actions/quest3/in/right_pose",
+          "path": "/user/hand/right/pose/tip"
+        }
+      ],
+      "sources": [
+        {
+          "path": "/user/hand/right/input/a",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/quest3/in/a" } }
+        },
+        {
+          "path": "/user/hand/right/input/b",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/quest3/in/b" } }
+        },
+        {
+          "path": "/user/hand/left/input/x",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/quest3/in/x" } }
+        },
+        {
+          "path": "/user/hand/left/input/y",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/quest3/in/y" } }
+        },
+        {
+          "path": "/user/hand/left/input/application_menu",
+          "mode": "button",
+          "inputs": { "click": { "output": "/actions/quest3/in/left_menu" } }
+        },
+        {
+          "path": "/user/hand/left/input/grip",
+          "mode": "button",
+          "inputs": { "grab": { "output": "/actions/quest3/in/left_grip" } }
+        },
+        {
+          "path": "/user/hand/right/input/grip",
+          "mode": "button",
+          "inputs": { "grab": { "output": "/actions/quest3/in/right_grip" } }
+        },
+        {
+          "path": "/user/hand/left/input/trigger",
+          "mode": "trigger",
+          "inputs": {
+            "click": { "output": "/actions/quest3/in/left_trigger" },
+            "pull": { "output": "/actions/quest3/in/left_trigger_value" }
+          }
+        },
+        {
+          "path": "/user/hand/right/input/trigger",
+          "mode": "trigger",
+          "inputs": {
+            "click": { "output": "/actions/quest3/in/right_trigger" },
+            "pull": { "output": "/actions/quest3/in/right_trigger_value" }
+          }
+        },
+        {
+          "path": "/user/hand/left/input/joystick",
+          "mode": "joystick",
+          "inputs": {
+            "position": { "output": "/actions/quest3/in/left_stick" },
+            "click": { "output": "/actions/quest3/in/l3" }
+          }
+        },
+        {
+          "path": "/user/hand/right/input/joystick",
+          "mode": "joystick",
+          "inputs": {
+            "position": { "output": "/actions/quest3/in/right_stick" },
+            "click": { "output": "/actions/quest3/in/r3" }
+          }
+        }
+      ]
+    }
+  }
+}
