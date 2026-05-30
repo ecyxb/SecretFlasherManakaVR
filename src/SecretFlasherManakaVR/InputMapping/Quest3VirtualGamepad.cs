@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 namespace SecretFlasherManakaVR.InputMapping;
 
 internal enum Quest3VirtualGamepadButton
@@ -23,39 +21,25 @@ internal enum Quest3VirtualGamepadButton
 
 internal sealed class Quest3VirtualGamepadState
 {
-    private readonly HashSet<Quest3VirtualGamepadButton> buttons = new HashSet<Quest3VirtualGamepadButton>();
+    private ulong buttons;
 
     public void Clear()
     {
-        buttons.Clear();
+        buttons = 0UL;
     }
 
     public void Press(Quest3VirtualGamepadButton button)
     {
-        buttons.Add(button);
+        buttons |= Mask(button);
     }
 
     public bool IsPressed(Quest3VirtualGamepadButton button)
     {
-        return buttons.Contains(button);
+        return (buttons & Mask(button)) != 0UL;
     }
 
-    public IEnumerable<Quest3VirtualGamepadButton> Buttons => buttons;
-
-    public string BuildSummary()
+    private static ulong Mask(Quest3VirtualGamepadButton button)
     {
-        if (buttons.Count == 0)
-        {
-            return "none";
-        }
-
-        var names = new List<string>();
-        foreach (Quest3VirtualGamepadButton button in buttons)
-        {
-            names.Add(button.ToString());
-        }
-
-        names.Sort(StringComparer.Ordinal);
-        return string.Join(",", names.ToArray());
+        return 1UL << (int)button;
     }
 }

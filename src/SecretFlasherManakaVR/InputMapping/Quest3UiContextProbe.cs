@@ -4,62 +4,64 @@ using Common.Scripts.UI;
 using ExposureUnnoticed2.ObjectUI.ChooseDildoPanelView;
 using ExposureUnnoticed2.ObjectUI.InGame.RingMenu;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 
 namespace SecretFlasherManakaVR.InputMapping;
 
 internal sealed class Quest3UiContextProbe
 {
+    private const float ScanIntervalSeconds = 0.12f;
+
     private readonly ManualLogSource? logger;
-    private float nextDiagnosticTime;
+    private Quest3UiContext cachedContext = Quest3UiContext.None;
+    private float nextScanTime;
+    private bool warned;
 
     public Quest3UiContextProbe(ManualLogSource? logger)
     {
         this.logger = logger;
     }
 
-    public Quest3UiContext Detect(ModConfig settings, string inputSource)
+    public Quest3UiContext Detect(Quest3InputSnapshot snapshot)
     {
-        bool pop = TryDetectPop(out var popDiagnostic);
-        bool circle = TryDetectCircle(out var circleDiagnostic);
-
-        Quest3UiContext context;
-        if (pop)
+        if (!snapshot.IsAnyControllerConnected)
         {
-            context = new Quest3UiContext(Quest3UiContextKind.Pop, popDiagnostic);
-            if (circle && settings.LogActiveUiOnInput.Value)
-            {
-                LogDiagnostic(settings, inputSource, "POP and Circle are both active; POP has priority. POP=" + popDiagnostic + " Circle=" + circleDiagnostic);
-            }
-        }
-        else if (circle)
-        {
-            context = new Quest3UiContext(Quest3UiContextKind.Circle, circleDiagnostic);
-        }
-        else
-        {
-            context = Quest3UiContext.None;
+            cachedContext = Quest3UiContext.None;
+            nextScanTime = 0.0f;
+            return cachedContext;
         }
 
-        if (settings.LogActiveUiOnInput.Value && context.Kind != Quest3UiContextKind.None)
+        if (Time.unscaledTime < nextScanTime)
         {
-            LogDiagnostic(settings, inputSource, context.Kind + " active: " + context.Diagnostic);
+            return cachedContext;
         }
 
-        return context;
+        nextScanTime = Time.unscaledTime + ScanIntervalSeconds;
+
+        try
+        {
+            cachedContext = TryDetectPop()
+                ? Quest3UiContext.Pop
+                : TryDetectCircle()
+                    ? Quest3UiContext.Circle
+                    : Quest3UiContext.None;
+        }
+        catch (Exception ex)
+        {
+            WarnOnce("Quest 3 UI context probe failed: " + ex.Message);
+            cachedContext = Quest3UiContext.None;
+        }
+
+        return cachedContext;
     }
 
-    private static bool TryDetectPop(out string diagnostic)
+    private static bool TryDetectPop()
     {
-        diagnostic = string.Empty;
-
-        if (TryDetectChooseDildoPanel(out diagnostic))
+        if (TryDetectChooseDildoPanel())
         {
             return true;
         }
 
-        if (TryDetectInteractMenuPanel(out diagnostic))
+        if (TryDetectInteractMenuPanel())
         {
             return true;
         }
@@ -67,217 +69,136 @@ internal sealed class Quest3UiContextProbe
         return false;
     }
 
-    private static bool TryDetectChooseDildoPanel(out string diagnostic)
+    private static bool TryDetectChooseDildoPanel()
     {
-        diagnostic = string.Empty;
-
-        try
+        var panels = Resources.FindObjectsOfTypeAll<ChooseDildoPanelView>();
+        for (int i = 0; i < panels.Length; i++)
         {
-            var panels = Resources.FindObjectsOfTypeAll<ChooseDildoPanelView>();
-            for (int i = 0; i < panels.Length; i++)
+            var panel = panels[i];
+            if (panel == null || panel.gameObject == null || !panel.gameObject.activeInHierarchy)
             {
-                var panel = panels[i];
-                if (panel == null || panel.gameObject == null || !panel.gameObject.activeInHierarchy)
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                bool isActive = false;
-                try
-                {
-                    isActive = panel.IsActivePanel();
-                }
-                catch
-                {
-                    isActive = panel.enabled;
-                }
-
-                if (isActive)
-                {
-                    diagnostic = "ChooseDildoPanelView path=" + BuildPath(panel.transform) + " currentSelectIndex=" + SafeSelectIndex(panel);
-                    return true;
-                }
+            if (IsPanelActive(panel))
+            {
+                return true;
             }
         }
-        catch (Exception ex)
-        {
-            diagnostic = "ChooseDildoPanelView probe failed: " + ex.Message;
-        }
 
-        try
+        var basePanels = Resources.FindObjectsOfTypeAll<BasePanelView>();
+        for (int i = 0; i < basePanels.Length; i++)
         {
-            var basePanels = Resources.FindObjectsOfTypeAll<BasePanelView>();
-            for (int i = 0; i < basePanels.Length; i++)
+            var panel = basePanels[i];
+            if (panel != null &&
+                panel.gameObject != null &&
+                panel.gameObject.activeInHierarchy &&
+                HasNameInHierarchy(panel.transform, "ChooseDildoPanel"))
             {
-                var panel = basePanels[i];
-                if (panel != null &&
-                    panel.gameObject != null &&
-                    panel.gameObject.activeInHierarchy &&
-                    BuildPath(panel.transform).IndexOf("ChooseDildoPanel", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    diagnostic = "ChooseDildoPanel fallback path=" + BuildPath(panel.transform);
-                    return true;
-                }
+                return true;
             }
-        }
-        catch
-        {
         }
 
         return false;
     }
 
-    private static bool TryDetectInteractMenuPanel(out string diagnostic)
+    private static bool IsPanelActive(ChooseDildoPanelView panel)
     {
-        diagnostic = string.Empty;
-
         try
         {
-            var basePanels = Resources.FindObjectsOfTypeAll<BasePanelView>();
-            for (int i = 0; i < basePanels.Length; i++)
+            return panel.IsActivePanel();
+        }
+        catch
+        {
+            return panel.enabled;
+        }
+    }
+
+    private static bool TryDetectInteractMenuPanel()
+    {
+        var basePanels = Resources.FindObjectsOfTypeAll<BasePanelView>();
+        for (int i = 0; i < basePanels.Length; i++)
+        {
+            var panel = basePanels[i];
+            if (panel != null &&
+                panel.gameObject != null &&
+                panel.gameObject.activeInHierarchy &&
+                HasNameInHierarchy(panel.transform, "InteractMenuPanel"))
             {
-                var panel = basePanels[i];
-                if (panel == null || panel.gameObject == null || !panel.gameObject.activeInHierarchy)
-                {
-                    continue;
-                }
-
-                string path = BuildPath(panel.transform);
-                if (path.IndexOf("InteractMenuPanel", StringComparison.OrdinalIgnoreCase) < 0)
-                {
-                    continue;
-                }
-
-                diagnostic = "InteractMenuPanel BasePanelView path=" + path;
                 return true;
             }
         }
-        catch (Exception ex)
-        {
-            diagnostic = "InteractMenuPanel BasePanelView probe failed: " + ex.Message;
-        }
 
-        try
+        var transforms = Resources.FindObjectsOfTypeAll<Transform>();
+        for (int i = 0; i < transforms.Length; i++)
         {
-            var transforms = Resources.FindObjectsOfTypeAll<Transform>();
-            for (int i = 0; i < transforms.Length; i++)
+            var transform = transforms[i];
+            if (transform != null &&
+                transform.gameObject != null &&
+                transform.gameObject.activeInHierarchy &&
+                ContainsName(transform, "InteractMenuPanel"))
             {
-                var transform = transforms[i];
-                if (transform == null ||
-                    transform.gameObject == null ||
-                    !transform.gameObject.activeInHierarchy ||
-                    transform.name.IndexOf("InteractMenuPanel", StringComparison.OrdinalIgnoreCase) < 0)
-                {
-                    continue;
-                }
-
-                diagnostic = "InteractMenuPanel path=" + BuildPath(transform);
                 return true;
             }
-        }
-        catch (Exception ex)
-        {
-            diagnostic = "InteractMenuPanel transform probe failed: " + ex.Message;
         }
 
         return false;
     }
 
-    private static bool TryDetectCircle(out string diagnostic)
+    private static bool TryDetectCircle()
     {
-        diagnostic = string.Empty;
-
-        try
+        var instance = RingMenuParentView.Instance;
+        if (instance != null && instance.gameObject != null && instance.gameObject.activeInHierarchy && instance.IsOpenRing)
         {
-            var instance = RingMenuParentView.Instance;
-            if (instance != null && instance.gameObject != null && instance.gameObject.activeInHierarchy && instance.IsOpenRing)
+            return true;
+        }
+
+        var parents = Resources.FindObjectsOfTypeAll<RingMenuParentView>();
+        for (int i = 0; i < parents.Length; i++)
+        {
+            var parent = parents[i];
+            if (parent != null && parent.gameObject != null && parent.gameObject.activeInHierarchy && parent.IsOpenRing)
             {
-                diagnostic = "RingMenuParentView.Instance path=" + BuildPath(instance.transform);
                 return true;
             }
-        }
-        catch (Exception ex)
-        {
-            diagnostic = "RingMenuParentView.Instance probe failed: " + ex.Message;
-        }
-
-        try
-        {
-            var parents = Resources.FindObjectsOfTypeAll<RingMenuParentView>();
-            for (int i = 0; i < parents.Length; i++)
-            {
-                var parent = parents[i];
-                if (parent != null && parent.gameObject != null && parent.gameObject.activeInHierarchy && parent.IsOpenRing)
-                {
-                    diagnostic = "RingMenuParentView path=" + BuildPath(parent.transform);
-                    return true;
-                }
-            }
-        }
-        catch
-        {
         }
 
         return false;
     }
 
-    private void LogDiagnostic(ModConfig settings, string inputSource, string message)
+    private void WarnOnce(string message)
     {
-        if (Time.unscaledTime < nextDiagnosticTime)
+        if (!warned)
         {
-            return;
-        }
-
-        nextDiagnosticTime = Time.unscaledTime + 1.0f;
-        string selected = string.Empty;
-        if (settings.LogCurrentSelectedUi.Value)
-        {
-            selected = " selected=" + CurrentSelectedPath();
-        }
-
-        logger?.LogInfo("[Quest3Input] scene=" + SceneManager.GetActiveScene().name + " source=" + inputSource + selected + " " + message);
-    }
-
-    private static string CurrentSelectedPath()
-    {
-        try
-        {
-            var selected = EventSystem.current == null ? null : EventSystem.current.currentSelectedGameObject;
-            return selected == null ? "<none>" : BuildPath(selected.transform);
-        }
-        catch
-        {
-            return "<unavailable>";
+            warned = true;
+            logger?.LogWarning(message);
         }
     }
 
-    private static int SafeSelectIndex(ChooseDildoPanelView panel)
+    private static bool HasNameInHierarchy(Transform transform, string keyword)
     {
-        try
-        {
-            return panel.currentSelectIndex;
-        }
-        catch
-        {
-            return -1;
-        }
-    }
-
-    private static string BuildPath(Transform transform)
-    {
-        if (transform == null)
-        {
-            return string.Empty;
-        }
-
-        string path = transform.name;
-        var current = transform.parent;
+        Transform current = transform;
         while (current != null)
         {
-            path = current.name + "/" + path;
+            if (ContainsName(current, keyword))
+            {
+                return true;
+            }
+
             current = current.parent;
         }
 
-        return path;
+        return false;
+    }
+
+    private static bool ContainsName(Transform transform, string keyword)
+    {
+        string name = transform == null ? string.Empty : transform.name;
+        if (string.IsNullOrEmpty(name))
+        {
+            return false;
+        }
+
+        return name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }

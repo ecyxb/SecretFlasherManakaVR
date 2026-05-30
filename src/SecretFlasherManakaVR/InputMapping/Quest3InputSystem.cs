@@ -12,19 +12,13 @@ internal static class Quest3InputSystem
     private static Quest3OpenVrInputSource? inputSource;
     private static Quest3UiContextProbe? uiProbe;
     private static Quest3CursorRayRenderer? cursorRay;
-    private static Quest3ModeStatusOverlay? modeStatus;
+    private static Quest3ModeStatusOverlay? modeStatusOverlay;
     private static Quest3VirtualGamepadDriver? virtualGamepad;
     private static Quest3UiPointerDispatcher? uiPointer;
     private static readonly Quest3ButtonTrackerSet Buttons = new Quest3ButtonTrackerSet();
     private static readonly Quest3InputMapper Mapper = new Quest3InputMapper();
     private static readonly Quest3VirtualInputState State = new Quest3VirtualInputState();
     private static int lastTickFrame = -1;
-    private static float nextConsumerLogTime;
-    private static float nextPointerLogTime;
-    private static bool previousR2;
-    private static bool previousL3;
-    private static bool previousR3;
-    private static bool previousCursorMode;
 
     public static Quest3VirtualInputState Current => State;
 
@@ -35,7 +29,7 @@ internal static class Quest3InputSystem
         inputSource = new Quest3OpenVrInputSource(config, source);
         uiProbe = new Quest3UiContextProbe(source);
         cursorRay = new Quest3CursorRayRenderer(source);
-        modeStatus = new Quest3ModeStatusOverlay(source);
+        modeStatusOverlay = new Quest3ModeStatusOverlay(source);
         virtualGamepad = new Quest3VirtualGamepadDriver(source);
         uiPointer = new Quest3UiPointerDispatcher(source);
         lastTickFrame = -1;
@@ -45,11 +39,11 @@ internal static class Quest3InputSystem
     public static void Shutdown()
     {
         cursorRay?.Shutdown();
-        modeStatus?.Shutdown();
+        modeStatusOverlay?.Shutdown();
         virtualGamepad?.Shutdown();
         uiPointer?.Shutdown();
         cursorRay = null;
-        modeStatus = null;
+        modeStatusOverlay = null;
         virtualGamepad = null;
         uiPointer = null;
         inputSource = null;
@@ -73,7 +67,7 @@ internal static class Quest3InputSystem
             return;
         }
 
-        if (inputSource == null || uiProbe == null || cursorRay == null || modeStatus == null || virtualGamepad == null || uiPointer == null)
+        if (inputSource == null || uiProbe == null || cursorRay == null || modeStatusOverlay == null || virtualGamepad == null || uiPointer == null)
         {
             Configure(config, Plugin.Logger);
         }
@@ -81,13 +75,12 @@ internal static class Quest3InputSystem
         lastTickFrame = Time.frameCount;
         var snapshot = inputSource == null ? default : inputSource.Read();
         Buttons.Update(snapshot);
-        var context = uiProbe == null ? Quest3UiContext.None : uiProbe.Detect(config, snapshot.Source);
+        var context = uiProbe == null ? Quest3UiContext.None : uiProbe.Detect(snapshot);
         Mapper.Map(snapshot, Buttons, context, config, State);
         virtualGamepad?.Tick(State);
         UpdateVirtualMousePosition(State);
-        LogPointerFrame(config, State);
         cursorRay?.Tick(State);
-        modeStatus?.Tick(State);
+        modeStatusOverlay?.Tick(State);
         uiPointer?.Tick(State);
     }
 
@@ -100,7 +93,6 @@ internal static class Quest3InputSystem
         }
 
         result = true;
-        LogConsumer("IsDown", type.ToString());
         return true;
     }
 
@@ -113,7 +105,6 @@ internal static class Quest3InputSystem
         }
 
         result = true;
-        LogConsumer("IsDownFrame", type.ToString());
         return true;
     }
 
@@ -126,7 +117,6 @@ internal static class Quest3InputSystem
         }
 
         result = true;
-        LogConsumer("IsUpFrame", type.ToString());
         return true;
     }
 
@@ -169,7 +159,6 @@ internal static class Quest3InputSystem
         }
 
         result = State.VirtualMousePosition;
-        LogConsumer("mousePosition", result.ToString("F1"));
         return true;
     }
 
@@ -182,7 +171,6 @@ internal static class Quest3InputSystem
         }
 
         result += State.MouseScrollDelta;
-        LogConsumer("mouseScrollDelta", State.MouseScrollDelta.ToString("F2"));
         return true;
     }
 
@@ -195,7 +183,6 @@ internal static class Quest3InputSystem
         }
 
         result += State.MouseScrollDelta.y;
-        LogConsumer("Mouse ScrollWheel", State.MouseScrollDelta.y.ToString("F2"));
         return true;
     }
 
@@ -209,71 +196,5 @@ internal static class Quest3InputSystem
 
         state.HasVirtualMousePosition = true;
         state.VirtualMousePosition = new Vector3(screenPoint.x, screenPoint.y, 0.0f);
-    }
-
-    private static void LogPointerFrame(ModConfig config, Quest3VirtualInputState state)
-    {
-        if (!config.LogInputConsumers.Value)
-        {
-            previousR2 = state.Snapshot.IsPressed(Quest3Button.RightTrigger);
-            previousL3 = state.Snapshot.IsPressed(Quest3Button.LeftStickClick);
-            previousR3 = state.Snapshot.IsPressed(Quest3Button.RightStickClick);
-            previousCursorMode = state.IsCursorMode;
-            return;
-        }
-
-        bool currentL3 = state.Snapshot.IsPressed(Quest3Button.LeftStickClick);
-        bool currentR3 = state.Snapshot.IsPressed(Quest3Button.RightStickClick);
-        bool currentR2 = state.Snapshot.IsPressed(Quest3Button.RightTrigger);
-        bool l3Changed = currentL3 != previousL3;
-        bool r3Changed = currentR3 != previousR3;
-        bool r2Changed = currentR2 != previousR2;
-        bool cursorChanged = state.IsCursorMode != previousCursorMode;
-        bool periodic = Time.unscaledTime >= nextPointerLogTime;
-        if (!l3Changed && !r3Changed && !r2Changed && !cursorChanged && !periodic)
-        {
-            return;
-        }
-
-        nextPointerLogTime = Time.unscaledTime + 1.0f;
-        previousL3 = currentL3;
-        previousR3 = currentR3;
-        previousR2 = currentR2;
-        previousCursorMode = state.IsCursorMode;
-
-        string mouse = state.HasVirtualMousePosition
-            ? state.VirtualMousePosition.ToString("F1")
-            : "<no-vr-ui-hit>";
-        string pose = state.Snapshot.Right.HasPose
-            ? "pose=ok"
-            : "pose=missing";
-        logger?.LogInfo("[Quest3Input] pointer frame cursor=" + state.IsCursorMode +
-            " mode=" + state.ControllerMode +
-            " source=" + state.Snapshot.Source +
-            " fresh=" + state.Snapshot.IsFresh +
-            " connected=" + state.Snapshot.IsAnyControllerConnected +
-            " l3=" + currentL3 +
-            " r3=" + currentR3 +
-            " r2=" + currentR2 +
-            " r2Value=" + state.Snapshot.Right.TriggerValue.ToString("F2") +
-            " r2Down=" + state.IsMouseButtonDownFrame(0) +
-            " r2Up=" + state.IsMouseButtonUpFrame(0) +
-            " leftStick=" + state.Snapshot.Left.Stick.ToString("F2") +
-            " rightStick=" + state.Snapshot.Right.Stick.ToString("F2") +
-            " mouse=" + mouse +
-            " " + pose +
-            " ui=" + state.UiContext.Kind);
-    }
-
-    private static void LogConsumer(string method, string input)
-    {
-        var config = settings ?? Plugin.Settings;
-        if (config == null || !config.LogInputConsumers.Value || Time.unscaledTime < nextConsumerLogTime)
-        {
-            return;
-        }
-
-        nextConsumerLogTime = Time.unscaledTime + 0.5f;
-        logger?.LogInfo("[Quest3Input] consumed " + method + "(" + input + ") mode=" + State.ControllerMode + " cursor=" + State.IsCursorMode + " ui=" + State.UiContext.Kind);
     }
 }

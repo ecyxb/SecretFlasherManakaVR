@@ -17,8 +17,6 @@ internal sealed class Quest3UiPointerDispatcher
     private RaycastResult pressRaycast;
     private bool eligibleForClick;
     private bool warned;
-    private float nextLogTime;
-    private string lastTargetPath = string.Empty;
 
     public Quest3UiPointerDispatcher(ManualLogSource? logger)
     {
@@ -60,7 +58,6 @@ internal sealed class Quest3UiPointerDispatcher
             var eventSystem = EventSystem.current;
             if (eventSystem == null)
             {
-                Log("no EventSystem.current at screen=" + screenPoint.ToString("F1"), true);
                 return;
             }
 
@@ -68,7 +65,6 @@ internal sealed class Quest3UiPointerDispatcher
             RaycastResult raycast = Raycast(eventSystem, eventData);
             GameObject currentObject = raycast.gameObject;
             SafeSetCurrentRaycast(eventData, raycast);
-            LogRaycast(screenPoint, currentObject, state);
 
             DispatchHover(currentObject, eventData);
 
@@ -161,8 +157,6 @@ internal sealed class Quest3UiPointerDispatcher
         if (hoveredEnterHandler != null)
         {
             ExecuteEvents.Execute(hoveredEnterHandler, eventData, ExecuteEvents.pointerEnterHandler);
-            Log("hover enter raw=" + PathOf(currentObject == null ? null : currentObject.transform) +
-                " handler=" + PathOf(hoveredEnterHandler.transform), true);
         }
     }
 
@@ -194,7 +188,6 @@ internal sealed class Quest3UiPointerDispatcher
 
         if (currentObject == null)
         {
-            Log("pointer down no target screen=" + eventData.position.ToString("F1"), true);
             return;
         }
 
@@ -208,7 +201,6 @@ internal sealed class Quest3UiPointerDispatcher
 
         pressedObject = pressTarget;
         SafeSetPointerPress(eventData, pressedObject);
-        Log("pointer down target=" + PathOf(currentObject.transform) + " pressTarget=" + PathOf(pressedObject == null ? null : pressedObject.transform), true);
     }
 
     private void DispatchPointerUp(GameObject? currentObject, Vector2 screenPoint)
@@ -238,13 +230,6 @@ internal sealed class Quest3UiPointerDispatcher
         if (eligibleForClick && pressedObject != null && pressedObject == clickTarget)
         {
             ExecuteEvents.Execute(pressedObject, eventData, ExecuteEvents.pointerClickHandler);
-            Log("pointer click target=" + PathOf(pressedObject.transform), true);
-        }
-        else
-        {
-            Log("pointer up no click pressed=" + PathOf(pressedObject == null ? null : pressedObject.transform) +
-                " currentClick=" + PathOf(clickTarget == null ? null : clickTarget.transform) +
-                " eligible=" + eligibleForClick, true);
         }
 
         ClearPress();
@@ -261,7 +246,7 @@ internal sealed class Quest3UiPointerDispatcher
         }
         catch (Exception ex)
         {
-            Log("prepare press event skipped: " + ex.GetType().Name + " " + ex.Message, true);
+            WarnOnce("Quest 3 UI pointer press preparation failed: " + ex.Message);
         }
     }
 
@@ -273,79 +258,17 @@ internal sealed class Quest3UiPointerDispatcher
         }
         catch (Exception ex)
         {
-            Log("set pointerPress skipped: " + ex.GetType().Name + " " + ex.Message, true);
+            WarnOnce("Quest 3 UI pointer press target assignment failed: " + ex.Message);
         }
     }
 
-    private void LogRaycast(Vector2 screenPoint, GameObject? currentObject, Quest3VirtualInputState state)
+    private void WarnOnce(string message)
     {
-        if (Plugin.Settings == null || !Plugin.Settings.LogInputConsumers.Value)
+        if (!warned)
         {
-            return;
+            warned = true;
+            logger?.LogWarning(message);
         }
-
-        string path = PathOf(currentObject == null ? null : currentObject.transform);
-        bool changed = path != lastTargetPath;
-        if (!changed && Time.unscaledTime < nextLogTime && !state.IsMouseButtonDownFrame(0) && !state.IsMouseButtonUpFrame(0))
-        {
-            return;
-        }
-
-        lastTargetPath = path;
-        nextLogTime = Time.unscaledTime + 1.0f;
-        Log("raycast screen=" + screenPoint.ToString("F1") +
-            " target=" + path +
-            " components=" + ComponentSummary(currentObject) +
-            " r2Down=" + state.IsMouseButtonDownFrame(0) +
-            " r2Up=" + state.IsMouseButtonUpFrame(0), true);
-    }
-
-    private void Log(string message, bool force)
-    {
-        if (!force && Time.unscaledTime < nextLogTime)
-        {
-            return;
-        }
-
-        logger?.LogInfo("[Quest3Input] ui-pointer " + message);
-    }
-
-    private static string ComponentSummary(GameObject? gameObject)
-    {
-        if (gameObject == null)
-        {
-            return "<none>";
-        }
-
-        Component[] components = gameObject.GetComponents<Component>();
-        int count = Mathf.Min(components.Length, 8);
-        string[] names = new string[count];
-        for (int i = 0; i < count; i++)
-        {
-            Component component = components[i];
-            names[i] = component == null ? "<null>" : component.GetType().FullName;
-        }
-
-        return string.Join(",", names);
-    }
-
-    private static string PathOf(Transform? transform)
-    {
-        if (transform == null)
-        {
-            return "<null>";
-        }
-
-        string path = transform.gameObject == null ? transform.name : transform.gameObject.name;
-        Transform current = transform.parent;
-        while (current != null)
-        {
-            string name = current.gameObject == null ? current.name : current.gameObject.name;
-            path = name + "/" + path;
-            current = current.parent;
-        }
-
-        return path;
     }
 
     private void ClearPress()

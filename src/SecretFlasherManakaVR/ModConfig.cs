@@ -171,24 +171,6 @@ public sealed class ModConfig
                 "Extra local roll correction for the Quest 3 cursor ray.",
                 new AcceptableValueRange<float>(-90.0f, 90.0f)));
 
-        LogActiveUiOnInput = config.Bind(
-            InputSection,
-            nameof(LogActiveUiOnInput),
-            false,
-            "Log active POP/Circle UI context when Quest 3 input is received.");
-
-        LogInputConsumers = config.Bind(
-            InputSection,
-            nameof(LogInputConsumers),
-            false,
-            "Log the game input methods consumed by Quest 3 virtual input.");
-
-        LogCurrentSelectedUi = config.Bind(
-            InputSection,
-            nameof(LogCurrentSelectedUi),
-            false,
-            "Include EventSystem.current.currentSelectedGameObject in Quest 3 input diagnostics.");
-
         SourceRotationMode = config.Bind(
             StereoSection,
             nameof(SourceRotationMode),
@@ -457,9 +439,6 @@ public sealed class ModConfig
     public ConfigEntry<float> Quest3CursorRayPitchOffsetDegrees { get; }
     public ConfigEntry<float> Quest3CursorRayYawOffsetDegrees { get; }
     public ConfigEntry<float> Quest3CursorRayRollOffsetDegrees { get; }
-    public ConfigEntry<bool> LogActiveUiOnInput { get; }
-    public ConfigEntry<bool> LogInputConsumers { get; }
-    public ConfigEntry<bool> LogCurrentSelectedUi { get; }
     public ConfigEntry<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
     public ConfigEntry<bool> LogPoseDebug { get; }

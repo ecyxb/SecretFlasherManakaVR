@@ -13,7 +13,6 @@ internal sealed class Quest3ModeStatusOverlay
     private Text? label;
     private bool creationFailed;
     private Quest3ControllerMode displayedMode;
-    private string displayedMappedInputs = string.Empty;
     private bool hasDisplayedMode;
 
     public Quest3ModeStatusOverlay(ManualLogSource? logger)
@@ -35,13 +34,11 @@ internal sealed class Quest3ModeStatusOverlay
             return;
         }
 
-        string mappedInputs = state.BuildMappedInputSummary();
-        if (!hasDisplayedMode || displayedMode != state.ControllerMode || displayedMappedInputs != mappedInputs)
+        if (!hasDisplayedMode || displayedMode != state.ControllerMode)
         {
             displayedMode = state.ControllerMode;
-            displayedMappedInputs = mappedInputs;
             hasDisplayedMode = true;
-            label.text = ModeLabel(state.ControllerMode) + "\nmapped: " + mappedInputs;
+            label.text = ModeLabel(state.ControllerMode);
         }
 
         float width = Mathf.Max(0.01f, panelScale.x);
@@ -61,20 +58,23 @@ internal sealed class Quest3ModeStatusOverlay
         labelRect.anchorMax = Vector2.zero;
         labelRect.pivot = Vector2.zero;
         labelRect.anchoredPosition = new Vector2(padding, padding);
-        labelRect.sizeDelta = new Vector2(canvasWidthUnits * 0.85f, canvasHeightUnits * 0.18f);
+        labelRect.sizeDelta = new Vector2(canvasWidthUnits * 0.45f, canvasHeightUnits * 0.08f);
         label.fontSize = Mathf.Clamp(Mathf.RoundToInt(canvasHeightUnits * 0.035f), 18, 64);
         SetVisible(true);
     }
 
     public void Shutdown()
     {
-        if (canvasObject != null)
+        if (canvasObject == null)
         {
-            Object.Destroy(canvasObject);
-            canvasObject = null;
-            canvasRect = null;
-            label = null;
+            return;
         }
+
+        Object.Destroy(canvasObject);
+        canvasObject = null;
+        canvasRect = null;
+        label = null;
+        hasDisplayedMode = false;
     }
 
     private void EnsureCreated()

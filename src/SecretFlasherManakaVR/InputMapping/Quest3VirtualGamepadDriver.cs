@@ -11,7 +11,6 @@ internal sealed class Quest3VirtualGamepadDriver
     private readonly ManualLogSource? logger;
     private Gamepad? gamepad;
     private bool creationFailed;
-    private string lastSummary = string.Empty;
 
     public Quest3VirtualGamepadDriver(ManualLogSource? logger)
     {
@@ -29,13 +28,6 @@ internal sealed class Quest3VirtualGamepadDriver
         var gamepadState = BuildState(state);
         InputSystem.QueueStateEvent(device, gamepadState);
         device.MakeCurrent();
-
-        string summary = state.Gamepad.BuildSummary();
-        if (summary != lastSummary)
-        {
-            lastSummary = summary;
-            logger?.LogInfo("[Quest3Input] virtual gamepad " + summary);
-        }
     }
 
     public void Shutdown()
@@ -99,12 +91,36 @@ internal sealed class Quest3VirtualGamepadDriver
             rightStick = state.IsCursorMode ? Vector2.zero : rightStick
         };
 
-        foreach (Quest3VirtualGamepadButton button in state.Gamepad.Buttons)
-        {
-            ApplyButton(ref result, button);
-        }
+        ApplyPressedButtons(ref result, state.Gamepad);
 
         return result;
+    }
+
+    private static void ApplyPressedButtons(ref GamepadState state, Quest3VirtualGamepadState buttons)
+    {
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Cross);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Circle);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Square);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Triangle);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.DPadUp);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.DPadDown);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.DPadLeft);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.DPadRight);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.L1);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.L2);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.R1);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.R2);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.R3);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Start);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Select);
+    }
+
+    private static void ApplyButtonIfPressed(ref GamepadState state, Quest3VirtualGamepadState buttons, Quest3VirtualGamepadButton button)
+    {
+        if (buttons.IsPressed(button))
+        {
+            ApplyButton(ref state, button);
+        }
     }
 
     private static void ApplyButton(ref GamepadState state, Quest3VirtualGamepadButton button)
