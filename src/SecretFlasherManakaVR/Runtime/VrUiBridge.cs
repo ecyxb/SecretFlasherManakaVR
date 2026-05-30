@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using ExposureUnnoticed2.Object3D.IngameManager;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace SecretFlasherManakaVR.Runtime
 {
@@ -345,9 +346,15 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             var states = new List<CanvasCaptureState>();
-            var hudLayout = new HudLayoutScope(logger);
+            var hudLayout = new HudLayoutScope(logger, settings);
             try
             {
+                captureCamera.targetTexture = uiTexture;
+                captureCamera.aspect = textureWidth / (float)textureHeight;
+                captureCamera.orthographicSize = textureHeight * 0.5f;
+                captureCamera.clearFlags = CameraClearFlags.SolidColor;
+                captureCamera.backgroundColor = Color.clear;
+
                 for (int i = 0; i < activeCanvases.Count; i++)
                 {
                     Canvas canvas = activeCanvases[i];
@@ -363,11 +370,6 @@ namespace SecretFlasherManakaVR.Runtime
                     hudLayout.Apply(canvas);
                 }
 
-                captureCamera.targetTexture = uiTexture;
-                captureCamera.aspect = textureWidth / (float)textureHeight;
-                captureCamera.orthographicSize = textureHeight * 0.5f;
-                captureCamera.clearFlags = CameraClearFlags.SolidColor;
-                captureCamera.backgroundColor = Color.clear;
                 captureCamera.Render();
                 SetPanelVisible(true);
             }
@@ -437,13 +439,16 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             float aspect = textureHeight <= 0 ? 16.0f / 9.0f : textureWidth / (float)textureHeight;
-            float width = Mathf.Max(0.25f, settings.VrUiDistance * 1.35f);
+            float panelScale = Mathf.Max(0.01f, settings.VrUiPanelScale);
+            float width = Mathf.Max(0.25f, settings.VrUiDistance * 1.35f) * panelScale;
             float height = width / aspect;
-            panelObject.transform.SetPositionAndRotation(uiPosition, uiRotation);
+            float pixelOffsetY = textureHeight <= 0 ? 0.0f : settings.VrUiPanelPixelOffsetY / textureHeight * height;
+            Vector3 panelPosition = uiPosition + uiRotation * (Vector3.up * pixelOffsetY);
+            panelObject.transform.SetPositionAndRotation(panelPosition, uiRotation);
             panelObject.transform.localScale = new Vector3(width, height, 1.0f);
             panelObject.layer = VrUiOverlayLayer;
 
-            currentPanelPosition = uiPosition;
+            currentPanelPosition = panelPosition;
             currentPanelRotation = uiRotation;
             currentPanelScale = panelObject.transform.localScale;
             currentTextureWidth = textureWidth;
@@ -494,11 +499,19 @@ namespace SecretFlasherManakaVR.Runtime
             return false;
         }
 
+        private enum HudRtKind
+        {
+            Face,
+            Body
+        }
+
         private sealed class HudLayoutScope
         {
             private const float HudReferenceWidth = 2560.0f;
             private const float HudReferenceHeight = 1440.0f;
+            private const float StatusInfoOffsetX = -150.0f;
 
+            private readonly VrRuntimeSettings settings;
             private readonly List<RectState> rectStates = new List<RectState>();
             private readonly List<ActiveState> activeStates = new List<ActiveState>();
             private readonly List<ParentState> parentStates = new List<ParentState>();
@@ -506,8 +519,9 @@ namespace SecretFlasherManakaVR.Runtime
             private readonly HashSet<int> savedObjects = new HashSet<int>();
             private readonly HashSet<int> savedParents = new HashSet<int>();
 
-            public HudLayoutScope(IVrRuntimeLogger logger)
+            public HudLayoutScope(IVrRuntimeLogger logger, VrRuntimeSettings settings)
             {
+                this.settings = settings;
             }
 
             public void Apply(Canvas canvas)
@@ -537,6 +551,9 @@ namespace SecretFlasherManakaVR.Runtime
                     MovePathToRoot(root, "MiddleLayer/PlayerInfo/MoistureIcon", ReferencePointToRoot(root, 980.0f, 1327.0f), null, 0.72f, 0.0f, true);
                     MoveComponentToRoot(root, manager.ecstasyGauge, ReferencePointToRoot(root, 700.0f, 1300.0f), null, 1.65f, 0.0f);
                     MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1495.0f, 1326.0f), null, 0.46f, 0.0f, true);
+                    ApplySelfCameraRt(manager.faceCameraImage, HudRtKind.Face);
+                    ApplySelfCameraRt(manager.bodyCameraImage, HudRtKind.Body);
+                    ShiftPathX(root, "MiddleLayer/Right/StatusInfo", StatusInfoOffsetX);
                 }
 
                 HideIfNameContains(root, "Shortcut");
@@ -550,6 +567,71 @@ namespace SecretFlasherManakaVR.Runtime
                 float width = rect.width > 0.0f ? rect.width : FallbackTextureWidth;
                 float height = rect.height > 0.0f ? rect.height : FallbackTextureHeight;
                 return new Vector2(referenceX * width / HudReferenceWidth, -referenceY * height / HudReferenceHeight);
+            }
+
+            private void ApplySelfCameraRt(RawImage image, HudRtKind kind)
+            {
+                if (image == null || image.gameObject == null || !image.gameObject.activeInHierarchy || !image.enabled)
+                {
+                    return;
+                }
+
+                RectTransform rect = image.rectTransform;
+                if (rect == null)
+                {
+                    return;
+                }
+
+                SaveRect(rect);
+                Vector2 configOffset = GetConfiguredOffset(kind);
+                float configScale = GetConfiguredScale(kind);
+                rect.anchoredPosition += configOffset;
+                rect.localScale = ScaleVector(rect.localScale, Mathf.Max(0.1f, configScale));
+            }
+
+            private void ShiftPathX(RectTransform root, string path, float offsetX)
+            {
+                if (root == null)
+                {
+                    return;
+                }
+
+                Transform target = root.Find(path);
+                RectTransform rect = target == null ? null : target.GetComponent<RectTransform>();
+                if (rect == null)
+                {
+                    return;
+                }
+
+                SaveRect(rect);
+                rect.anchoredPosition += new Vector2(offsetX, 0.0f);
+            }
+
+            private Vector2 GetConfiguredOffset(HudRtKind kind)
+            {
+                if (settings == null)
+                {
+                    return Vector2.zero;
+                }
+
+                return kind == HudRtKind.Face
+                    ? new Vector2(settings.VrUiFaceRtOffsetX, settings.VrUiFaceRtOffsetY)
+                    : new Vector2(settings.VrUiBodyRtOffsetX, settings.VrUiBodyRtOffsetY);
+            }
+
+            private float GetConfiguredScale(HudRtKind kind)
+            {
+                if (settings == null)
+                {
+                    return 1.0f;
+                }
+
+                return kind == HudRtKind.Face ? settings.VrUiFaceRtScale : settings.VrUiBodyRtScale;
+            }
+
+            private static Vector3 ScaleVector(Vector3 value, float scale)
+            {
+                return new Vector3(value.x * scale, value.y * scale, value.z);
             }
 
             public void Restore()

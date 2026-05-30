@@ -488,6 +488,70 @@ public sealed class ModConfig
                 "Vertical offset in headset/source-camera local space for converted UI.",
                 new AcceptableValueRange<float>(-2.0f, 2.0f)));
 
+        VrUiPanelScale = config.Bind(
+            VrUiSection,
+            nameof(VrUiPanelScale),
+            1.05f,
+            new ConfigDescription(
+                "Additional multiplier for the captured VR UI panel size.",
+                new AcceptableValueRange<float>(0.25f, 3.0f)));
+
+        VrUiPanelPixelOffsetY = config.Bind(
+            VrUiSection,
+            nameof(VrUiPanelPixelOffsetY),
+            -100.0f,
+            new ConfigDescription(
+                "Vertical panel offset in captured UI pixels. Negative values move the HUD downward.",
+                new AcceptableValueRange<float>(-2160.0f, 2160.0f)));
+
+        VrUiFaceRtOffsetX = config.Bind(
+            VrUiSection,
+            nameof(VrUiFaceRtOffsetX),
+            0.0f,
+            new ConfigDescription(
+                "Horizontal pixel offset for the HUD face RenderTexture image.",
+                new AcceptableValueRange<float>(-4096.0f, 4096.0f)));
+
+        VrUiFaceRtOffsetY = config.Bind(
+            VrUiSection,
+            nameof(VrUiFaceRtOffsetY),
+            0.0f,
+            new ConfigDescription(
+                "Vertical pixel offset for the HUD face RenderTexture image.",
+                new AcceptableValueRange<float>(-4096.0f, 4096.0f)));
+
+        VrUiFaceRtScale = config.Bind(
+            VrUiSection,
+            nameof(VrUiFaceRtScale),
+            1.0f,
+            new ConfigDescription(
+                "Scale multiplier for the HUD face RenderTexture image.",
+                new AcceptableValueRange<float>(0.1f, 5.0f)));
+
+        VrUiBodyRtOffsetX = config.Bind(
+            VrUiSection,
+            nameof(VrUiBodyRtOffsetX),
+            0.0f,
+            new ConfigDescription(
+                "Horizontal pixel offset for the HUD body RenderTexture image.",
+                new AcceptableValueRange<float>(-4096.0f, 4096.0f)));
+
+        VrUiBodyRtOffsetY = config.Bind(
+            VrUiSection,
+            nameof(VrUiBodyRtOffsetY),
+            0.0f,
+            new ConfigDescription(
+                "Vertical pixel offset for the HUD body RenderTexture image.",
+                new AcceptableValueRange<float>(-4096.0f, 4096.0f)));
+
+        VrUiBodyRtScale = config.Bind(
+            VrUiSection,
+            nameof(VrUiBodyRtScale),
+            1.0f,
+            new ConfigDescription(
+                "Scale multiplier for the HUD body RenderTexture image.",
+                new AcceptableValueRange<float>(0.1f, 5.0f)));
+
         VrUiMaxScanInterval = config.Bind(
             VrUiSection,
             nameof(VrUiMaxScanInterval),
@@ -624,6 +688,14 @@ public sealed class ModConfig
     public ConfigEntry<float> VrUiDistance { get; }
     public ConfigEntry<float> VrUiScale { get; }
     public ConfigEntry<float> VrUiVerticalOffset { get; }
+    public ConfigEntry<float> VrUiPanelScale { get; }
+    public ConfigEntry<float> VrUiPanelPixelOffsetY { get; }
+    public ConfigEntry<float> VrUiFaceRtOffsetX { get; }
+    public ConfigEntry<float> VrUiFaceRtOffsetY { get; }
+    public ConfigEntry<float> VrUiFaceRtScale { get; }
+    public ConfigEntry<float> VrUiBodyRtOffsetX { get; }
+    public ConfigEntry<float> VrUiBodyRtOffsetY { get; }
+    public ConfigEntry<float> VrUiBodyRtScale { get; }
     public ConfigEntry<float> VrUiMaxScanInterval { get; }
     public ConfigEntry<string> VrUiCanvasNameWhitelist { get; }
     public ConfigEntry<string> VrUiCanvasNameBlacklist { get; }
