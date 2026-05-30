@@ -23,6 +23,16 @@ public enum Quest3CursorRayDirection
     Left
 }
 
+public sealed class FixedConfigValue<T>
+{
+    public FixedConfigValue(T value)
+    {
+        Value = value;
+    }
+
+    public T Value { get; }
+}
+
 public sealed class ModConfig
 {
     private const string CoreSection = "01 Core - 核心启动";
@@ -31,7 +41,11 @@ public sealed class ModConfig
     private const string BodySection = "04 Body And View - 身体与视角";
     private const string VrUiSection = "05 VR UI Panel - VR界面面板";
     private const string NpcUiSection = "06 NPC UI - NPC标记界面";
-    private const string CompatibilitySection = "07 Compatibility - 兼容性";
+
+    private static FixedConfigValue<T> Fixed<T>(T value)
+    {
+        return new FixedConfigValue<T>(value);
+    }
 
     private ModConfig(ConfigFile config)
     {
@@ -47,21 +61,8 @@ public sealed class ModConfig
             true,
             "Allow the runtime layer to ask OpenVR to start SteamVR if it is not already running.");
 
-        IPDScale = config.Bind(
-            StereoSection,
-            nameof(IPDScale),
-            1.0f,
-            new ConfigDescription(
-                "Multiplier applied to the HMD eye separation reported by OpenVR.",
-                new AcceptableValueRange<float>(0.1f, 3.0f)));
-
-        WorldScale = config.Bind(
-            StereoSection,
-            nameof(WorldScale),
-            1.0f,
-            new ConfigDescription(
-                "Multiplier converting OpenVR meters into Unity world units.",
-                new AcceptableValueRange<float>(0.01f, 100.0f)));
+        IPDScale = Fixed(1.0f);
+        WorldScale = Fixed(1.0f);
 
         CameraHeightOffset = config.Bind(
             StereoSection,
@@ -77,17 +78,8 @@ public sealed class ModConfig
             KeyCode.F12,
             "Keyboard key used to recenter the current HMD forward direction.");
 
-        AutoRecenterOnStart = config.Bind(
-            InputSection,
-            nameof(AutoRecenterOnStart),
-            true,
-            "Automatically recenter once when the first valid HMD pose is received. This prevents SteamVR standing height from being added on top of the game camera.");
-
-        SuppressMouseLookInput = config.Bind(
-            InputSection,
-            nameof(SuppressMouseLookInput),
-            true,
-            "When VR is active, force legacy Mouse X/Y axes to zero so keyboard movement remains usable while HMD pose owns camera look.");
+        AutoRecenterOnStart = Fixed(true);
+        SuppressMouseLookInput = Fixed(true);
 
         EnableQuest3InputMapping = config.Bind(
             InputSection,
@@ -95,19 +87,8 @@ public sealed class ModConfig
             true,
             "Enable Quest 3 controller mapping through SteamVR/OpenVR input. Disable to leave the game's original input untouched.");
 
-        Quest3InputActionManifestPath = config.Bind(
-            InputSection,
-            nameof(Quest3InputActionManifestPath),
-            string.Empty,
-            "Optional absolute path to the SteamVR action manifest. Empty uses BepInEx/plugins/SecretFlasherManakaVR_Input/actions.json when present.");
-
-        Quest3LongPressSeconds = config.Bind(
-            InputSection,
-            nameof(Quest3LongPressSeconds),
-            0.5f,
-            new ConfigDescription(
-                "Long-press threshold used by the Quest 3 input state machine.",
-                new AcceptableValueRange<float>(0.1f, 2.0f)));
+        Quest3InputActionManifestPath = Fixed(string.Empty);
+        Quest3LongPressSeconds = Fixed(0.5f);
 
         Quest3RightStickDeadzone = config.Bind(
             InputSection,
@@ -117,59 +98,13 @@ public sealed class ModConfig
                 "Deadzone for cursor-mode right-stick Q/E/scroll mapping.",
                 new AcceptableValueRange<float>(0.0f, 0.95f)));
 
-        Quest3RightStickDiagonalGuardDegrees = config.Bind(
-            InputSection,
-            nameof(Quest3RightStickDiagonalGuardDegrees),
-            15.0f,
-            new ConfigDescription(
-                "Invalid angle around right-stick diagonals in cursor mode.",
-                new AcceptableValueRange<float>(0.0f, 40.0f)));
-
-        Quest3TriggerPressThreshold = config.Bind(
-            InputSection,
-            nameof(Quest3TriggerPressThreshold),
-            0.35f,
-            new ConfigDescription(
-                "Analog Quest 3 trigger pull value treated as a button press.",
-                new AcceptableValueRange<float>(0.01f, 0.95f)));
-
-        Quest3CursorRayDirection = config.Bind(
-            InputSection,
-            nameof(Quest3CursorRayDirection),
-            SecretFlasherManakaVR.Quest3CursorRayDirection.Forward,
-            "Controller-local axis used for the visible cursor ray. Change if the ray starts at the controller but points in the wrong direction.");
-
-        Quest3CursorRayLength = config.Bind(
-            InputSection,
-            nameof(Quest3CursorRayLength),
-            6.0f,
-            new ConfigDescription(
-                "Visible length of the Quest 3 cursor ray in Unity world units.",
-                new AcceptableValueRange<float>(0.25f, 30.0f)));
-
-        Quest3CursorRayPitchOffsetDegrees = config.Bind(
-            InputSection,
-            nameof(Quest3CursorRayPitchOffsetDegrees),
-            0.0f,
-            new ConfigDescription(
-                "Extra local pitch correction for the Quest 3 cursor ray. Use this when SteamVR supplies a grip/raw pose instead of a true pointer pose.",
-                new AcceptableValueRange<float>(-90.0f, 90.0f)));
-
-        Quest3CursorRayYawOffsetDegrees = config.Bind(
-            InputSection,
-            nameof(Quest3CursorRayYawOffsetDegrees),
-            0.0f,
-            new ConfigDescription(
-                "Extra local yaw correction for the Quest 3 cursor ray.",
-                new AcceptableValueRange<float>(-90.0f, 90.0f)));
-
-        Quest3CursorRayRollOffsetDegrees = config.Bind(
-            InputSection,
-            nameof(Quest3CursorRayRollOffsetDegrees),
-            0.0f,
-            new ConfigDescription(
-                "Extra local roll correction for the Quest 3 cursor ray.",
-                new AcceptableValueRange<float>(-90.0f, 90.0f)));
+        Quest3RightStickDiagonalGuardDegrees = Fixed(15.0f);
+        Quest3TriggerPressThreshold = Fixed(0.35f);
+        Quest3CursorRayDirection = Fixed(SecretFlasherManakaVR.Quest3CursorRayDirection.Forward);
+        Quest3CursorRayLength = Fixed(6.0f);
+        Quest3CursorRayPitchOffsetDegrees = Fixed(0.0f);
+        Quest3CursorRayYawOffsetDegrees = Fixed(0.0f);
+        Quest3CursorRayRollOffsetDegrees = Fixed(0.0f);
 
         EnablePlayerHeadPoseControl = config.Bind(
             BodySection,
@@ -309,11 +244,7 @@ public sealed class ModConfig
                 "Smoothing speed for HMD-to-body head rotation. Higher values follow faster.",
                 new AcceptableValueRange<float>(0.0f, 60.0f)));
 
-        SourceRotationMode = config.Bind(
-            StereoSection,
-            nameof(SourceRotationMode),
-            VrSourceRotationMode.SourceYawOnly,
-            "Controls how much of the game camera rotation is used as the VR base. SourceYawOnly avoids mouse pitch/roll fighting the HMD.");
+        SourceRotationMode = Fixed(VrSourceRotationMode.SourceYawOnly);
 
         MirrorMode = config.Bind(
             CoreSection,
@@ -321,13 +252,7 @@ public sealed class ModConfig
             SecretFlasherManakaVR.MirrorMode.MainCamera,
             "Controls what the normal desktop window shows while VR output is active.");
 
-        SceneTransitionVrPauseSeconds = config.Bind(
-            CompatibilitySection,
-            nameof(SceneTransitionVrPauseSeconds),
-            1.5f,
-            new ConfigDescription(
-                "Pause VR eye rendering briefly after scene changes while reflection objects are sanitized. This reduces scene-transition hangs and GPU spikes.",
-                new AcceptableValueRange<float>(0.0f, 10.0f)));
+        SceneTransitionVrPauseSeconds = Fixed(1.5f);
 
         RenderScale = config.Bind(
             StereoSection,
@@ -337,83 +262,19 @@ public sealed class ModConfig
                 "Scale applied to the OpenVR recommended eye texture size. Lower values are safer while stabilizing the injected renderer.",
                 new AcceptableValueRange<float>(0.25f, 1.5f)));
 
-        UseOpenVRProjection = config.Bind(
-            StereoSection,
-            nameof(UseOpenVRProjection),
-            true,
-            "Use OpenVR eye projection matrices for correct stereo. Disable only if stereo projection itself is broken.");
-
-        OpenVRProjectionMode = config.Bind(
-            StereoSection,
-            nameof(OpenVRProjectionMode),
-            SecretFlasherManakaVR.OpenVR.OpenVRProjectionMode.RawSwapVertical,
-            "OpenVR projection conversion mode. RawSwapVertical is the current default; try RawInvertVertical or ValveMatrix if scenes disappear.");
-
-        UseSourceProjectionForCulling = config.Bind(
-            StereoSection,
-            nameof(UseSourceProjectionForCulling),
-            true,
-            "Use the game camera projection for Unity culling while rendering with OpenVR projection. This keeps scene objects from disappearing with injected asymmetric eye frustums.");
-
-        FlipSubmitV = config.Bind(
-            StereoSection,
-            nameof(FlipSubmitV),
-            true,
-            "Flip submitted eye texture V coordinates for OpenVR. Unity D3D render textures otherwise appear upside down in SteamVR on this path.");
-
-        SuppressBlackCensorOnChangeNullRefs = config.Bind(
-            CompatibilitySection,
-            nameof(SuppressBlackCensorOnChangeNullRefs),
-            true,
-            "Suppress repeated NullReferenceException throws from BlackCensorController.OnChange. This prevents the game's delayed option-change scheduler from log-spamming or stalling VR gameplay.");
-
-        DisableSourceCameraRendering = config.Bind(
-            CompatibilitySection,
-            nameof(DisableSourceCameraRendering),
-            false,
-            "Disable the game source camera component while VR is active, using it only as a transform/settings template for the VR eye cameras.");
-
-        DisableMirrorManagersWhileVrActive = config.Bind(
-            CompatibilitySection,
-            nameof(DisableMirrorManagersWhileVrActive),
-            true,
-            "Disable AkilliMum MirrorManager components while VR is active. This stops mirror rendering at its owner component without scanning all cameras every frame.");
-
-        DisableTargetTextureCameras = config.Bind(
-            CompatibilitySection,
-            nameof(DisableTargetTextureCameras),
-            true,
-            "Also disable non-source/non-VR cameras that render to a RenderTexture while VR eyes render. Mirrors often use unnamed target-texture cameras.");
-
-        PreventReflectionReenableWhileVrActive = config.Bind(
-            CompatibilitySection,
-            nameof(PreventReflectionReenableWhileVrActive),
-            true,
-            "Block scripts from re-enabling reflection cameras while VR is active. This targets per-frame mirror visibility scripts that revive disabled mirror cameras.");
-
-        BlockReflectionCameraRenderWhileVrActive = config.Bind(
-            CompatibilitySection,
-            nameof(BlockReflectionCameraRenderWhileVrActive),
-            true,
-            "Block manual Camera.Render calls from likely reflection/target-texture cameras while VR is active, even outside the plugin's own eye render.");
-
-        BlockNestedCameraRenderDuringVrRender = config.Bind(
-            CompatibilitySection,
-            nameof(BlockNestedCameraRenderDuringVrRender),
-            true,
-            "Skip manual Camera.Render calls from non-VR-eye cameras while the plugin is rendering VR eyes. This targets reflection scripts that render recursively during stereo rendering.");
-
-        DisableReflectionProbes = config.Bind(
-            CompatibilitySection,
-            nameof(DisableReflectionProbes),
-            false,
-            "Disable ReflectionProbe components while VR is active. Night scenes can create internal reflection probe cameras that bypass Camera.Render patches.");
-
-        ReflectionCameraNameKeywords = config.Bind(
-            CompatibilitySection,
-            nameof(ReflectionCameraNameKeywords),
-            "mirror,reflect,reflection,planar,water",
-            "Comma-separated name keywords used to identify mirror/reflection cameras for Camera.Render and re-enable blocking.");
+        UseOpenVRProjection = Fixed(true);
+        OpenVRProjectionMode = Fixed(SecretFlasherManakaVR.OpenVR.OpenVRProjectionMode.RawSwapVertical);
+        UseSourceProjectionForCulling = Fixed(true);
+        FlipSubmitV = Fixed(true);
+        SuppressBlackCensorOnChangeNullRefs = Fixed(true);
+        DisableSourceCameraRendering = Fixed(false);
+        DisableMirrorManagersWhileVrActive = Fixed(true);
+        DisableTargetTextureCameras = Fixed(true);
+        PreventReflectionReenableWhileVrActive = Fixed(true);
+        BlockReflectionCameraRenderWhileVrActive = Fixed(true);
+        BlockNestedCameraRenderDuringVrRender = Fixed(true);
+        DisableReflectionProbes = Fixed(false);
+        ReflectionCameraNameKeywords = Fixed("mirror,reflect,reflection,planar,water");
 
         EnableVrUiBridge = config.Bind(
             VrUiSection,
@@ -621,23 +482,23 @@ public sealed class ModConfig
 
     public ConfigEntry<bool> EnableVR { get; }
     public ConfigEntry<bool> AutoStartSteamVR { get; }
-    public ConfigEntry<float> IPDScale { get; }
-    public ConfigEntry<float> WorldScale { get; }
+    public FixedConfigValue<float> IPDScale { get; }
+    public FixedConfigValue<float> WorldScale { get; }
     public ConfigEntry<float> CameraHeightOffset { get; }
     public ConfigEntry<KeyCode> RecenteringKey { get; }
-    public ConfigEntry<bool> AutoRecenterOnStart { get; }
-    public ConfigEntry<bool> SuppressMouseLookInput { get; }
+    public FixedConfigValue<bool> AutoRecenterOnStart { get; }
+    public FixedConfigValue<bool> SuppressMouseLookInput { get; }
     public ConfigEntry<bool> EnableQuest3InputMapping { get; }
-    public ConfigEntry<string> Quest3InputActionManifestPath { get; }
-    public ConfigEntry<float> Quest3LongPressSeconds { get; }
+    public FixedConfigValue<string> Quest3InputActionManifestPath { get; }
+    public FixedConfigValue<float> Quest3LongPressSeconds { get; }
     public ConfigEntry<float> Quest3RightStickDeadzone { get; }
-    public ConfigEntry<float> Quest3RightStickDiagonalGuardDegrees { get; }
-    public ConfigEntry<float> Quest3TriggerPressThreshold { get; }
-    public ConfigEntry<Quest3CursorRayDirection> Quest3CursorRayDirection { get; }
-    public ConfigEntry<float> Quest3CursorRayLength { get; }
-    public ConfigEntry<float> Quest3CursorRayPitchOffsetDegrees { get; }
-    public ConfigEntry<float> Quest3CursorRayYawOffsetDegrees { get; }
-    public ConfigEntry<float> Quest3CursorRayRollOffsetDegrees { get; }
+    public FixedConfigValue<float> Quest3RightStickDiagonalGuardDegrees { get; }
+    public FixedConfigValue<float> Quest3TriggerPressThreshold { get; }
+    public FixedConfigValue<Quest3CursorRayDirection> Quest3CursorRayDirection { get; }
+    public FixedConfigValue<float> Quest3CursorRayLength { get; }
+    public FixedConfigValue<float> Quest3CursorRayPitchOffsetDegrees { get; }
+    public FixedConfigValue<float> Quest3CursorRayYawOffsetDegrees { get; }
+    public FixedConfigValue<float> Quest3CursorRayRollOffsetDegrees { get; }
     public ConfigEntry<bool> EnablePlayerHeadPoseControl { get; }
     public ConfigEntry<float> PlayerHeadPoseFollowDistance { get; }
     public ConfigEntry<float> PlayerHeadPoseYawLimitDegrees { get; }
@@ -656,23 +517,23 @@ public sealed class ModConfig
     public ConfigEntry<float> PlayerHeadPoseNeckWeight { get; }
     public ConfigEntry<float> PlayerHeadPoseHeadWeight { get; }
     public ConfigEntry<float> PlayerHeadPoseSmoothFactor { get; }
-    public ConfigEntry<VrSourceRotationMode> SourceRotationMode { get; }
+    public FixedConfigValue<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
-    public ConfigEntry<float> SceneTransitionVrPauseSeconds { get; }
+    public FixedConfigValue<float> SceneTransitionVrPauseSeconds { get; }
     public ConfigEntry<float> RenderScale { get; }
-    public ConfigEntry<bool> UseOpenVRProjection { get; }
-    public ConfigEntry<OpenVRProjectionMode> OpenVRProjectionMode { get; }
-    public ConfigEntry<bool> UseSourceProjectionForCulling { get; }
-    public ConfigEntry<bool> FlipSubmitV { get; }
-    public ConfigEntry<bool> SuppressBlackCensorOnChangeNullRefs { get; }
-    public ConfigEntry<bool> DisableSourceCameraRendering { get; }
-    public ConfigEntry<bool> DisableMirrorManagersWhileVrActive { get; }
-    public ConfigEntry<bool> DisableTargetTextureCameras { get; }
-    public ConfigEntry<bool> PreventReflectionReenableWhileVrActive { get; }
-    public ConfigEntry<bool> BlockReflectionCameraRenderWhileVrActive { get; }
-    public ConfigEntry<bool> BlockNestedCameraRenderDuringVrRender { get; }
-    public ConfigEntry<bool> DisableReflectionProbes { get; }
-    public ConfigEntry<string> ReflectionCameraNameKeywords { get; }
+    public FixedConfigValue<bool> UseOpenVRProjection { get; }
+    public FixedConfigValue<OpenVRProjectionMode> OpenVRProjectionMode { get; }
+    public FixedConfigValue<bool> UseSourceProjectionForCulling { get; }
+    public FixedConfigValue<bool> FlipSubmitV { get; }
+    public FixedConfigValue<bool> SuppressBlackCensorOnChangeNullRefs { get; }
+    public FixedConfigValue<bool> DisableSourceCameraRendering { get; }
+    public FixedConfigValue<bool> DisableMirrorManagersWhileVrActive { get; }
+    public FixedConfigValue<bool> DisableTargetTextureCameras { get; }
+    public FixedConfigValue<bool> PreventReflectionReenableWhileVrActive { get; }
+    public FixedConfigValue<bool> BlockReflectionCameraRenderWhileVrActive { get; }
+    public FixedConfigValue<bool> BlockNestedCameraRenderDuringVrRender { get; }
+    public FixedConfigValue<bool> DisableReflectionProbes { get; }
+    public FixedConfigValue<string> ReflectionCameraNameKeywords { get; }
     public ConfigEntry<bool> EnableVrUiBridge { get; }
     public ConfigEntry<bool> ConvertOverlayCanvasToWorldSpace { get; }
     public ConfigEntry<VrUiFollowMode> VrUiFollowMode { get; }
