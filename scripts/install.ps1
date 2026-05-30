@@ -64,14 +64,37 @@ function Find-BuiltPlugin {
         throw "Build output was not found: $binRoot. Run .\build.ps1 first."
     }
 
-    $plugins = @(Get-ChildItem -LiteralPath $binRoot -Recurse -Filter "SecretFlasherManakaVR.dll" -File |
+    $plugins = @(Get-ChildItem -LiteralPath $binRoot -Recurse -Filter "SecretFlasherManaka*.dll" -File |
         Sort-Object LastWriteTimeUtc -Descending)
 
     if ($plugins.Count -eq 0) {
-        throw "SecretFlasherManakaVR.dll was not found under $binRoot. Run .\build.ps1 -Configuration $BuildConfiguration first."
+        throw "SecretFlasherManaka plugin DLL was not found under $binRoot. Run .\build.ps1 -Configuration $BuildConfiguration first."
     }
 
     return $plugins[0]
+}
+
+function Copy-PluginIfChanged {
+    param(
+        [System.IO.FileInfo]$Plugin,
+        [string]$PluginInstallDir,
+        [switch]$Force
+    )
+
+    $pluginDestination = Join-Path $pluginInstallDir $Plugin.Name
+    if ((Test-Path -LiteralPath $pluginDestination -PathType Leaf) -and -not $Force) {
+        $sourceHash = (Get-FileHash -LiteralPath $Plugin.FullName -Algorithm SHA256).Hash
+        $destHash = (Get-FileHash -LiteralPath $pluginDestination -Algorithm SHA256).Hash
+        if ($sourceHash -eq $destHash) {
+            Write-Host "Unchanged: $pluginDestination"
+            return $pluginDestination
+        }
+    }
+
+    Copy-Item -LiteralPath $Plugin.FullName -Destination $pluginDestination -Force
+    Write-Host "Copied: $($Plugin.FullName)"
+    Write-Host "     -> $pluginDestination"
+    return $pluginDestination
 }
 
 function Find-Dependency {
@@ -106,6 +129,7 @@ $gameRootPath = Resolve-GameRoot -ExplicitGameRoot $GameRoot
 $projectRoot = if ($ProjectDir) { Resolve-ExistingDirectory -Path $ProjectDir -Description "Project directory" } else { Resolve-ExistingDirectory -Path (Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaVR") -Description "Project directory" }
 
 $plugin = Find-BuiltPlugin -ProjectRoot $projectRoot -BuildConfiguration $Configuration
+$isVrPlugin = $plugin.Name -ieq "SecretFlasherManakaVR.dll"
 $pluginOutputDir = $plugin.Directory.FullName
 $pluginInstallDir = Join-Path $gameRootPath "BepInEx\plugins"
 $dependencyInstallDir = $pluginInstallDir
@@ -149,7 +173,7 @@ foreach ($dependencyName in $dependencyNames) {
 }
 
 $hasOpenVRNative = $dependencies | Where-Object { $_.Name -ieq "openvr_api.dll" } | Select-Object -First 1
-if (-not $hasOpenVRNative -and -not $AllowMissingOpenVR) {
+if ($isVrPlugin -and -not $hasOpenVRNative -and -not $AllowMissingOpenVR) {
     throw @"
 openvr_api.dll was not found in the build output or dependency folders.
 Place Valve's x64 openvr_api.dll in one of these locations, then rerun install.ps1:
@@ -160,50 +184,18 @@ Use -AllowMissingOpenVR only if the final OpenVR bridge intentionally does not r
 "@
 }
 
-$pluginDestination = Join-Path $pluginInstallDir $plugin.Name
 $staleNestedPlugin = Join-Path $pluginInstallDir "SecretFlasherManakaVR\SecretFlasherManakaVR.dll"
-if (Test-Path -LiteralPath $staleNestedPlugin -PathType Leaf) {
+if ($isVrPlugin -and (Test-Path -LiteralPath $staleNestedPlugin -PathType Leaf)) {
     Remove-Item -LiteralPath $staleNestedPlugin -Force
     Write-Host "Removed stale nested plugin copy: $staleNestedPlugin"
 }
 
-if ((Test-Path -LiteralPath $pluginDestination -PathType Leaf) -and -not $Force) {
-    $sourceHash = (Get-FileHash -LiteralPath $plugin.FullName -Algorithm SHA256).Hash
-    $destHash = (Get-FileHash -LiteralPath $pluginDestination -Algorithm SHA256).Hash
-    if ($sourceHash -eq $destHash) {
-        Write-Host "Unchanged: $pluginDestination"
-    }
-    else {
-        Copy-Item -LiteralPath $plugin.FullName -Destination $pluginDestination -Force
-        Write-Host "Copied: $($plugin.FullName)"
-        Write-Host "     -> $pluginDestination"
-    }
-}
-else {
-    Copy-Item -LiteralPath $plugin.FullName -Destination $pluginDestination -Force
-    Write-Host "Copied: $($plugin.FullName)"
-    Write-Host "     -> $pluginDestination"
-}
+$installedPlugins = @()
+$installedPlugins += Copy-PluginIfChanged -Plugin $plugin -PluginInstallDir $pluginInstallDir -Force:$Force
 
-foreach ($file in ($dependencies | Sort-Object FullName -Unique)) {
-    $destination = Join-Path $dependencyInstallDir $file.Name
-    if ((Test-Path -LiteralPath $destination -PathType Leaf) -and -not $Force) {
-        $sourceHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
-        $destHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
-        if ($sourceHash -eq $destHash) {
-            Write-Host "Unchanged: $destination"
-            continue
-        }
-    }
-
-    Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
-    Write-Host "Copied: $($file.FullName)"
-    Write-Host "     -> $destination"
-}
-
-if (Test-Path -LiteralPath $inputSourceDir -PathType Container) {
-    foreach ($file in (Get-ChildItem -LiteralPath $inputSourceDir -File)) {
-        $destination = Join-Path $inputInstallDir $file.Name
+if ($isVrPlugin) {
+    foreach ($file in ($dependencies | Sort-Object FullName -Unique)) {
+        $destination = Join-Path $dependencyInstallDir $file.Name
         if ((Test-Path -LiteralPath $destination -PathType Leaf) -and -not $Force) {
             $sourceHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
             $destHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
@@ -217,12 +209,43 @@ if (Test-Path -LiteralPath $inputSourceDir -PathType Container) {
         Write-Host "Copied: $($file.FullName)"
         Write-Host "     -> $destination"
     }
+
+    if (Test-Path -LiteralPath $inputSourceDir -PathType Container) {
+        foreach ($file in (Get-ChildItem -LiteralPath $inputSourceDir -File)) {
+            $destination = Join-Path $inputInstallDir $file.Name
+            if ((Test-Path -LiteralPath $destination -PathType Leaf) -and -not $Force) {
+                $sourceHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+                $destHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
+                if ($sourceHash -eq $destHash) {
+                    Write-Host "Unchanged: $destination"
+                    continue
+                }
+            }
+
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+            Write-Host "Copied: $($file.FullName)"
+            Write-Host "     -> $destination"
+        }
+    }
+}
+
+$ringProjectRoot = Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaRingMenuLongPress"
+if (-not $ProjectDir -and (Test-Path -LiteralPath $ringProjectRoot -PathType Container)) {
+    $ringPlugin = Find-BuiltPlugin -ProjectRoot $ringProjectRoot -BuildConfiguration $Configuration
+    if ($ringPlugin.Name -ieq "SecretFlasherManakaRingMenuLongPress.dll") {
+        $installedPlugins += Copy-PluginIfChanged -Plugin $ringPlugin -PluginInstallDir $pluginInstallDir -Force:$Force
+    }
 }
 
 Write-Host ""
 Write-Host "Install complete:"
-Write-Host "  Plugin:       $pluginDestination"
+Write-Host "  Plugins:"
+foreach ($installedPlugin in $installedPlugins) {
+    Write-Host "    $installedPlugin"
+}
 Write-Host "  Dependencies: $dependencyInstallDir"
-Write-Host "  Input:        $inputInstallDir"
+if ($isVrPlugin) {
+    Write-Host "  Input:        $inputInstallDir"
+}
 Write-Host ""
 Write-Host "Launch SteamVR first, then start SecretFlasherManaka.exe for headset testing."

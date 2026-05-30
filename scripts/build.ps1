@@ -125,8 +125,16 @@ function Add-TrailingDirectorySeparator {
 $scriptDir = Split-Path -Parent $PSCommandPath
 $packageRoot = Resolve-Path -LiteralPath (Join-Path $scriptDir "..")
 $gameRootPath = Resolve-GameRoot -ExplicitGameRoot $GameRoot
-$projectRoot = if ($ProjectDir) { $ProjectDir } else { Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaVR" }
-$projectFile = Resolve-ProjectFile -ProjectRoot $projectRoot
+$projectRoots = if ($ProjectDir) {
+    @($ProjectDir)
+}
+else {
+    @(
+        (Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaVR"),
+        (Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaRingMenuLongPress")
+    )
+}
+$projectFiles = @($projectRoots | ForEach-Object { Resolve-ProjectFile -ProjectRoot $_ })
 $dotnet = Resolve-DotNet -ExplicitDotNetPath $DotNetPath -GameRootPath $gameRootPath
 
 $sdkList = & $dotnet --list-sdks 2>$null
@@ -138,38 +146,46 @@ Install a .NET SDK, not only the runtime. If a project global.json pins an SDK, 
 "@
 }
 
-Write-Host "Building SecretFlasherManakaVR"
+Write-Host "Building SecretFlasherManaka plugins"
 Write-Host "  Game root:    $gameRootPath"
-Write-Host "  Project file: $projectFile"
 Write-Host "  Configuration: $Configuration"
 Write-Host "  dotnet:       $dotnet"
-
-$buildArgs = @(
-    "build",
-    $projectFile,
-    "--configuration",
-    $Configuration,
-    "/p:GameRoot=$gameRootPath",
-    "/p:GameRootDir=$gameRootPath",
-    "/p:BepInExRoot=$(Join-Path $gameRootPath "BepInEx")"
-)
-
-if ($NoRestore) {
-    $buildArgs += "--no-restore"
+Write-Host "  Projects:"
+foreach ($projectFile in $projectFiles) {
+    Write-Host "    $projectFile"
 }
 
-& $dotnet @buildArgs
-$exitCode = $LASTEXITCODE
-
-if ($exitCode -ne 0) {
+foreach ($projectFile in $projectFiles) {
     Write-Host ""
-    Write-Host "Build failed." -ForegroundColor Red
-    Write-Host "Common fixes:"
-    Write-Host "  - Missing .NET SDK: install the SDK shown by global.json or the latest supported SDK for the project target."
-    Write-Host "  - Missing BepInEx references: confirm BepInEx\core exists under the game root."
-    Write-Host "  - Missing interop references: launch the game once with BepInEx so BepInEx\interop\Assembly-CSharp.dll is generated."
-    Write-Host "  - Missing OpenVR wrapper/native files: place them where the project file expects them, then rerun this script."
-    exit $exitCode
+    Write-Host "Building $([System.IO.Path]::GetFileNameWithoutExtension($projectFile))"
+
+    $buildArgs = @(
+        "build",
+        $projectFile,
+        "--configuration",
+        $Configuration,
+        "/p:GameRoot=$gameRootPath",
+        "/p:GameRootDir=$gameRootPath",
+        "/p:BepInExRoot=$(Join-Path $gameRootPath "BepInEx")"
+    )
+
+    if ($NoRestore) {
+        $buildArgs += "--no-restore"
+    }
+
+    & $dotnet @buildArgs
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        Write-Host ""
+        Write-Host "Build failed." -ForegroundColor Red
+        Write-Host "Common fixes:"
+        Write-Host "  - Missing .NET SDK: install the SDK shown by global.json or the latest supported SDK for the project target."
+        Write-Host "  - Missing BepInEx references: confirm BepInEx\core exists under the game root."
+        Write-Host "  - Missing interop references: launch the game once with BepInEx so BepInEx\interop\Assembly-CSharp.dll is generated."
+        Write-Host "  - Missing OpenVR wrapper/native files: place them where the project file expects them, then rerun this script."
+        exit $exitCode
+    }
 }
 
 Write-Host ""

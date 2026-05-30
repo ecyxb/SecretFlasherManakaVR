@@ -6,7 +6,7 @@ Package root:
 SecretFlasherManakaVR_Package
 ```
 
-This directory contains the VR mod source, external runtime DLLs, current configuration, documentation, and a ready-to-copy install layout. It intentionally does not include the game files or the BepInEx runtime.
+This directory contains the VR mod source, the ring-menu long-press helper source, external runtime DLLs, current configuration, documentation, and a ready-to-copy install layout. It intentionally does not include the game files or the BepInEx runtime.
 
 ## Contents
 
@@ -42,11 +42,13 @@ SecretFlasherManakaVR_Package/
 ## Source Mapping
 
 - `src/SecretFlasherManakaVR/`: current C# plugin source. `bin/` and `obj/` are excluded.
+- `src/SecretFlasherManakaRingMenuLongPress/`: separate C# plugin source for the ring-menu long-press threshold helper. `bin/` and `obj/` are excluded.
 - `src/SecretFlasherManakaVR/OpenVR/Valve/openvr_api.cs`: Valve OpenVR C# binding used by `OpenVRBridge`.
-- `scripts/build.ps1`: package-adapted copy of `VRModSrc/build.ps1`; default project path is `src/SecretFlasherManakaVR`.
-- `scripts/install.ps1`: package-adapted copy of `VRModSrc/install.ps1`; default project path is `src/SecretFlasherManakaVR` and dependency lookup includes `dependencies/`.
+- `scripts/build.ps1`: package-adapted build script; by default it builds both `src/SecretFlasherManakaVR` and `src/SecretFlasherManakaRingMenuLongPress`.
+- `scripts/install.ps1`: package-adapted install script; by default it installs both plugin DLLs and the VR plugin dependencies.
 - `dependencies/openvr_api.dll`: copied from `VRModSrc/Dependencies/openvr_api.dll`.
-- `config/com.codex.secretflashermanaka.vr.cfg`: copied from the current installed VR config.
+- `config/com.codex.secretflashermanaka.vr.cfg`: current VR config template.
+- `config/com.codex.secretflashermanaka.ringmenulongpress.cfg`: current ring-menu long-press config template.
 - `README_VR.md`: current development and test notes.
 - `docs/CHANGELOG_OR_PROGRESS.md`: working progress log from this development thread.
 - `third_party/openvr/README.md`: OpenVR third-party note kept with the package.
@@ -57,8 +59,10 @@ SecretFlasherManakaVR_Package/
 
 ```text
 dist/BepInEx/plugins/SecretFlasherManakaVR.dll
+dist/BepInEx/plugins/SecretFlasherManakaRingMenuLongPress.dll
 dist/BepInEx/plugins/openvr_api.dll
 dist/BepInEx/config/com.codex.secretflashermanaka.vr.cfg
+dist/BepInEx/config/com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 Do not copy the package's `src/`, `scripts/`, `docs/`, or `dependencies/` directories into the game unless you are developing.

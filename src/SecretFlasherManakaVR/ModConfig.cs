@@ -25,23 +25,24 @@ public enum Quest3CursorRayDirection
 
 public sealed class ModConfig
 {
-    private const string GeneralSection = "General";
-    private const string StereoSection = "Stereo";
-    private const string InputSection = "Input";
-    private const string BodySection = "VR Body";
-    private const string CompatibilitySection = "Compatibility";
-    private const string VrUiSection = "VR UI";
+    private const string CoreSection = "01 Core - 核心启动";
+    private const string StereoSection = "02 Stereo Rendering - 立体渲染";
+    private const string InputSection = "03 Input - 输入";
+    private const string BodySection = "04 Body And View - 身体与视角";
+    private const string VrUiSection = "05 VR UI Panel - VR界面面板";
+    private const string NpcUiSection = "06 NPC UI - NPC标记界面";
+    private const string CompatibilitySection = "07 Compatibility - 兼容性";
 
     private ModConfig(ConfigFile config)
     {
         EnableVR = config.Bind(
-            GeneralSection,
+            CoreSection,
             nameof(EnableVR),
             true,
             "Enable the SteamVR/OpenVR runtime. If initialization fails, the plugin logs the error and leaves the normal game running.");
 
         AutoStartSteamVR = config.Bind(
-            GeneralSection,
+            CoreSection,
             nameof(AutoStartSteamVR),
             true,
             "Allow the runtime layer to ask OpenVR to start SteamVR if it is not already running.");
@@ -211,7 +212,7 @@ public sealed class ModConfig
         PlayerHeadPoseYawTurnsBodyWhileMoving = config.Bind(
             BodySection,
             nameof(PlayerHeadPoseYawTurnsBodyWhileMoving),
-            false,
+            true,
             "When enabled, HMD yaw keeps driving head bones while standing still, but turns the player's body toward the HMD facing direction while the game reports actual player movement.");
 
         PlayerHeadPoseBodyYawTurnSpeedDegreesPerSecond = config.Bind(
@@ -225,7 +226,7 @@ public sealed class ModConfig
         IgnoreHeadPositionForVrCamera = config.Bind(
             BodySection,
             nameof(IgnoreHeadPositionForVrCamera),
-            false,
+            true,
             "When enabled, HMD positional movement is clamped before it is added to the VR camera. HMD rotation, IPD, and player head bone control still apply.");
 
         HeadPositionCameraOffsetMinX = config.Bind(
@@ -315,7 +316,7 @@ public sealed class ModConfig
             "Controls how much of the game camera rotation is used as the VR base. SourceYawOnly avoids mouse pitch/roll fighting the HMD.");
 
         MirrorMode = config.Bind(
-            GeneralSection,
+            CoreSection,
             nameof(MirrorMode),
             SecretFlasherManakaVR.MirrorMode.MainCamera,
             "Controls what the normal desktop window shows while VR output is active.");
@@ -366,12 +367,6 @@ public sealed class ModConfig
             true,
             "Suppress repeated NullReferenceException throws from BlackCensorController.OnChange. This prevents the game's delayed option-change scheduler from log-spamming or stalling VR gameplay.");
 
-        DisableReflectionCameras = config.Bind(
-            CompatibilitySection,
-            nameof(DisableReflectionCameras),
-            false,
-            "Legacy fallback. Runtime no longer scans all cameras for this; prefer DisableMirrorManagersWhileVrActive plus Camera.Render blocking.");
-
         DisableSourceCameraRendering = config.Bind(
             CompatibilitySection,
             nameof(DisableSourceCameraRendering),
@@ -389,12 +384,6 @@ public sealed class ModConfig
             nameof(DisableTargetTextureCameras),
             true,
             "Also disable non-source/non-VR cameras that render to a RenderTexture while VR eyes render. Mirrors often use unnamed target-texture cameras.");
-
-        KeepReflectionCamerasDisabledWhileVrActive = config.Bind(
-            CompatibilitySection,
-            nameof(KeepReflectionCamerasDisabledWhileVrActive),
-            true,
-            "Keep reflection/target-texture cameras disabled for the whole active VR scene instead of only during the VR eye render. This is more aggressive but avoids mirrors resuming their render loop between VR frames.");
 
         PreventReflectionReenableWhileVrActive = config.Bind(
             CompatibilitySection,
@@ -424,7 +413,7 @@ public sealed class ModConfig
             CompatibilitySection,
             nameof(ReflectionCameraNameKeywords),
             "mirror,reflect,reflection,planar,water",
-            "Comma-separated name keywords used to identify mirror/reflection cameras for DisableReflectionCameras.");
+            "Comma-separated name keywords used to identify mirror/reflection cameras for Camera.Render and re-enable blocking.");
 
         EnableVrUiBridge = config.Bind(
             VrUiSection,
@@ -451,14 +440,6 @@ public sealed class ModConfig
             new ConfigDescription(
                 "Distance in Unity world units from the headset/source camera to the converted UI plane.",
                 new AcceptableValueRange<float>(0.25f, 5.0f)));
-
-        VrUiScale = config.Bind(
-            VrUiSection,
-            nameof(VrUiScale),
-            0.001f,
-            new ConfigDescription(
-                "Legacy UI scale setting kept for config compatibility. The RenderTexture panel size is driven by VrUiDistance.",
-                new AcceptableValueRange<float>(0.0001f, 0.02f)));
 
         VrUiVerticalOffset = config.Bind(
             VrUiSection,
@@ -599,13 +580,13 @@ public sealed class ModConfig
             "Optional comma-separated canvas name keywords. Matching canvases are not converted.");
 
         FixNpcWorldSpaceUi = config.Bind(
-            VrUiSection,
+            NpcUiSection,
             nameof(FixNpcWorldSpaceUi),
-            false,
+            true,
             "Experimental. While VR is active, reproject NPC head markers with the HMD pose before the HUD is captured.");
 
         NpcWorldSpaceUiVerticalOffset = config.Bind(
-            VrUiSection,
+            NpcUiSection,
             nameof(NpcWorldSpaceUiVerticalOffset),
             0.25f,
             new ConfigDescription(
@@ -613,7 +594,7 @@ public sealed class ModConfig
                 new AcceptableValueRange<float>(-1.0f, 2.0f)));
 
         NpcWorldSpaceUiScale = config.Bind(
-            VrUiSection,
+            NpcUiSection,
             nameof(NpcWorldSpaceUiScale),
             0.0015f,
             new ConfigDescription(
@@ -621,7 +602,7 @@ public sealed class ModConfig
                 new AcceptableValueRange<float>(0.0002f, 0.02f)));
 
         NpcWorldSpaceUiMinScaleDistance = config.Bind(
-            VrUiSection,
+            NpcUiSection,
             nameof(NpcWorldSpaceUiMinScaleDistance),
             3.0f,
             new ConfigDescription(
@@ -629,7 +610,7 @@ public sealed class ModConfig
                 new AcceptableValueRange<float>(0.25f, 50.0f)));
 
         NpcWorldSpaceUiMaxScaleDistance = config.Bind(
-            VrUiSection,
+            NpcUiSection,
             nameof(NpcWorldSpaceUiMaxScaleDistance),
             7.0f,
             new ConfigDescription(
@@ -684,11 +665,9 @@ public sealed class ModConfig
     public ConfigEntry<bool> UseSourceProjectionForCulling { get; }
     public ConfigEntry<bool> FlipSubmitV { get; }
     public ConfigEntry<bool> SuppressBlackCensorOnChangeNullRefs { get; }
-    public ConfigEntry<bool> DisableReflectionCameras { get; }
     public ConfigEntry<bool> DisableSourceCameraRendering { get; }
     public ConfigEntry<bool> DisableMirrorManagersWhileVrActive { get; }
     public ConfigEntry<bool> DisableTargetTextureCameras { get; }
-    public ConfigEntry<bool> KeepReflectionCamerasDisabledWhileVrActive { get; }
     public ConfigEntry<bool> PreventReflectionReenableWhileVrActive { get; }
     public ConfigEntry<bool> BlockReflectionCameraRenderWhileVrActive { get; }
     public ConfigEntry<bool> BlockNestedCameraRenderDuringVrRender { get; }
@@ -698,7 +677,6 @@ public sealed class ModConfig
     public ConfigEntry<bool> ConvertOverlayCanvasToWorldSpace { get; }
     public ConfigEntry<VrUiFollowMode> VrUiFollowMode { get; }
     public ConfigEntry<float> VrUiDistance { get; }
-    public ConfigEntry<float> VrUiScale { get; }
     public ConfigEntry<float> VrUiVerticalOffset { get; }
     public ConfigEntry<float> VrUiPanelScale { get; }
     public ConfigEntry<float> VrUiPanelPixelOffsetY { get; }

@@ -8,16 +8,20 @@ Copy or merge these files into the game root:
 
 ```text
 SecretFlasherManakaVR_Package\dist\BepInEx\plugins\SecretFlasherManakaVR.dll
+SecretFlasherManakaVR_Package\dist\BepInEx\plugins\SecretFlasherManakaRingMenuLongPress.dll
 SecretFlasherManakaVR_Package\dist\BepInEx\plugins\openvr_api.dll
 SecretFlasherManakaVR_Package\dist\BepInEx\config\com.codex.secretflashermanaka.vr.cfg
+SecretFlasherManakaVR_Package\dist\BepInEx\config\com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 Expected final locations:
 
 ```text
 <GameRoot>\BepInEx\plugins\SecretFlasherManakaVR.dll
+<GameRoot>\BepInEx\plugins\SecretFlasherManakaRingMenuLongPress.dll
 <GameRoot>\BepInEx\plugins\openvr_api.dll
 <GameRoot>\BepInEx\config\com.codex.secretflashermanaka.vr.cfg
+<GameRoot>\BepInEx\config\com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 Do not remove or overwrite `SecretFlasherManakaMod.dll`.
@@ -32,7 +36,7 @@ cd "SecretFlasherManakaVR_Package\scripts"
 .\install.ps1 -GameRoot "<GameRoot>"
 ```
 
-The scripts use `..\src\SecretFlasherManakaVR` as the default project directory and `..\dependencies` for `openvr_api.dll`.
+By default, the scripts build and install both `SecretFlasherManakaVR.dll` and `SecretFlasherManakaRingMenuLongPress.dll`. They still remain separate BepInEx plugins. The VR plugin uses `..\dependencies` for `openvr_api.dll`.
 
 ## Test
 

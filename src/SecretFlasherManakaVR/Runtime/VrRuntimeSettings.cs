@@ -36,7 +36,7 @@ namespace SecretFlasherManakaVR.Runtime
         public KeyCode RecenteringKey = KeyCode.F12;
         public bool AutoRecenterOnStart = true;
         public bool SuppressMouseLookInput = true;
-        public bool IgnoreHeadPositionForVrCamera = false;
+        public bool IgnoreHeadPositionForVrCamera = true;
         public float HeadPositionCameraOffsetMinX = -1.0f;
         public float HeadPositionCameraOffsetMaxX = 1.0f;
         public float HeadPositionCameraOffsetMinY = -1.0f;
@@ -50,11 +50,9 @@ namespace SecretFlasherManakaVR.Runtime
         public OpenVRProjectionMode OpenVRProjectionMode = OpenVRProjectionMode.RawSwapVertical;
         public bool UseSourceProjectionForCulling = true;
         public bool FlipSubmitV = true;
-        public bool DisableReflectionCameras = false;
         public bool DisableSourceCameraRendering = false;
         public bool DisableMirrorManagersWhileVrActive = true;
         public bool DisableTargetTextureCameras = true;
-        public bool KeepReflectionCamerasDisabledWhileVrActive = true;
         public bool PreventReflectionReenableWhileVrActive = true;
         public bool BlockReflectionCameraRenderWhileVrActive = true;
         public bool BlockNestedCameraRenderDuringVrRender = true;
@@ -64,7 +62,6 @@ namespace SecretFlasherManakaVR.Runtime
         public bool ConvertOverlayCanvasToWorldSpace = true;
         public VrUiFollowMode VrUiFollowMode = VrUiFollowMode.HeadLocked;
         public float VrUiDistance = 1.4f;
-        public float VrUiScale = 0.001f;
         public float VrUiVerticalOffset = -0.1f;
         public float VrUiPanelScale = 1.05f;
         public float VrUiPanelPixelOffsetY = -100.0f;
@@ -83,7 +80,7 @@ namespace SecretFlasherManakaVR.Runtime
         public float VrUiMaxScanInterval = 1.0f;
         public string VrUiCanvasNameWhitelist = string.Empty;
         public string VrUiCanvasNameBlacklist = string.Empty;
-        public bool FixNpcWorldSpaceUi = false;
+        public bool FixNpcWorldSpaceUi = true;
         public float NpcWorldSpaceUiVerticalOffset = 0.25f;
         public float NpcWorldSpaceUiScale = 0.0015f;
         public float NpcWorldSpaceUiMinScaleDistance = 3.0f;
@@ -109,7 +106,6 @@ namespace SecretFlasherManakaVR.Runtime
             SanitizeRange(ref HeadPositionCameraOffsetMinY, ref HeadPositionCameraOffsetMaxY);
             SanitizeRange(ref HeadPositionCameraOffsetMinZ, ref HeadPositionCameraOffsetMaxZ);
             VrUiDistance = Mathf.Clamp(VrUiDistance, 0.25f, 5.0f);
-            VrUiScale = Mathf.Clamp(VrUiScale, 0.0001f, 0.02f);
             VrUiVerticalOffset = Mathf.Clamp(VrUiVerticalOffset, -2.0f, 2.0f);
             VrUiPanelScale = Mathf.Clamp(VrUiPanelScale, 0.25f, 3.0f);
             VrUiPanelPixelOffsetY = Mathf.Clamp(VrUiPanelPixelOffsetY, -2160.0f, 2160.0f);
