@@ -11,8 +11,10 @@ namespace SecretFlasherManakaVR.Runtime
         internal const int VrUiOverlayLayer = 30;
         private const int FallbackTextureWidth = 1920;
         private const int FallbackTextureHeight = 1080;
+        private const string DefaultCapturedCanvasName = "InGameCanvas";
 
         private readonly List<Canvas> activeCanvases = new List<Canvas>();
+        private readonly List<CanvasCaptureState> capturedCanvasStates = new List<CanvasCaptureState>();
         private float nextScanTime;
         private int convertedLayerMask;
         private bool worldFixedPoseSet;
@@ -108,6 +110,8 @@ namespace SecretFlasherManakaVR.Runtime
         {
             if (settings == null || !settings.EnableVrUiBridge || !settings.ConvertOverlayCanvasToWorldSpace)
             {
+                RestoreCapturedCanvases();
+                activeCanvases.Clear();
                 SetPanelVisible(false);
                 SetFullscreenEffectPanelVisible(false);
                 convertedLayerMask = 0;
@@ -124,6 +128,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void OnSceneChanged(VrRuntimeSettings settings)
         {
+            RestoreCapturedCanvases();
             activeCanvases.Clear();
             nextScanTime = 0.0f;
             worldFixedPoseSet = false;
@@ -134,6 +139,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void Shutdown()
         {
+            RestoreCapturedCanvases();
             activeCanvases.Clear();
             convertedLayerMask = 0;
             ReleaseTexture();
@@ -300,16 +306,38 @@ namespace SecretFlasherManakaVR.Runtime
             Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
             string[] whitelist = SplitKeywords(settings.VrUiCanvasNameWhitelist);
             string[] blacklist = SplitKeywords(settings.VrUiCanvasNameBlacklist);
+            bool hasDefaultCanvas = whitelist.Length == 0 && HasDefaultCapturedCanvas(canvases, blacklist);
 
             for (int i = 0; i < canvases.Length; i++)
             {
                 Canvas canvas = canvases[i];
-                if (ShouldCapture(canvas, whitelist, blacklist))
+                if (ShouldCapture(canvas, whitelist, blacklist, hasDefaultCanvas))
                 {
                     activeCanvases.Add(canvas);
                 }
             }
 
+            SyncCapturedCanvasStates();
+        }
+
+        private bool HasDefaultCapturedCanvas(Canvas[] canvases, string[] blacklist)
+        {
+            if (canvases == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < canvases.Length; i++)
+            {
+                Canvas canvas = canvases[i];
+                if (IsCaptureCandidate(canvas, blacklist)
+                    && string.Equals(canvas.name ?? string.Empty, DefaultCapturedCanvasName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void RemoveInactiveCanvases()
@@ -319,12 +347,104 @@ namespace SecretFlasherManakaVR.Runtime
                 Canvas canvas = activeCanvases[i];
                 if (canvas == null || canvas.gameObject == null || !canvas.gameObject.activeInHierarchy || !canvas.enabled)
                 {
+                    RemoveCapturedCanvasState(canvas);
                     activeCanvases.RemoveAt(i);
                 }
             }
         }
 
-        private bool ShouldCapture(Canvas canvas, string[] whitelist, string[] blacklist)
+        private void SyncCapturedCanvasStates()
+        {
+            for (int i = capturedCanvasStates.Count - 1; i >= 0; i--)
+            {
+                Canvas canvas = capturedCanvasStates[i].Canvas;
+                if (canvas == null || !activeCanvases.Contains(canvas))
+                {
+                    capturedCanvasStates[i].Restore();
+                    capturedCanvasStates.RemoveAt(i);
+                }
+            }
+
+            for (int i = 0; i < activeCanvases.Count; i++)
+            {
+                EnsureCanvasCaptured(activeCanvases[i]);
+            }
+        }
+
+        private void EnsureCanvasCaptured(Canvas canvas)
+        {
+            if (canvas == null || captureCamera == null)
+            {
+                return;
+            }
+
+            CanvasCaptureState state = GetCapturedCanvasState(canvas);
+            if (state == null)
+            {
+                state = new CanvasCaptureState(canvas);
+                capturedCanvasStates.Add(state);
+            }
+
+            state.Apply(captureCamera);
+        }
+
+        private CanvasCaptureState GetCapturedCanvasState(Canvas canvas)
+        {
+            for (int i = 0; i < capturedCanvasStates.Count; i++)
+            {
+                if (capturedCanvasStates[i].Canvas == canvas)
+                {
+                    return capturedCanvasStates[i];
+                }
+            }
+
+            return null;
+        }
+
+        private void RemoveCapturedCanvasState(Canvas canvas)
+        {
+            for (int i = capturedCanvasStates.Count - 1; i >= 0; i--)
+            {
+                if (capturedCanvasStates[i].Canvas == canvas)
+                {
+                    capturedCanvasStates[i].Restore();
+                    capturedCanvasStates.RemoveAt(i);
+                }
+            }
+        }
+
+        private void RestoreCapturedCanvases()
+        {
+            for (int i = capturedCanvasStates.Count - 1; i >= 0; i--)
+            {
+                capturedCanvasStates[i].Restore();
+            }
+
+            capturedCanvasStates.Clear();
+        }
+
+        private bool ShouldCapture(Canvas canvas, string[] whitelist, string[] blacklist, bool hasDefaultCanvas)
+        {
+            if (!IsCaptureCandidate(canvas, blacklist))
+            {
+                return false;
+            }
+
+            string name = canvas.name ?? string.Empty;
+            if (whitelist.Length > 0)
+            {
+                return MatchesAny(name, whitelist);
+            }
+
+            if (hasDefaultCanvas)
+            {
+                return string.Equals(name, DefaultCapturedCanvasName, StringComparison.Ordinal);
+            }
+
+            return !IsUnityDebugCanvas(name);
+        }
+
+        private bool IsCaptureCandidate(Canvas canvas, string[] blacklist)
         {
             if (canvas == null || canvas.gameObject == null || !canvas.gameObject.activeInHierarchy || !canvas.enabled)
             {
@@ -346,13 +466,13 @@ namespace SecretFlasherManakaVR.Runtime
                 return false;
             }
 
-            string name = canvas.name ?? string.Empty;
-            if (MatchesAny(name, blacklist))
-            {
-                return false;
-            }
+            return !MatchesAny(canvas.name ?? string.Empty, blacklist);
+        }
 
-            return whitelist.Length == 0 || MatchesAny(name, whitelist);
+        private static bool IsUnityDebugCanvas(string name)
+        {
+            return string.Equals(name, "DebugUICanvas", StringComparison.Ordinal)
+                || string.Equals(name, "DebugUIPersistentCanvas", StringComparison.Ordinal);
         }
 
         private void RenderUiToTexture(VrRuntimeSettings settings)
@@ -372,7 +492,6 @@ namespace SecretFlasherManakaVR.Runtime
                 return;
             }
 
-            var states = new List<CanvasCaptureState>();
             var hudLayout = new HudLayoutScope(settings);
             FullscreenEffectCaptureSet fullscreenEffects = null;
             try
@@ -391,10 +510,7 @@ namespace SecretFlasherManakaVR.Runtime
                         continue;
                     }
 
-                    states.Add(new CanvasCaptureState(canvas));
-                    canvas.renderMode = RenderMode.ScreenSpaceCamera;
-                    canvas.worldCamera = captureCamera;
-                    canvas.planeDistance = 10.0f;
+                    EnsureCanvasCaptured(canvas);
                     hudLayout.Apply(canvas);
                     if (fullscreenEffects == null && canvas.name == "InGameCanvas")
                     {
@@ -414,10 +530,6 @@ namespace SecretFlasherManakaVR.Runtime
             finally
             {
                 hudLayout.Restore();
-                for (int i = 0; i < states.Count; i++)
-                {
-                    states[i].Restore();
-                }
             }
         }
 
@@ -1505,12 +1617,13 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        private readonly struct CanvasCaptureState
+        private sealed class CanvasCaptureState
         {
             private readonly Canvas canvas;
             private readonly RenderMode renderMode;
             private readonly Camera worldCamera;
             private readonly float planeDistance;
+            private bool applied;
 
             public CanvasCaptureState(Canvas canvas)
             {
@@ -1520,9 +1633,39 @@ namespace SecretFlasherManakaVR.Runtime
                 planeDistance = canvas.planeDistance;
             }
 
+            public Canvas Canvas
+            {
+                get { return canvas; }
+            }
+
+            public void Apply(Camera captureCamera)
+            {
+                if (canvas == null || captureCamera == null)
+                {
+                    return;
+                }
+
+                if (canvas.renderMode != RenderMode.ScreenSpaceCamera)
+                {
+                    canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                }
+
+                if (canvas.worldCamera != captureCamera)
+                {
+                    canvas.worldCamera = captureCamera;
+                }
+
+                if (!Mathf.Approximately(canvas.planeDistance, 10.0f))
+                {
+                    canvas.planeDistance = 10.0f;
+                }
+
+                applied = true;
+            }
+
             public void Restore()
             {
-                if (canvas == null)
+                if (canvas == null || !applied)
                 {
                     return;
                 }
@@ -1530,6 +1673,7 @@ namespace SecretFlasherManakaVR.Runtime
                 canvas.renderMode = renderMode;
                 canvas.worldCamera = worldCamera;
                 canvas.planeDistance = planeDistance;
+                applied = false;
             }
         }
     }

@@ -590,7 +590,7 @@ public sealed class ModConfig
             VrUiSection,
             nameof(VrUiCanvasNameWhitelist),
             string.Empty,
-            "Optional comma-separated canvas name keywords. When set, only matching canvases are converted.");
+            "Optional comma-separated canvas name keywords. Leave empty for auto mode: capture InGameCanvas when present, otherwise capture title/menu canvases.");
 
         VrUiCanvasNameBlacklist = config.Bind(
             VrUiSection,
