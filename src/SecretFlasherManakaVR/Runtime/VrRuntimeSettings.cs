@@ -94,7 +94,6 @@ namespace SecretFlasherManakaVR.Runtime
         public int FallbackRenderHeight = 1680;
         public int AntiAliasing = 1;
         public float MissingCameraRetrySeconds = 1.0f;
-        public float RenderTargetCheckSeconds = 2.0f;
 
         public void Sanitize()
         {
@@ -106,7 +105,6 @@ namespace SecretFlasherManakaVR.Runtime
             FallbackRenderHeight = Mathf.Clamp(FallbackRenderHeight, 256, 8192);
             AntiAliasing = Mathf.Clamp(AntiAliasing, 1, 8);
             MissingCameraRetrySeconds = Mathf.Clamp(MissingCameraRetrySeconds, 0.1f, 10.0f);
-            RenderTargetCheckSeconds = Mathf.Clamp(RenderTargetCheckSeconds, 0.25f, 30.0f);
             SanitizeRange(ref HeadPositionCameraOffsetMinX, ref HeadPositionCameraOffsetMaxX);
             SanitizeRange(ref HeadPositionCameraOffsetMinY, ref HeadPositionCameraOffsetMaxY);
             SanitizeRange(ref HeadPositionCameraOffsetMinZ, ref HeadPositionCameraOffsetMaxZ);

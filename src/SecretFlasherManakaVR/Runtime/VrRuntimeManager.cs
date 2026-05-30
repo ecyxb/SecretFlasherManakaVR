@@ -27,7 +27,6 @@ namespace SecretFlasherManakaVR.Runtime
         private bool vrReady;
         private float nextOpenVRRetryTime;
         private float nextCameraSearchTime;
-        private float nextRenderTargetCheckTime;
         private int renderWidth;
         private int renderHeight;
         private int lastSceneHandle = -1;
@@ -305,7 +304,6 @@ namespace SecretFlasherManakaVR.Runtime
             renderWidth = 0;
             renderHeight = 0;
             nextCameraSearchTime = 0.0f;
-            nextRenderTargetCheckTime = 0.0f;
             nextOpenVRRetryTime = 0.0f;
             sceneTransitionPauseUntil = 0.0f;
         }
@@ -848,12 +846,10 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void RefreshRenderTargetSize(bool force)
         {
-            if (!force && Time.unscaledTime < nextRenderTargetCheckTime && renderWidth > 0 && renderHeight > 0)
+            if (!force && renderWidth > 0 && renderHeight > 0)
             {
                 return;
             }
-
-            nextRenderTargetCheckTime = Time.unscaledTime + settings.RenderTargetCheckSeconds;
 
             int width;
             int height;
