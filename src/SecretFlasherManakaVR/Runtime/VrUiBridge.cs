@@ -584,7 +584,7 @@ namespace SecretFlasherManakaVR.Runtime
             FullscreenEffectIsolationScope isolatedEffects = null;
             try
             {
-                isolatedEffects = FullscreenEffectIsolationScope.Isolate(fullscreenEffects.HiddenBranches);
+                isolatedEffects = FullscreenEffectIsolationScope.Isolate(fullscreenEffects.Root, fullscreenEffects.EffectObjects);
                 captureCamera.targetTexture = fullscreenEffectTexture;
                 captureCamera.Render();
                 if (fullscreenEffectPanelMaterial != null)
@@ -1288,20 +1288,29 @@ namespace SecretFlasherManakaVR.Runtime
 
         private sealed class FullscreenEffectIsolationScope
         {
-            private readonly List<ActiveState> activeStates = new List<ActiveState>();
-            private readonly HashSet<int> savedObjects = new HashSet<int>();
+            private readonly GraphicAlphaScope alphaScope = new GraphicAlphaScope();
 
-            public static FullscreenEffectIsolationScope Isolate(List<GameObject> hiddenBranches)
+            public static FullscreenEffectIsolationScope Isolate(RectTransform root, List<GameObject> effects)
             {
                 var scope = new FullscreenEffectIsolationScope();
-                if (hiddenBranches == null)
+                if (root == null || effects == null || effects.Count == 0)
                 {
                     return scope;
                 }
 
-                for (int i = 0; i < hiddenBranches.Count; i++)
+                Graphic[] graphics = root.GetComponentsInChildren<Graphic>(true);
+                for (int i = 0; i < graphics.Length; i++)
                 {
-                    scope.Hide(hiddenBranches[i]);
+                    Graphic graphic = graphics[i];
+                    if (graphic == null)
+                    {
+                        continue;
+                    }
+
+                    if (!ShouldRenderWithEffects(graphic.transform, effects))
+                    {
+                        scope.alphaScope.SetAlpha(graphic, 0.0f);
+                    }
                 }
 
                 return scope;
@@ -1309,51 +1318,27 @@ namespace SecretFlasherManakaVR.Runtime
 
             public void Restore()
             {
-                for (int i = activeStates.Count - 1; i >= 0; i--)
-                {
-                    activeStates[i].Restore();
-                }
-
-                activeStates.Clear();
-                savedObjects.Clear();
+                alphaScope.Restore();
             }
 
-            private void Hide(GameObject gameObject)
+            private static bool ShouldRenderWithEffects(Transform transform, List<GameObject> effects)
             {
-                if (gameObject == null)
+                for (int i = 0; i < effects.Count; i++)
                 {
-                    return;
-                }
-
-                int id = gameObject.GetInstanceID();
-                if (savedObjects.Contains(id))
-                {
-                    return;
-                }
-
-                savedObjects.Add(id);
-                activeStates.Add(new ActiveState(gameObject));
-                gameObject.SetActive(false);
-            }
-
-            private readonly struct ActiveState
-            {
-                private readonly GameObject gameObject;
-                private readonly bool active;
-
-                public ActiveState(GameObject gameObject)
-                {
-                    this.gameObject = gameObject;
-                    active = gameObject.activeSelf;
-                }
-
-                public void Restore()
-                {
-                    if (gameObject != null)
+                    GameObject effect = effects[i];
+                    if (effect == null)
                     {
-                        gameObject.SetActive(active);
+                        continue;
+                    }
+
+                    Transform effectTransform = effect.transform;
+                    if (transform == effectTransform || transform.IsChildOf(effectTransform) || effectTransform.IsChildOf(transform))
+                    {
+                        return true;
                     }
                 }
+
+                return false;
             }
         }
 
