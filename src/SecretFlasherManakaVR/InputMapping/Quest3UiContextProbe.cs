@@ -1,7 +1,10 @@
 using System;
 using Common.Scripts.UI;
+using ExposureUnnoticed2.Object3D.IngameManager;
 using ExposureUnnoticed2.ObjectUI.ChooseDildoPanelView;
+using ExposureUnnoticed2.ObjectUI.InteractMenuPanel;
 using ExposureUnnoticed2.ObjectUI.InGame.RingMenu;
+using Il2CppInterop.Runtime.InteropTypes;
 using UnityEngine;
 
 namespace SecretFlasherManakaVR.InputMapping;
@@ -62,72 +65,26 @@ internal sealed class Quest3UiContextProbe
 
     private static bool TryDetectChooseDildoPanel()
     {
-        var panels = Resources.FindObjectsOfTypeAll<ChooseDildoPanelView>();
-        for (int i = 0; i < panels.Length; i++)
+        InGameUiManager manager = InGameUiManager.Instance;
+        if (manager == null)
         {
-            var panel = panels[i];
-            if (panel == null || panel.gameObject == null || !panel.gameObject.activeInHierarchy)
-            {
-                continue;
-            }
-
-            if (IsPanelActive(panel))
-            {
-                return true;
-            }
+            return false;
         }
 
-        var basePanels = Resources.FindObjectsOfTypeAll<BasePanelView>();
-        for (int i = 0; i < basePanels.Length; i++)
+        if (IsChooseDildoPanelActive(manager.GetCurrentBasePanelView()))
         {
-            var panel = basePanels[i];
-            if (panel != null &&
-                panel.gameObject != null &&
-                panel.gameObject.activeInHierarchy &&
-                HasNameInHierarchy(panel.transform, "ChooseDildoPanel"))
-            {
-                return true;
-            }
+            return true;
         }
 
-        return false;
-    }
-
-    private static bool IsPanelActive(ChooseDildoPanelView panel)
-    {
-        try
+        var panelStack = manager.basePanelStack;
+        if (panelStack == null)
         {
-            return panel.IsActivePanel();
-        }
-        catch
-        {
-            return panel.enabled;
-        }
-    }
-
-    private static bool TryDetectInteractMenuPanel()
-    {
-        var basePanels = Resources.FindObjectsOfTypeAll<BasePanelView>();
-        for (int i = 0; i < basePanels.Length; i++)
-        {
-            var panel = basePanels[i];
-            if (panel != null &&
-                panel.gameObject != null &&
-                panel.gameObject.activeInHierarchy &&
-                HasNameInHierarchy(panel.transform, "InteractMenuPanel"))
-            {
-                return true;
-            }
+            return false;
         }
 
-        var transforms = Resources.FindObjectsOfTypeAll<Transform>();
-        for (int i = 0; i < transforms.Length; i++)
+        for (int i = panelStack.Count - 1; i >= 0; i--)
         {
-            var transform = transforms[i];
-            if (transform != null &&
-                transform.gameObject != null &&
-                transform.gameObject.activeInHierarchy &&
-                ContainsName(transform, "InteractMenuPanel"))
+            if (IsChooseDildoPanelActive(panelStack[i]))
             {
                 return true;
             }
@@ -139,48 +96,69 @@ internal sealed class Quest3UiContextProbe
     private static bool TryDetectCircle()
     {
         var instance = RingMenuParentView.Instance;
-        if (instance != null && instance.gameObject != null && instance.gameObject.activeInHierarchy && instance.IsOpenRing)
+        if (IsOpenRing(instance))
         {
             return true;
         }
 
-        var parents = Resources.FindObjectsOfTypeAll<RingMenuParentView>();
-        for (int i = 0; i < parents.Length; i++)
-        {
-            var parent = parents[i];
-            if (parent != null && parent.gameObject != null && parent.gameObject.activeInHierarchy && parent.IsOpenRing)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        InGameUiManager manager = InGameUiManager.Instance;
+        return manager != null && IsOpenRing(manager.RingMenuParentView);
     }
 
-    private static bool HasNameInHierarchy(Transform transform, string keyword)
+    private static bool TryDetectInteractMenuPanel()
     {
-        Transform current = transform;
-        while (current != null)
-        {
-            if (ContainsName(current, keyword))
-            {
-                return true;
-            }
-
-            current = current.parent;
-        }
-
-        return false;
-    }
-
-    private static bool ContainsName(Transform transform, string keyword)
-    {
-        string name = transform == null ? string.Empty : transform.name;
-        if (string.IsNullOrEmpty(name))
+        InteractMenuPanelView panel = InteractMenuPanelView.Instance;
+        if (panel == null || !IsPanelActive(panel))
         {
             return false;
         }
 
-        return name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+        try
+        {
+            return !panel.isClosed;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static bool IsChooseDildoPanelActive(BasePanelView panel)
+    {
+        if (!IsPanelActive(panel))
+        {
+            return false;
+        }
+
+        try
+        {
+            return panel.Cast<ChooseDildoPanelView>() != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsPanelActive(BasePanelView panel)
+    {
+        if (panel == null || panel.gameObject == null || !panel.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        try
+        {
+            return panel.IsActivePanel();
+        }
+        catch
+        {
+            return panel.enabled;
+        }
+    }
+
+    private static bool IsOpenRing(RingMenuParentView view)
+    {
+        return view != null && view.gameObject != null && view.gameObject.activeInHierarchy && view.IsOpenRing;
     }
 }
