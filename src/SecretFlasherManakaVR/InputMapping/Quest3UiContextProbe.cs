@@ -1,5 +1,4 @@
 using System;
-using BepInEx.Logging;
 using Common.Scripts.UI;
 using ExposureUnnoticed2.ObjectUI.ChooseDildoPanelView;
 using ExposureUnnoticed2.ObjectUI.InGame.RingMenu;
@@ -11,15 +10,8 @@ internal sealed class Quest3UiContextProbe
 {
     private const float ScanIntervalSeconds = 0.12f;
 
-    private readonly ManualLogSource? logger;
     private Quest3UiContext cachedContext = Quest3UiContext.None;
     private float nextScanTime;
-    private bool warned;
-
-    public Quest3UiContextProbe(ManualLogSource? logger)
-    {
-        this.logger = logger;
-    }
 
     public Quest3UiContext Detect(Quest3InputSnapshot snapshot)
     {
@@ -45,9 +37,8 @@ internal sealed class Quest3UiContextProbe
                     ? Quest3UiContext.Circle
                     : Quest3UiContext.None;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            WarnOnce("Quest 3 UI context probe failed: " + ex.Message);
             cachedContext = Quest3UiContext.None;
         }
 
@@ -164,15 +155,6 @@ internal sealed class Quest3UiContextProbe
         }
 
         return false;
-    }
-
-    private void WarnOnce(string message)
-    {
-        if (!warned)
-        {
-            warned = true;
-            logger?.LogWarning(message);
-        }
     }
 
     private static bool HasNameInHierarchy(Transform transform, string keyword)

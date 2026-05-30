@@ -11,8 +11,6 @@ internal static class BlackCensorControllerOnChangePatch
     private const string EventTypeName = "ExposureUnnoticed2.Scripts.Base.OptionChangeEvent";
 
     private static MethodBase? targetMethod;
-    private static DateTime nextLogUtc = DateTime.MinValue;
-    private static int suppressedCount;
 
     private static bool Prepare()
     {
@@ -44,7 +42,6 @@ internal static class BlackCensorControllerOnChangePatch
             return __exception;
         }
 
-        LogSuppressed();
         return null;
     }
 
@@ -63,22 +60,5 @@ internal static class BlackCensorControllerOnChangePatch
         string exceptionText = exception.ToString();
         return exception.GetType().FullName == "Il2CppInterop.Runtime.Il2CppException" &&
             exceptionText.IndexOf("System.NullReferenceException", StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static void LogSuppressed()
-    {
-        suppressedCount++;
-
-        DateTime now = DateTime.UtcNow;
-        if (now < nextLogUtc)
-        {
-            return;
-        }
-
-        nextLogUtc = now.AddSeconds(10.0);
-        Plugin.Logger?.LogWarning(
-            "Suppressed BlackCensorController.OnChange NullReferenceException. " +
-            "Count=" + suppressedCount + ". " +
-            "Set SuppressBlackCensorOnChangeNullRefs=false to restore original game exceptions.");
     }
 }

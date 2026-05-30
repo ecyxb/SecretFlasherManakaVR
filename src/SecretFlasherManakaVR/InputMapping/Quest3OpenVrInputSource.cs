@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using BepInEx;
-using BepInEx.Logging;
 using SecretFlasherManakaVR.OpenVR;
 using UnityEngine;
 using Valve.VR;
@@ -15,13 +14,9 @@ internal sealed class Quest3OpenVrInputSource
     private const string LeftHandPath = "/user/hand/left";
     private const string RightHandPath = "/user/hand/right";
 
-    private readonly ManualLogSource? logger;
     private readonly ModConfig settings;
     private bool triedActionInit;
     private bool actionInputReady;
-    private bool actionInitLogged;
-    private bool legacyFallbackLogged;
-    private bool inactiveActionFallbackLogged;
     private string manifestPath = string.Empty;
     private ulong actionSet;
     private ulong leftHand;
@@ -29,10 +24,9 @@ internal sealed class Quest3OpenVrInputSource
     private ActionHandles actions;
     private readonly VRActiveActionSet_t[] activeSets = new VRActiveActionSet_t[1];
 
-    public Quest3OpenVrInputSource(ModConfig settings, ManualLogSource? logger)
+    public Quest3OpenVrInputSource(ModConfig settings)
     {
         this.settings = settings;
-        this.logger = logger;
     }
 
     public Quest3InputSnapshot Read()
@@ -78,7 +72,6 @@ internal sealed class Quest3OpenVrInputSource
             var updateError = input.UpdateActionState(activeSets, (uint)Marshal.SizeOf<VRActiveActionSet_t>());
             if (updateError != EVRInputError.None)
             {
-                LogActionFallback("SteamVR UpdateActionState failed: " + updateError);
                 return false;
             }
 
@@ -115,21 +108,14 @@ internal sealed class Quest3OpenVrInputSource
 
             if (!anyActionActive)
             {
-                if (!inactiveActionFallbackLogged)
-                {
-                    inactiveActionFallbackLogged = true;
-                    logger?.LogWarning("SteamVR action input is initialized but no actions are active; falling back to legacy OpenVR controller state. Check SteamVR controller bindings if this persists.");
-                }
-
                 return false;
             }
 
             snapshot = new Quest3InputSnapshot(left, right, true, "steamvr-actions");
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            LogActionFallback("SteamVR action input read failed: " + ex.Message);
             return false;
         }
     }
@@ -150,7 +136,6 @@ internal sealed class Quest3OpenVrInputSource
         manifestPath = ResolveManifestPath();
         if (string.IsNullOrEmpty(manifestPath) || !File.Exists(manifestPath))
         {
-            LogActionFallback("SteamVR action manifest not found; using legacy OpenVR controller state fallback.");
             return false;
         }
 
@@ -160,7 +145,6 @@ internal sealed class Quest3OpenVrInputSource
             var manifestError = input.SetActionManifestPath(manifestPath);
             if (manifestError != EVRInputError.None)
             {
-                LogActionFallback("SetActionManifestPath failed: " + manifestError);
                 return false;
             }
 
@@ -169,22 +153,14 @@ internal sealed class Quest3OpenVrInputSource
                 !GetHandle(input.GetInputSourceHandle, RightHandPath, out rightHand) ||
                 !TryResolveActionHandles(input, out actions))
             {
-                LogActionFallback("One or more SteamVR action handles could not be resolved.");
                 return false;
             }
 
             actionInputReady = true;
-            if (!actionInitLogged)
-            {
-                actionInitLogged = true;
-                logger?.LogInfo("Quest 3 SteamVR input actions initialized from " + manifestPath);
-            }
-
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            LogActionFallback("SteamVR action input initialization failed: " + ex.Message);
             return false;
         }
     }
@@ -297,12 +273,6 @@ internal sealed class Quest3OpenVrInputSource
                 "legacy-no-system");
         }
 
-        if (!legacyFallbackLogged)
-        {
-            legacyFallbackLogged = true;
-            logger?.LogInfo("Quest 3 input using legacy OpenVR controller state fallback.");
-        }
-
         var left = ReadLegacyHand(system, ETrackedControllerRole.LeftHand, true);
         var right = ReadLegacyHand(system, ETrackedControllerRole.RightHand, false);
         return new Quest3InputSnapshot(left, right, true, "legacy-controller-state");
@@ -405,16 +375,6 @@ internal sealed class Quest3OpenVrInputSource
         return forward.sqrMagnitude < 0.000001f || upwards.sqrMagnitude < 0.000001f
             ? Quaternion.identity
             : Quaternion.LookRotation(forward.normalized, upwards.normalized);
-    }
-
-    private void LogActionFallback(string message)
-    {
-        if (legacyFallbackLogged)
-        {
-            return;
-        }
-
-        logger?.LogWarning(message);
     }
 
     private struct ActionHandles

@@ -42,15 +42,6 @@ namespace SecretFlasherManakaVR.Runtime
             get { return sharedHandle != IntPtr.Zero; }
         }
 
-        public string Description
-        {
-            get
-            {
-                return D3D11TextureDiagnostics.Describe(sharedTexture) +
-                    " sharedHandle=" + (sharedHandle == IntPtr.Zero ? "null" : "0x" + sharedHandle.ToInt64().ToString("X"));
-            }
-        }
-
         public static bool TryCreate(RenderTexture source, out D3D11SharedTexture texture, out string error)
         {
             texture = null;

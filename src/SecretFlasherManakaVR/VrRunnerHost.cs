@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Reflection;
-using BepInEx.Logging;
 using SecretFlasherManakaVR.InputMapping;
 using SecretFlasherManakaVR.OpenVR;
 using SecretFlasherManakaVR.Runtime;
@@ -19,19 +18,19 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     private Plugin? _plugin;
     private ModConfig? _settings;
-    private ManualLogSource? _logger;
     private object? _runtime;
     private object? _openVrBridge;
-    private BepInExRuntimeLogger? _runtimeLogger;
+    private IVrRuntimeLogger? _runtimeLogger;
     private MethodInfo? _updateMethod;
     private MethodInfo? _lateUpdateMethod;
     private MethodInfo? _shutdownMethod;
     private bool _startupAttempted;
     private bool _runtimeDisabled;
+    private bool _runtimeShutdownAttempted;
+    private bool _runtimeShutdownInProgress;
     private bool _missingRuntimeReported;
     private int _lastLateTickFrame = -1;
     private float _preferGameLateUpdateUntil;
-    private bool _gameLateUpdateHookLogged;
 
     private const float GameLateUpdateGraceSeconds = 2.0f;
 
@@ -46,13 +45,12 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     public ModConfig? Settings => _settings;
 
-    public void Initialize(Plugin plugin, ModConfig settings, ManualLogSource logger)
+    public void Initialize(Plugin plugin, ModConfig settings)
     {
         _plugin = plugin;
         _settings = settings;
-        _logger = logger;
         Instance = this;
-        Quest3InputSystem.Configure(settings, logger);
+        Quest3InputSystem.Configure(settings);
     }
 
     private void Awake()
@@ -90,11 +88,6 @@ public sealed class VrRunnerHost : MonoBehaviour
     public void LateTickFromGame()
     {
         _preferGameLateUpdateUntil = Time.unscaledTime + GameLateUpdateGraceSeconds;
-        if (!_gameLateUpdateHookLogged)
-        {
-            _gameLateUpdateHookLogged = true;
-            _logger?.LogInfo("VR late tick is now driven after InGameManager.OnLateUpdate while gameplay is active.");
-        }
 
         if (!_startupAttempted)
         {
@@ -106,7 +99,7 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     private void OnDestroy()
     {
-        InvokeLifecycle(_shutdownMethod, "shutdown");
+        ShutdownRuntime("VR runner host destroyed.");
         Quest3InputSystem.Shutdown();
         if (ReferenceEquals(Instance, this))
         {
@@ -117,14 +110,8 @@ public sealed class VrRunnerHost : MonoBehaviour
     public void DisableRuntime(string reason, Exception? exception = null)
     {
         _runtimeDisabled = true;
-        if (exception is null)
-        {
-            _logger?.LogWarning($"{reason} VR is disabled; normal game continues.");
-        }
-        else
-        {
-            _logger?.LogWarning($"{reason} VR is disabled; normal game continues. {exception}");
-        }
+
+        ShutdownRuntime("VR runtime disabled.");
     }
 
     private void TryStartRuntime()
@@ -138,7 +125,6 @@ public sealed class VrRunnerHost : MonoBehaviour
 
         if (!_settings.EnableVR.Value)
         {
-            _logger?.LogInfo("EnableVR=false; skipping VR runtime initialization.");
             _runtimeDisabled = true;
             return;
         }
@@ -150,21 +136,17 @@ public sealed class VrRunnerHost : MonoBehaviour
             {
                 if (!_missingRuntimeReported)
                 {
-                    _logger?.LogWarning("VR runtime type not found yet. Expected Agent C to provide SecretFlasherManakaVR.Runtime.VrRuntimeManager.");
                     _missingRuntimeReported = true;
                 }
 
                 return;
             }
 
-            _runtimeLogger = new BepInExRuntimeLogger(_logger);
-            _openVrBridge = new OpenVRBridge(
-                message => _logger?.LogInfo(message),
-                message => _logger?.LogWarning(message));
+            _runtimeLogger = NullVrRuntimeLogger.Instance;
+            _openVrBridge = new OpenVRBridge();
             _runtime = CreateRuntime(runtimeType, _runtimeLogger);
-            InvokeBestInitializeMethod(_runtime);
             CacheLifecycleMethods(runtimeType);
-            _logger?.LogInfo($"VR runtime attached: {runtimeType.FullName}");
+            InvokeBestInitializeMethod(_runtime);
         }
         catch (Exception ex)
         {
@@ -218,7 +200,6 @@ public sealed class VrRunnerHost : MonoBehaviour
             }
         }
 
-        _logger?.LogWarning($"Runtime {runtimeType.FullName} has no supported Initialize/StartRuntime/Load method; continuing with lifecycle calls only.");
     }
 
     private bool TryBuildArguments(MethodInfo method, out object?[] arguments)
@@ -247,8 +228,7 @@ public sealed class VrRunnerHost : MonoBehaviour
             _runtimeLogger,
             this,
             _plugin,
-            _settings,
-            _logger
+            _settings
         };
         foreach (var candidate in candidates)
         {
@@ -290,7 +270,6 @@ public sealed class VrRunnerHost : MonoBehaviour
             HeadPositionCameraOffsetMaxZ = settings.HeadPositionCameraOffsetMaxZ.Value,
             SourceRotationMode = settings.SourceRotationMode.Value,
             MirrorMode = ConvertMirrorMode(settings.MirrorMode.Value),
-            LogPoseDebug = settings.LogPoseDebug.Value,
             SceneTransitionVrPauseSeconds = settings.SceneTransitionVrPauseSeconds.Value,
             RenderScale = settings.RenderScale.Value,
             UseOpenVRProjection = settings.UseOpenVRProjection.Value,
@@ -306,8 +285,6 @@ public sealed class VrRunnerHost : MonoBehaviour
             BlockReflectionCameraRenderWhileVrActive = settings.BlockReflectionCameraRenderWhileVrActive.Value,
             BlockNestedCameraRenderDuringVrRender = settings.BlockNestedCameraRenderDuringVrRender.Value,
             DisableReflectionProbes = settings.DisableReflectionProbes.Value,
-            LogReflectionProbeDiagnostics = settings.LogReflectionProbeDiagnostics.Value,
-            LogReflectionCameraDiagnostics = settings.LogReflectionCameraDiagnostics.Value,
             ReflectionCameraNameKeywords = settings.ReflectionCameraNameKeywords.Value,
             EnableVrUiBridge = settings.EnableVrUiBridge.Value,
             ConvertOverlayCanvasToWorldSpace = settings.ConvertOverlayCanvasToWorldSpace.Value,
@@ -332,13 +309,11 @@ public sealed class VrRunnerHost : MonoBehaviour
             VrUiMaxScanInterval = settings.VrUiMaxScanInterval.Value,
             VrUiCanvasNameWhitelist = settings.VrUiCanvasNameWhitelist.Value,
             VrUiCanvasNameBlacklist = settings.VrUiCanvasNameBlacklist.Value,
-            LogVrUiDiagnostics = settings.LogVrUiDiagnostics.Value,
             FixNpcWorldSpaceUi = settings.FixNpcWorldSpaceUi.Value,
             NpcWorldSpaceUiVerticalOffset = settings.NpcWorldSpaceUiVerticalOffset.Value,
             NpcWorldSpaceUiScale = settings.NpcWorldSpaceUiScale.Value,
             NpcWorldSpaceUiMinScaleDistance = settings.NpcWorldSpaceUiMinScaleDistance.Value,
             NpcWorldSpaceUiMaxScaleDistance = settings.NpcWorldSpaceUiMaxScaleDistance.Value,
-            LogNpcWorldSpaceUiDiagnostics = settings.LogNpcWorldSpaceUiDiagnostics.Value
         };
     }
 
@@ -384,6 +359,70 @@ public sealed class VrRunnerHost : MonoBehaviour
         }
     }
 
+    private void ShutdownRuntime(string reason)
+    {
+        if (_runtimeShutdownInProgress)
+        {
+            return;
+        }
+
+        if (_runtime is null && _openVrBridge is null)
+        {
+            ClearRuntimeReferences();
+            return;
+        }
+
+        if (_runtimeShutdownAttempted)
+        {
+            ClearRuntimeReferences();
+            return;
+        }
+
+        _runtimeShutdownAttempted = true;
+        _runtimeShutdownInProgress = true;
+        try
+        {
+            var openVrBridge = _openVrBridge;
+            InvokeShutdown(_runtime, _shutdownMethod, reason, "runtime");
+            InvokeShutdown(
+                openVrBridge,
+                openVrBridge is null ? null : FindLifecycleMethod(openVrBridge.GetType(), "Shutdown", "Dispose", "Stop"),
+                reason,
+                "OpenVR bridge");
+        }
+        finally
+        {
+            _runtimeShutdownInProgress = false;
+            ClearRuntimeReferences();
+        }
+    }
+
+    private void InvokeShutdown(object? target, MethodInfo? shutdownMethod, string reason, string targetName)
+    {
+        if (target is null || shutdownMethod is null)
+        {
+            return;
+        }
+
+        try
+        {
+            shutdownMethod.Invoke(target, null);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private void ClearRuntimeReferences()
+    {
+        _runtime = null;
+        _openVrBridge = null;
+        _runtimeLogger = null;
+        _updateMethod = null;
+        _lateUpdateMethod = null;
+        _shutdownMethod = null;
+    }
+
     private void InvokeLateTick(string phase)
     {
         int frame = Time.frameCount;
@@ -396,33 +435,4 @@ public sealed class VrRunnerHost : MonoBehaviour
         InvokeLifecycle(_lateUpdateMethod, phase);
     }
 
-    private sealed class BepInExRuntimeLogger : IVrRuntimeLogger
-    {
-        private readonly ManualLogSource? _source;
-
-        public BepInExRuntimeLogger(ManualLogSource? source)
-        {
-            _source = source;
-        }
-
-        public void Info(string message)
-        {
-            _source?.LogInfo(message);
-        }
-
-        public void Warning(string message)
-        {
-            _source?.LogWarning(message);
-        }
-
-        public void Error(string message)
-        {
-            _source?.LogError(message);
-        }
-
-        public void Debug(string message)
-        {
-            _source?.LogDebug(message);
-        }
-    }
 }

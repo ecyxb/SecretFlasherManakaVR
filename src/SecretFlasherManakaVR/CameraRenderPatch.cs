@@ -8,9 +8,6 @@ namespace SecretFlasherManakaVR;
 [HarmonyPatch]
 internal static class CameraRenderPatch
 {
-    private static float nextLogTime;
-    private static int suppressedSinceLastLog;
-
     private static MethodBase TargetMethod()
     {
         return AccessTools.Method(typeof(Camera), nameof(Camera.Render), Type.EmptyTypes);
@@ -21,17 +18,6 @@ internal static class CameraRenderPatch
         if (!ShouldBlock(__instance))
         {
             return true;
-        }
-
-        suppressedSinceLastLog++;
-        if (Time.unscaledTime >= nextLogTime)
-        {
-            nextLogTime = Time.unscaledTime + 5.0f;
-            Plugin.Logger.LogInfo(
-                "Blocked reflection Camera.Render while VR is active: " +
-                ReflectionBlocker.CameraDescription(__instance) +
-                " count=" + suppressedSinceLastLog + ".");
-            suppressedSinceLastLog = 0;
         }
 
         return false;

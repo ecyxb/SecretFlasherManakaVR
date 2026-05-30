@@ -45,7 +45,6 @@ namespace SecretFlasherManakaVR.Runtime
         public float HeadPositionCameraOffsetMaxZ = 1.0f;
         public VrSourceRotationMode SourceRotationMode = VrSourceRotationMode.SourceYawOnly;
         public VrMirrorMode MirrorMode = VrMirrorMode.SourceCamera;
-        public bool LogPoseDebug = false;
         public float SceneTransitionVrPauseSeconds = 1.5f;
         public bool UseOpenVRProjection = true;
         public OpenVRProjectionMode OpenVRProjectionMode = OpenVRProjectionMode.RawSwapVertical;
@@ -60,8 +59,6 @@ namespace SecretFlasherManakaVR.Runtime
         public bool BlockReflectionCameraRenderWhileVrActive = true;
         public bool BlockNestedCameraRenderDuringVrRender = true;
         public bool DisableReflectionProbes = false;
-        public bool LogReflectionProbeDiagnostics = true;
-        public bool LogReflectionCameraDiagnostics = true;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
         public bool EnableVrUiBridge = true;
         public bool ConvertOverlayCanvasToWorldSpace = true;
@@ -86,13 +83,11 @@ namespace SecretFlasherManakaVR.Runtime
         public float VrUiMaxScanInterval = 1.0f;
         public string VrUiCanvasNameWhitelist = string.Empty;
         public string VrUiCanvasNameBlacklist = string.Empty;
-        public bool LogVrUiDiagnostics = false;
         public bool FixNpcWorldSpaceUi = false;
         public float NpcWorldSpaceUiVerticalOffset = 0.25f;
         public float NpcWorldSpaceUiScale = 0.0015f;
         public float NpcWorldSpaceUiMinScaleDistance = 3.0f;
         public float NpcWorldSpaceUiMaxScaleDistance = 7.0f;
-        public bool LogNpcWorldSpaceUiDiagnostics = false;
 
         public float RenderScale = 1.0f;
         public int FallbackRenderWidth = 1512;

@@ -1,4 +1,3 @@
-using BepInEx.Logging;
 using ExposureUnnoticed2.Scripts.Base;
 using SecretFlasherManakaVR.Runtime;
 using UnityEngine;
@@ -8,7 +7,6 @@ namespace SecretFlasherManakaVR.InputMapping;
 internal static class Quest3InputSystem
 {
     private static ModConfig? settings;
-    private static ManualLogSource? logger;
     private static Quest3OpenVrInputSource? inputSource;
     private static Quest3UiContextProbe? uiProbe;
     private static Quest3CursorRayRenderer? cursorRay;
@@ -22,18 +20,16 @@ internal static class Quest3InputSystem
 
     public static Quest3VirtualInputState Current => State;
 
-    public static void Configure(ModConfig config, ManualLogSource? source)
+    public static void Configure(ModConfig config)
     {
         settings = config;
-        logger = source;
-        inputSource = new Quest3OpenVrInputSource(config, source);
-        uiProbe = new Quest3UiContextProbe(source);
-        cursorRay = new Quest3CursorRayRenderer(source);
-        modeStatusOverlay = new Quest3ModeStatusOverlay(source);
-        virtualGamepad = new Quest3VirtualGamepadDriver(source);
-        uiPointer = new Quest3UiPointerDispatcher(source);
+        inputSource = new Quest3OpenVrInputSource(config);
+        uiProbe = new Quest3UiContextProbe();
+        cursorRay = new Quest3CursorRayRenderer();
+        modeStatusOverlay = new Quest3ModeStatusOverlay();
+        virtualGamepad = new Quest3VirtualGamepadDriver();
+        uiPointer = new Quest3UiPointerDispatcher();
         lastTickFrame = -1;
-        logger?.LogInfo("Quest 3 input mapping configured.");
     }
 
     public static void Shutdown()
@@ -49,7 +45,6 @@ internal static class Quest3InputSystem
         inputSource = null;
         uiProbe = null;
         settings = null;
-        logger = null;
         lastTickFrame = -1;
     }
 
@@ -69,7 +64,7 @@ internal static class Quest3InputSystem
 
         if (inputSource == null || uiProbe == null || cursorRay == null || modeStatusOverlay == null || virtualGamepad == null || uiPointer == null)
         {
-            Configure(config, Plugin.Logger);
+            Configure(config);
         }
 
         lastTickFrame = Time.frameCount;

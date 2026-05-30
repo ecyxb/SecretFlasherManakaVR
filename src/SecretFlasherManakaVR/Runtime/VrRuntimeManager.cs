@@ -12,9 +12,6 @@ namespace SecretFlasherManakaVR.Runtime
         private const float DefaultIpdMeters = 0.064f;
         private const float OpenVRRetrySeconds = 5.0f;
 
-        private readonly RateLimitedLogger limitedLog;
-        private readonly IVrRuntimeLogger logger;
-
         private VrRuntimeSettings settings;
         private IOpenVRBridge bridge;
         private VrCameraRig rig;
@@ -35,11 +32,6 @@ namespace SecretFlasherManakaVR.Runtime
         private int renderHeight;
         private int lastSceneHandle = -1;
         private float sceneTransitionPauseUntil;
-        private bool submitSuccessLogged;
-        private bool projectionModeLogged;
-        private bool reflectionCameraDiagnosticsLogged;
-        private bool reflectionProbeDiagnosticsLogged;
-        private bool sceneTransitionPauseLogged;
         private string[] reflectionCameraKeywords = Array.Empty<string>();
         private DisabledCameraState? disabledSourceCamera;
         private readonly List<DisabledCameraState> disabledReflectionCameras = new List<DisabledCameraState>();
@@ -54,8 +46,6 @@ namespace SecretFlasherManakaVR.Runtime
 
         public VrRuntimeManager(IVrRuntimeLogger logger)
         {
-            this.logger = logger ?? NullVrRuntimeLogger.Instance;
-            limitedLog = new RateLimitedLogger(this.logger, 5.0f);
             settings = new VrRuntimeSettings();
             lastPose = RuntimePose.Identity;
         }
@@ -92,20 +82,16 @@ namespace SecretFlasherManakaVR.Runtime
             settings = runtimeSettings == null ? new VrRuntimeSettings() : runtimeSettings.Clone();
             settings.Sanitize();
             reflectionCameraKeywords = Array.Empty<string>();
-            reflectionCameraDiagnosticsLogged = false;
-            reflectionProbeDiagnosticsLogged = false;
             initialized = true;
             vrReady = false;
 
             if (!settings.EnableVR)
             {
-                logger.Info("VR runtime disabled by config.");
                 return;
             }
 
             if (openVrBridge == null)
             {
-                logger.Warning("VR runtime disabled: OpenVR bridge was not provided.");
                 return;
             }
 
@@ -149,7 +135,6 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (bridge == null || !bridge.IsInitialized)
             {
-                limitedLog.Warning("openvr-lost", "OpenVR bridge is not ready; skipping VR frame.");
                 return;
             }
 
@@ -157,12 +142,6 @@ namespace SecretFlasherManakaVR.Runtime
             if (IsInSceneTransitionPause())
             {
                 DisableReflectionCamerasEarly();
-                if (!sceneTransitionPauseLogged)
-                {
-                    sceneTransitionPauseLogged = true;
-                    logger.Info("Pausing VR eye rendering during scene transition for " + settings.SceneTransitionVrPauseSeconds.ToString("0.00") + " seconds.");
-                }
-
                 return;
             }
 
@@ -179,7 +158,6 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (!TryGetHmdPose(out lastPose))
             {
-                limitedLog.Warning("pose-missing", "OpenVR pose unavailable; rendering with last valid pose.");
             }
 
             if (!lastPose.IsValid)
@@ -188,7 +166,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
             else if (settings.AutoRecenterOnStart && !recenterSet)
             {
-                ApplyRecenter(lastPose, "VR view auto-recentered at first valid HMD pose.");
+                ApplyRecenter(lastPose);
             }
 
             rig.EnsureCreated();
@@ -223,29 +201,14 @@ namespace SecretFlasherManakaVR.Runtime
                 }
             }
 
-            bool leftSubmitted = SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out var leftError);
-            bool rightSubmitted = SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out var rightError);
-            if (!leftSubmitted || !rightSubmitted)
-            {
-                string suffix = " Left=" + SubmitStatus(leftSubmitted, leftError, rig.LeftSubmitTexturePtr) +
-                    " Right=" + SubmitStatus(rightSubmitted, rightError, rig.RightSubmitTexturePtr);
-                limitedLog.Warning("submit-failed", "OpenVR texture submit failed; normal game window remains playable." + suffix);
-            }
-            else if (!submitSuccessLogged)
-            {
-                submitSuccessLogged = true;
-                logger.Info("OpenVR texture submit succeeded for both eyes.");
-            }
+            SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out _);
+            SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out _);
 
             if (settings.MirrorMode == VrMirrorMode.LeftEye || settings.MirrorMode == VrMirrorMode.RightEye)
             {
                 rig.Mirror(settings.MirrorMode);
             }
 
-            if (settings.LogPoseDebug)
-            {
-                limitedLog.Info("pose-debug", "HMD pose position=" + lastPose.Position + " rotation=" + lastPose.Rotation.eulerAngles);
-            }
         }
 
         private void HandleSceneChange()
@@ -265,16 +228,18 @@ namespace SecretFlasherManakaVR.Runtime
                 uiBridge.OnSceneChanged(settings);
             }
 
+            if (npcWorldSpaceUiFixer != null)
+            {
+                npcWorldSpaceUiFixer.Shutdown();
+            }
+
             lastSceneHandle = activeSceneHandle;
             sourceCamera = null;
             nextCameraSearchTime = 0.0f;
-            reflectionCameraDiagnosticsLogged = false;
-            reflectionProbeDiagnosticsLogged = false;
-            sceneTransitionPauseLogged = false;
+            DisableMirrorManagersForCurrentScene();
             sceneTransitionPauseUntil = settings.SceneTransitionVrPauseSeconds <= 0.0f
                 ? 0.0f
                 : Time.unscaledTime + settings.SceneTransitionVrPauseSeconds;
-            logger.Info("Scene changed; VR runtime will reacquire the game camera and sanitize reflection cameras early.");
         }
 
         private bool IsInSceneTransitionPause()
@@ -293,11 +258,6 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 DisableReflectionProbesEarly();
             }
-
-            if (settings.DisableMirrorManagersWhileVrActive)
-            {
-                DisableMirrorManagersEarly();
-            }
         }
 
         public void Shutdown()
@@ -314,7 +274,11 @@ namespace SecretFlasherManakaVR.Runtime
                 uiBridge = null;
             }
 
-            npcWorldSpaceUiFixer = null;
+            if (npcWorldSpaceUiFixer != null)
+            {
+                npcWorldSpaceUiFixer.Shutdown();
+                npcWorldSpaceUiFixer = null;
+            }
 
             if (rig != null)
             {
@@ -340,15 +304,10 @@ namespace SecretFlasherManakaVR.Runtime
             recenterSet = false;
             renderWidth = 0;
             renderHeight = 0;
-            submitSuccessLogged = false;
-            projectionModeLogged = false;
-            reflectionCameraDiagnosticsLogged = false;
-            reflectionProbeDiagnosticsLogged = false;
             nextCameraSearchTime = 0.0f;
             nextRenderTargetCheckTime = 0.0f;
             nextOpenVRRetryTime = 0.0f;
             sceneTransitionPauseUntil = 0.0f;
-            sceneTransitionPauseLogged = false;
         }
 
         private bool TryInitializeOpenVR(bool firstAttempt)
@@ -361,9 +320,6 @@ namespace SecretFlasherManakaVR.Runtime
             OpenVRInitResult initResult = bridge.Initialize(settings.AutoStartSteamVR);
             if (!initResult.IsSuccess)
             {
-                string suffix = string.IsNullOrEmpty(initResult.Error) ? string.Empty : " " + initResult.Error;
-                string prefix = firstAttempt ? "OpenVR initialization failed." : "OpenVR initialization retry failed.";
-                limitedLog.Warning("openvr-init-retry", prefix + suffix + " Will retry in " + OpenVRRetrySeconds + " seconds.");
                 vrReady = false;
                 nextOpenVRRetryTime = Time.unscaledTime + OpenVRRetrySeconds;
                 return false;
@@ -371,17 +327,17 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (rig == null)
             {
-                rig = new VrCameraRig(logger);
+                rig = new VrCameraRig(NullVrRuntimeLogger.Instance);
             }
 
             if (uiBridge == null)
             {
-                uiBridge = new VrUiBridge(logger);
+                uiBridge = new VrUiBridge(NullVrRuntimeLogger.Instance);
             }
 
             if (npcWorldSpaceUiFixer == null)
             {
-                npcWorldSpaceUiFixer = new NpcWorldSpaceUiFixer(logger);
+                npcWorldSpaceUiFixer = new NpcWorldSpaceUiFixer(NullVrRuntimeLogger.Instance);
             }
 
             vrReady = true;
@@ -390,7 +346,7 @@ namespace SecretFlasherManakaVR.Runtime
             lastSceneHandle = SceneManager.GetActiveScene().handle;
             RefreshRenderTargetSize(true);
             FindSourceCamera(true);
-            logger.Info("VR runtime initialized.");
+            DisableMirrorManagersForCurrentScene();
             return true;
         }
 
@@ -406,17 +362,16 @@ namespace SecretFlasherManakaVR.Runtime
                 pose = lastPose.IsValid ? lastPose : RuntimePose.Identity;
             }
 
-            ApplyRecenter(pose, "VR view recentered.");
+            ApplyRecenter(pose);
         }
 
-        private void ApplyRecenter(RuntimePose pose, string message)
+        private void ApplyRecenter(RuntimePose pose)
         {
             recenterYaw = Quaternion.Inverse(Quaternion.Euler(0.0f, pose.Rotation.eulerAngles.y, 0.0f));
             recenterPosition = pose.Position * settings.WorldScale;
             recenterSourceYaw = sourceCamera == null ? Quaternion.identity : ExtractYaw(sourceCamera.transform.rotation);
             recenterSet = true;
             VrRuntimeState.MarkRecentered();
-            logger.Info(message);
         }
 
         private bool FindSourceCamera(bool force)
@@ -442,7 +397,6 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 sourceCamera = null;
                 VrRuntimeState.SetSourceCamera(null);
-                limitedLog.Warning("camera-missing", "No usable game camera found for VR yet.");
                 return false;
             }
 
@@ -450,7 +404,6 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 RestoreSourceCameraRendering();
                 sourceCamera = candidate;
-                logger.Info("VR source camera set to " + GetCameraName(sourceCamera) + ".");
             }
 
             return true;
@@ -539,7 +492,6 @@ namespace SecretFlasherManakaVR.Runtime
             if (sourceCamera.enabled)
             {
                 sourceCamera.enabled = false;
-                logger.Info("Disabled source camera rendering while VR is active: " + GetCameraName(sourceCamera) + ".");
             }
         }
 
@@ -568,11 +520,6 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             Camera[] cameras = UnityEngine.Object.FindObjectsOfType<Camera>();
-            if (settings.LogReflectionCameraDiagnostics && !reflectionCameraDiagnosticsLogged)
-            {
-                LogReflectionCameraDiagnostics(cameras);
-                reflectionCameraDiagnosticsLogged = true;
-            }
 
             for (int i = 0; i < cameras.Length; i++)
             {
@@ -590,7 +537,6 @@ namespace SecretFlasherManakaVR.Runtime
                 {
                     disabledReflectionCameras.Add(new DisabledCameraState(camera, camera.enabled));
                     camera.enabled = false;
-                    limitedLog.Info("reflection-camera-disabled", "Temporarily disabling reflection camera for VR render: " + GetCameraName(camera));
                 }
             }
 
@@ -613,14 +559,23 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void PersistentlyDisableReflectionCamera(Camera camera)
         {
-            if (camera == null || IsPersistentlyDisabled(camera))
+            if (camera == null)
             {
+                return;
+            }
+
+            if (IsPersistentlyDisabled(camera))
+            {
+                if (camera.enabled)
+                {
+                    camera.enabled = false;
+                }
+
                 return;
             }
 
             persistentlyDisabledReflectionCameras.Add(new DisabledCameraState(camera, camera.enabled));
             camera.enabled = false;
-            logger.Info("Persistently disabling reflection camera while VR is active: " + GetCameraName(camera));
         }
 
         private bool IsPersistentlyDisabled(Camera camera)
@@ -654,12 +609,6 @@ namespace SecretFlasherManakaVR.Runtime
         private void DisableReflectionProbesEarly()
         {
             ReflectionProbe[] probes = UnityEngine.Object.FindObjectsOfType<ReflectionProbe>();
-            if (settings.LogReflectionProbeDiagnostics && !reflectionProbeDiagnosticsLogged)
-            {
-                LogReflectionProbeDiagnostics(probes);
-                reflectionProbeDiagnosticsLogged = true;
-            }
-
             for (int i = 0; i < probes.Length; i++)
             {
                 ReflectionProbe probe = probes[i];
@@ -682,14 +631,23 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void PersistentlyDisableReflectionProbe(ReflectionProbe probe)
         {
-            if (probe == null || IsPersistentlyDisabled(probe))
+            if (probe == null)
             {
+                return;
+            }
+
+            if (IsPersistentlyDisabled(probe))
+            {
+                if (probe.enabled)
+                {
+                    probe.enabled = false;
+                }
+
                 return;
             }
 
             persistentlyDisabledReflectionProbes.Add(new DisabledProbeState(probe, probe.enabled));
             probe.enabled = false;
-            logger.Info("Persistently disabling ReflectionProbe while VR is active: " + ProbeDescription(probe));
         }
 
         private bool IsPersistentlyDisabled(ReflectionProbe probe)
@@ -720,8 +678,13 @@ namespace SecretFlasherManakaVR.Runtime
             persistentlyDisabledReflectionProbes.Clear();
         }
 
-        private void DisableMirrorManagersEarly()
+        private void DisableMirrorManagersForCurrentScene()
         {
+            if (!settings.DisableMirrorManagersWhileVrActive)
+            {
+                return;
+            }
+
             MirrorManager[] managers = UnityEngine.Object.FindObjectsOfType<MirrorManager>();
             for (int i = 0; i < managers.Length; i++)
             {
@@ -746,21 +709,29 @@ namespace SecretFlasherManakaVR.Runtime
             }
             catch (Exception ex)
             {
-                limitedLog.Warning("mirror-manager-candidate-error", "Skipping MirrorManager candidate check after exception: " + ex.Message);
                 return false;
             }
         }
 
         private void PersistentlyDisableMirrorManager(MirrorManager manager)
         {
-            if (manager == null || IsPersistentlyDisabled(manager))
+            if (manager == null)
             {
+                return;
+            }
+
+            if (IsPersistentlyDisabled(manager))
+            {
+                if (manager.enabled)
+                {
+                    manager.enabled = false;
+                }
+
                 return;
             }
 
             persistentlyDisabledMirrorManagers.Add(new DisabledBehaviourState(manager, manager.enabled));
             manager.enabled = false;
-            logger.Info("Persistently disabling MirrorManager while VR is active: " + SafeBehaviourDescription(manager));
         }
 
         private bool IsPersistentlyDisabled(Behaviour behaviour)
@@ -822,70 +793,6 @@ namespace SecretFlasherManakaVR.Runtime
             bool targetTextureCamera = settings.DisableTargetTextureCameras && camera.targetTexture != null;
 
             return nameLooksReflective || targetTextureLooksReflective || targetTextureCamera;
-        }
-
-        private void LogReflectionCameraDiagnostics(Camera[] cameras)
-        {
-            var entries = new List<string>();
-            for (int i = 0; i < cameras.Length; i++)
-            {
-                Camera camera = cameras[i];
-                if (camera == null)
-                {
-                    continue;
-                }
-
-                string role = camera == sourceCamera ? "source" : "other";
-                if (rig != null && rig.IsOurCamera(camera))
-                {
-                    role = "vr";
-                }
-
-                RenderTexture target = camera.targetTexture;
-                string targetDescription = target == null
-                    ? "none"
-                    : (string.IsNullOrEmpty(target.name) ? "<unnamed>" : target.name) + " " + target.width + "x" + target.height;
-
-                bool active = camera.gameObject != null && camera.gameObject.activeInHierarchy;
-                bool candidate = IsReflectionCameraCandidate(camera);
-                entries.Add(GetCameraName(camera) +
-                    " role=" + role +
-                    " enabled=" + camera.enabled +
-                    " active=" + active +
-                    " targetTexture=" + targetDescription +
-                    " depth=" + camera.depth +
-                    " candidate=" + candidate);
-
-                if (entries.Count >= 16)
-                {
-                    entries.Add("...");
-                    break;
-                }
-            }
-
-            logger.Info("VR camera/reflection diagnostics: " + string.Join(" | ", entries.ToArray()));
-        }
-
-        private void LogReflectionProbeDiagnostics(ReflectionProbe[] probes)
-        {
-            var entries = new List<string>();
-            for (int i = 0; i < probes.Length; i++)
-            {
-                ReflectionProbe probe = probes[i];
-                if (probe == null || probe.gameObject == null)
-                {
-                    continue;
-                }
-
-                entries.Add(ProbeDescription(probe));
-                if (entries.Count >= 16)
-                {
-                    entries.Add("...");
-                    break;
-                }
-            }
-
-            logger.Info("VR reflection probe diagnostics: " + string.Join(" | ", entries.ToArray()));
         }
 
         private bool NameContainsReflectionKeyword(string value)
@@ -1032,12 +939,6 @@ namespace SecretFlasherManakaVR.Runtime
         {
             if (!settings.UseOpenVRProjection || settings.OpenVRProjectionMode == OpenVRProjectionMode.SourceCamera)
             {
-                if (!projectionModeLogged)
-                {
-                    projectionModeLogged = true;
-                    logger.Info("Using source camera projection for VR eyes.");
-                }
-
                 if (rig.LeftEyeCamera != null)
                 {
                     rig.LeftEyeCamera.ResetProjectionMatrix();
@@ -1050,12 +951,6 @@ namespace SecretFlasherManakaVR.Runtime
 
                 rig.ResetCullingMatrices();
                 return;
-            }
-
-            if (!projectionModeLogged)
-            {
-                projectionModeLogged = true;
-                logger.Info("Using OpenVR projection mode: " + settings.OpenVRProjectionMode + ".");
             }
 
             Matrix4x4 projection;
@@ -1097,67 +992,6 @@ namespace SecretFlasherManakaVR.Runtime
             return camera.gameObject.name;
         }
 
-        private static string ProbeDescription(ReflectionProbe probe)
-        {
-            if (probe == null || probe.gameObject == null)
-            {
-                return "<null>";
-            }
-
-            return GetPath(probe.gameObject) +
-                " scene=" + probe.gameObject.scene.name +
-                " enabled=" + probe.enabled +
-                " mode=" + probe.mode +
-                " refreshMode=" + probe.refreshMode +
-                " timeSlicing=" + probe.timeSlicingMode +
-                " resolution=" + probe.resolution +
-                " cullingMask=0x" + probe.cullingMask.ToString("X");
-        }
-
-        private static string BehaviourDescription(Behaviour behaviour)
-        {
-            if (behaviour == null || behaviour.gameObject == null)
-            {
-                return "<null>";
-            }
-
-            return GetPath(behaviour.gameObject) +
-                " scene=" + behaviour.gameObject.scene.name +
-                " type=" + behaviour.GetType().FullName +
-                " enabled=" + behaviour.enabled;
-        }
-
-        private static string SafeBehaviourDescription(Behaviour behaviour)
-        {
-            try
-            {
-                return BehaviourDescription(behaviour);
-            }
-            catch (Exception ex)
-            {
-                string typeName = behaviour == null ? "<null>" : behaviour.GetType().FullName;
-                return typeName + " description failed: " + ex.Message;
-            }
-        }
-
-        private static string GetPath(GameObject gameObject)
-        {
-            if (gameObject == null)
-            {
-                return "<null>";
-            }
-
-            Transform current = gameObject.transform;
-            string path = gameObject.name;
-            while (current.parent != null)
-            {
-                current = current.parent;
-                path = current.gameObject.name + "/" + path;
-            }
-
-            return path;
-        }
-
         private readonly struct DisabledCameraState
         {
             public DisabledCameraState(Camera camera, bool wasEnabled)
@@ -1195,12 +1029,6 @@ namespace SecretFlasherManakaVR.Runtime
             public ReflectionProbe Probe { get; }
 
             public bool WasEnabled { get; }
-        }
-
-        private static string SubmitStatus(bool submitted, string error, IntPtr nativeTexturePtr)
-        {
-            string pointer = nativeTexturePtr == IntPtr.Zero ? "null" : "0x" + nativeTexturePtr.ToInt64().ToString("X");
-            return submitted ? "ok ptr=" + pointer : "failed ptr=" + pointer + " error=" + error;
         }
 
         private bool TryGetHmdPose(out RuntimePose pose)

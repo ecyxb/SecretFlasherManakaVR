@@ -12,11 +12,9 @@ namespace SecretFlasherManakaVR.Runtime
         private const int FallbackTextureWidth = 1920;
         private const int FallbackTextureHeight = 1080;
 
-        private readonly IVrRuntimeLogger logger;
         private readonly List<Canvas> activeCanvases = new List<Canvas>();
         private float nextScanTime;
         private int convertedLayerMask;
-        private bool initializedLogged;
         private bool worldFixedPoseSet;
         private Vector3 worldFixedPosition;
         private Quaternion worldFixedRotation = Quaternion.identity;
@@ -44,7 +42,6 @@ namespace SecretFlasherManakaVR.Runtime
 
         public VrUiBridge(IVrRuntimeLogger logger)
         {
-            this.logger = logger ?? NullVrRuntimeLogger.Instance;
         }
 
         public int ConvertedLayerMask
@@ -287,11 +284,6 @@ namespace SecretFlasherManakaVR.Runtime
             uiPosition = basePosition + baseRotation * offset;
             uiRotation = baseRotation;
 
-            if (!initializedLogged && settings.LogVrUiDiagnostics)
-            {
-                initializedLogged = true;
-                logger.Info("VR UI bridge initialized with RenderTexture capture panel.");
-            }
         }
 
         private void ScanCanvasesIfNeeded(VrRuntimeSettings settings)
@@ -318,10 +310,6 @@ namespace SecretFlasherManakaVR.Runtime
                 }
             }
 
-            if (settings.LogVrUiDiagnostics)
-            {
-                logger.Info("VR UI capture canvases: " + activeCanvases.Count + ".");
-            }
         }
 
         private void RemoveInactiveCanvases()
@@ -385,7 +373,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             var states = new List<CanvasCaptureState>();
-            var hudLayout = new HudLayoutScope(logger, settings);
+            var hudLayout = new HudLayoutScope(settings);
             FullscreenEffectCaptureSet fullscreenEffects = null;
             try
             {
@@ -418,11 +406,10 @@ namespace SecretFlasherManakaVR.Runtime
                 RenderFullscreenEffectPass(settings, fullscreenEffects);
                 SetPanelVisible(true);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 SetPanelVisible(false);
                 SetFullscreenEffectPanelVisible(false);
-                logger.Warning("VR UI capture failed: " + ex.Message);
             }
             finally
             {
@@ -1098,7 +1085,7 @@ namespace SecretFlasherManakaVR.Runtime
             private readonly HashSet<int> savedObjects = new HashSet<int>();
             private readonly HashSet<int> savedParents = new HashSet<int>();
 
-            public HudLayoutScope(IVrRuntimeLogger logger, VrRuntimeSettings settings)
+            public HudLayoutScope(VrRuntimeSettings settings)
             {
                 this.settings = settings;
             }

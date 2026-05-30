@@ -1,4 +1,3 @@
-using BepInEx.Logging;
 using SecretFlasherManakaVR.Runtime;
 using UnityEngine;
 
@@ -6,15 +5,9 @@ namespace SecretFlasherManakaVR.InputMapping;
 
 internal sealed class Quest3CursorRayRenderer
 {
-    private readonly ManualLogSource? logger;
     private GameObject? rayObject;
     private LineRenderer? line;
     private bool creationFailed;
-
-    public Quest3CursorRayRenderer(ManualLogSource? logger)
-    {
-        this.logger = logger;
-    }
 
     public void Tick(Quest3VirtualInputState state)
     {
@@ -72,10 +65,9 @@ internal sealed class Quest3CursorRayRenderer
             line.sortingOrder = 1000;
             SetVisible(false);
         }
-        catch (System.Exception ex)
+        catch (System.Exception)
         {
             creationFailed = true;
-            logger?.LogWarning("Quest 3 cursor ray creation failed: " + ex.Message);
         }
     }
 

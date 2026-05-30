@@ -6,8 +6,6 @@ namespace SecretFlasherManakaVR.OpenVR
 {
     public sealed class OpenVRBridge : IOpenVRBridge
     {
-        private readonly Action<string>? infoLog;
-        private readonly Action<string>? warningLog;
         private Valve.VR.CVRSystem? system;
         private Valve.VR.CVRCompositor? compositor;
         private Valve.VR.TrackedDevicePose_t[] poses = Array.Empty<Valve.VR.TrackedDevicePose_t>();
@@ -18,12 +16,9 @@ namespace SecretFlasherManakaVR.OpenVR
         private uint compositorFrameIndex;
         private bool submittedLeftThisFrame;
         private bool submittedRightThisFrame;
-        private OpenVRProjectionMode? loggedProjectionMode;
 
-        public OpenVRBridge(Action<string>? infoLog = null, Action<string>? warningLog = null)
+        public OpenVRBridge()
         {
-            this.infoLog = infoLog;
-            this.warningLog = warningLog;
         }
 
         public bool IsInitialized => initialized;
@@ -74,7 +69,6 @@ namespace SecretFlasherManakaVR.OpenVR
                 }
 
                 LastError = string.Empty;
-                infoLog?.Invoke($"OpenVR initialized via Valve binding. Recommended render target: {width}x{height}.");
                 return OpenVRInitResult.Success(width, height);
             }
             catch (DllNotFoundException ex)
@@ -102,9 +96,8 @@ namespace SecretFlasherManakaVR.OpenVR
             {
                 Valve.VR.OpenVR.Shutdown();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                warningLog?.Invoke("OpenVR shutdown failed: " + ex.Message);
             }
             finally
             {
@@ -117,7 +110,6 @@ namespace SecretFlasherManakaVR.OpenVR
                 compositorFrameIndex = 0;
                 submittedLeftThisFrame = false;
                 submittedRightThisFrame = false;
-                loggedProjectionMode = null;
             }
         }
 
@@ -260,7 +252,6 @@ namespace SecretFlasherManakaVR.OpenVR
                 if (mode == OpenVRProjectionMode.ValveMatrix)
                 {
                     projection = ToMatrix4x4(system.GetProjectionMatrix(ToValveEye(eye), nearClip, farClip));
-                    LogProjectionModeOnce(mode, "OpenVR Valve projection matrix enabled.");
                     error = string.Empty;
                     return true;
                 }
@@ -271,14 +262,6 @@ namespace SecretFlasherManakaVR.OpenVR
                 float bottom = 0.0f;
                 system.GetProjectionRaw(ToValveEye(eye), ref left, ref right, ref top, ref bottom);
                 projection = BuildUnityProjectionFromRaw(left, right, top, bottom, nearClip, farClip, mode);
-                LogProjectionModeOnce(
-                    mode,
-                    "OpenVR raw projection converted for Unity (" + mode + "): " +
-                    "left=" + left +
-                    " right=" + right +
-                    " top=" + top +
-                    " bottom=" + bottom +
-                    " near/far=" + nearClip + "/" + farClip + ".");
                 error = string.Empty;
                 return true;
             }
@@ -487,17 +470,6 @@ namespace SecretFlasherManakaVR.OpenVR
             }
         }
 
-        private void LogProjectionModeOnce(OpenVRProjectionMode mode, string message)
-        {
-            if (loggedProjectionMode == mode)
-            {
-                return;
-            }
-
-            loggedProjectionMode = mode;
-            infoLog?.Invoke(message);
-        }
-
         private static Matrix4x4 ToMatrix4x4(Valve.VR.HmdMatrix44_t source)
         {
             var matrix = Matrix4x4.identity;
@@ -602,7 +574,6 @@ namespace SecretFlasherManakaVR.OpenVR
         private OpenVRInitResult FailInit(string error)
         {
             LastError = error ?? string.Empty;
-            warningLog?.Invoke(LastError);
             initialized = false;
             return OpenVRInitResult.Failure(LastError);
         }

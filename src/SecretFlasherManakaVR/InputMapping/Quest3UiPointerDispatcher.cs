@@ -1,5 +1,4 @@
 using System;
-using BepInEx.Logging;
 using SecretFlasherManakaVR.Runtime;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -8,7 +7,6 @@ namespace SecretFlasherManakaVR.InputMapping;
 
 internal sealed class Quest3UiPointerDispatcher
 {
-    private readonly ManualLogSource? logger;
     private readonly Il2CppSystem.Collections.Generic.List<RaycastResult> raycastResults = new Il2CppSystem.Collections.Generic.List<RaycastResult>();
     private GameObject? hoveredObject;
     private GameObject? hoveredEnterHandler;
@@ -16,12 +14,6 @@ internal sealed class Quest3UiPointerDispatcher
     private GameObject? rawPressedObject;
     private RaycastResult pressRaycast;
     private bool eligibleForClick;
-    private bool warned;
-
-    public Quest3UiPointerDispatcher(ManualLogSource? logger)
-    {
-        this.logger = logger;
-    }
 
     public void Tick(Quest3VirtualInputState state)
     {
@@ -78,13 +70,8 @@ internal sealed class Quest3UiPointerDispatcher
                 DispatchPointerUp(currentObject, eventData);
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            if (!warned)
-            {
-                warned = true;
-                logger?.LogWarning("Quest 3 UI pointer dispatch failed: " + ex);
-            }
         }
     }
 
@@ -244,9 +231,8 @@ internal sealed class Quest3UiPointerDispatcher
             eventData.pointerPressRaycast = raycast;
             eventData.rawPointerPress = currentObject;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            WarnOnce("Quest 3 UI pointer press preparation failed: " + ex.Message);
         }
     }
 
@@ -256,18 +242,8 @@ internal sealed class Quest3UiPointerDispatcher
         {
             eventData.pointerPress = target;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            WarnOnce("Quest 3 UI pointer press target assignment failed: " + ex.Message);
-        }
-    }
-
-    private void WarnOnce(string message)
-    {
-        if (!warned)
-        {
-            warned = true;
-            logger?.LogWarning(message);
         }
     }
 

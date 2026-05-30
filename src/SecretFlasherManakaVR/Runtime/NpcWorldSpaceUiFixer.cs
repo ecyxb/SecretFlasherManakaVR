@@ -12,34 +12,37 @@ namespace SecretFlasherManakaVR.Runtime
     {
         private const float FallbackHeadOffset = 1.75f;
 
-        private readonly IVrRuntimeLogger logger;
-        private bool warned;
-        private bool itemWarned;
-        private bool diagnosticsLogged;
-        private float nextDiagnosticsTime;
-        private int diagnosticsAttempts;
-
-        private static IVrRuntimeLogger currentLogger = NullVrRuntimeLogger.Instance;
-        private static VrRuntimeSettings currentSettings;
-        private static Camera currentSourceCamera;
+        private static VrRuntimeSettings currentSettings = null!;
+        private static Camera currentSourceCamera = null!;
         private static Vector3 currentHeadPosition;
         private static Quaternion currentHeadRotation = Quaternion.identity;
         private static bool currentContextValid;
-        private static bool postfixWarned;
         private static readonly Dictionary<int, WorldUiState> worldUiStates = new Dictionary<int, WorldUiState>();
 
         public NpcWorldSpaceUiFixer(IVrRuntimeLogger logger)
         {
-            this.logger = logger ?? NullVrRuntimeLogger.Instance;
-            currentLogger = this.logger;
+        }
+
+        public void Shutdown()
+        {
+            try
+            {
+                ClearWorldUiStates();
+            }
+            catch (Exception)
+            {
+            }
+            finally
+            {
+                ResetStaticContext();
+            }
         }
 
         public void Tick(VrRuntimeSettings settings, Camera sourceCamera, Vector3 headPosition, Quaternion headRotation)
         {
-            if (settings == null || (!settings.FixNpcWorldSpaceUi && !settings.LogNpcWorldSpaceUiDiagnostics))
+            if (settings == null || !settings.FixNpcWorldSpaceUi)
             {
-                currentContextValid = false;
-                RestoreAndDisableWorldUiStates();
+                Shutdown();
                 return;
             }
 
@@ -53,16 +56,11 @@ namespace SecretFlasherManakaVR.Runtime
 
                 NpcUiView[] views = UnityEngine.Object.FindObjectsOfType<NpcUiView>();
                 NpcDirectionArrowView[] arrows = UnityEngine.Object.FindObjectsOfType<NpcDirectionArrowView>();
-                if (settings.LogNpcWorldSpaceUiDiagnostics && !diagnosticsLogged && Time.unscaledTime >= nextDiagnosticsTime)
-                {
-                    diagnosticsLogged = LogDiagnostics(views, arrows);
-                    diagnosticsAttempts++;
-                    nextDiagnosticsTime = Time.unscaledTime + 2.0f;
-                }
 
                 if (!settings.FixNpcWorldSpaceUi)
                 {
-                    RestoreAndDisableWorldUiStates();
+                    ClearWorldUiStates();
+                    currentContextValid = false;
                     return;
                 }
 
@@ -78,13 +76,8 @@ namespace SecretFlasherManakaVR.Runtime
 
                 DeactivateUntouchedWorldUiStates(Time.frameCount);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                if (!warned)
-                {
-                    warned = true;
-                    logger.Warning("NPC world-space UI VR fix failed: " + ex);
-                }
             }
         }
 
@@ -99,13 +92,8 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 FixWorldSpaceNpcUi(view, currentSettings, currentSourceCamera, currentHeadPosition, currentHeadRotation);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                if (!postfixWarned)
-                {
-                    postfixWarned = true;
-                    currentLogger.Warning("NPC UI postfix VR fix failed: " + ex);
-                }
             }
         }
 
@@ -115,9 +103,8 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 FixWorldSpaceNpcUi(view, settings, sourceCamera, headPosition, headRotation);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                WarnItemFailure("NpcUi", view == null ? null : view.transform, ex);
             }
         }
 
@@ -127,206 +114,9 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 FixScreenSpaceArrow(arrow, settings, sourceCamera, headPosition, headRotation);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                WarnItemFailure("NpcDirectionArrow", arrow == null ? null : arrow.transform, ex);
             }
-        }
-
-        private void WarnItemFailure(string kind, Transform transform, Exception ex)
-        {
-            if (itemWarned)
-            {
-                return;
-            }
-
-            itemWarned = true;
-            logger.Warning("NPC world-space UI VR fix skipped one " + kind + " at " + PathOf(transform) + ": " + ex);
-        }
-
-        private bool LogDiagnostics(NpcUiView[] views, NpcDirectionArrowView[] arrows)
-        {
-            if ((views == null || views.Length == 0) && (arrows == null || arrows.Length == 0))
-            {
-                logger.Info("NPC world-space UI diagnostics attempt " + (diagnosticsAttempts + 1) + ": no NpcUiView or NpcDirectionArrowView instances found.");
-                LogCanvasDiagnostics(true);
-                return diagnosticsAttempts >= 9;
-            }
-
-            string viewEntries = BuildNpcUiViewDiagnostics(views);
-            string arrowEntries = BuildNpcDirectionArrowDiagnostics(arrows);
-            logger.Info("NPC world-space UI diagnostics: views=" + (views == null ? 0 : views.Length) +
-                " arrows=" + (arrows == null ? 0 : arrows.Length) +
-                " viewEntries=" + viewEntries +
-                " arrowEntries=" + arrowEntries);
-            LogCanvasDiagnostics(false);
-            return true;
-        }
-
-        private string BuildNpcUiViewDiagnostics(NpcUiView[] views)
-        {
-            if (views == null || views.Length == 0)
-            {
-                return "<none>";
-            }
-
-            int count = Mathf.Min(views.Length, 6);
-            string[] entries = new string[count];
-            for (int i = 0; i < count; i++)
-            {
-                NpcUiView view = views[i];
-                RectTransform rect = view == null ? null : view.rect;
-                Canvas canvas = rect == null ? null : rect.GetComponentInParent<Canvas>();
-                entries[i] =
-                    "view=" + PathOf(view == null ? null : view.transform) +
-                    " rect=" + PathOf(rect) +
-                    " canvas=" + (canvas == null ? "<null>" : PathOf(canvas.transform)) +
-                    " renderMode=" + (canvas == null ? "<null>" : canvas.renderMode.ToString()) +
-                    " rootCanvas=" + (canvas == null || canvas.rootCanvas == null ? "<null>" : PathOf(canvas.rootCanvas.transform)) +
-                    " rectWorld=" + (rect == null ? "<null>" : rect.position.ToString("F3")) +
-                    " rectLocal=" + (rect == null ? "<null>" : rect.localPosition.ToString("F3"));
-            }
-
-            return string.Join(" | ", entries);
-        }
-
-        private string BuildNpcDirectionArrowDiagnostics(NpcDirectionArrowView[] arrows)
-        {
-            if (arrows == null || arrows.Length == 0)
-            {
-                return "<none>";
-            }
-
-            int count = Mathf.Min(arrows.Length, 8);
-            string[] entries = new string[count];
-            for (int i = 0; i < count; i++)
-            {
-                NpcDirectionArrowView arrow = arrows[i];
-                RectTransform rect = arrow == null || arrow.arrowImage == null ? null : arrow.arrowImage.rectTransform;
-                Canvas canvas = rect == null ? null : rect.GetComponentInParent<Canvas>();
-                Transform targetTransform = arrow == null || arrow.target == null ? null : arrow.target.Transform;
-                entries[i] =
-                    "arrow=" + PathOf(arrow == null ? null : arrow.transform) +
-                    " image=" + PathOf(rect) +
-                    " target=" + PathOf(targetTransform) +
-                    " canvas=" + (canvas == null ? "<null>" : PathOf(canvas.transform)) +
-                    " renderMode=" + (canvas == null ? "<null>" : canvas.renderMode.ToString()) +
-                    " rootCanvas=" + (canvas == null || canvas.rootCanvas == null ? "<null>" : PathOf(canvas.rootCanvas.transform)) +
-                    " imageWorld=" + (rect == null ? "<null>" : rect.position.ToString("F3")) +
-                    " imageLocal=" + (rect == null ? "<null>" : rect.localPosition.ToString("F3"));
-            }
-
-            return string.Join(" | ", entries);
-        }
-
-        private void LogCanvasDiagnostics(bool includeRectTree)
-        {
-            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
-            int count = Mathf.Min(canvases.Length, 16);
-            string[] entries = new string[count];
-            for (int i = 0; i < count; i++)
-            {
-                Canvas canvas = canvases[i];
-                RectTransform rect = canvas == null ? null : canvas.GetComponent<RectTransform>();
-                entries[i] =
-                    "canvas=" + PathOf(canvas == null ? null : canvas.transform) +
-                    " mode=" + (canvas == null ? "<null>" : canvas.renderMode.ToString()) +
-                    " root=" + (canvas == null || canvas.rootCanvas == null ? "<null>" : PathOf(canvas.rootCanvas.transform)) +
-                    " active=" + (canvas != null && canvas.gameObject != null && canvas.gameObject.activeInHierarchy) +
-                    " enabled=" + (canvas != null && canvas.enabled) +
-                    " pos=" + (rect == null ? "<null>" : rect.position.ToString("F3")) +
-                    " size=" + (rect == null ? "<null>" : rect.rect.size.ToString("F1"));
-            }
-
-            logger.Info("NPC/world UI canvas diagnostics (" + canvases.Length + " canvases): " + string.Join(" | ", entries));
-            if (includeRectTree)
-            {
-                LogCanvasRectTree(canvases);
-            }
-        }
-
-        private void LogCanvasRectTree(Canvas[] canvases)
-        {
-            if (canvases == null || canvases.Length == 0)
-            {
-                return;
-            }
-
-            var entries = new List<string>();
-            for (int i = 0; i < canvases.Length && entries.Count < 80; i++)
-            {
-                Canvas canvas = canvases[i];
-                if (canvas == null || canvas.gameObject == null || !canvas.gameObject.activeInHierarchy)
-                {
-                    continue;
-                }
-
-                RectTransform root = canvas.GetComponent<RectTransform>();
-                if (root == null)
-                {
-                    continue;
-                }
-
-                RectTransform[] rects = root.GetComponentsInChildren<RectTransform>(true);
-                for (int j = 0; j < rects.Length && entries.Count < 80; j++)
-                {
-                    RectTransform rect = rects[j];
-                    if (rect == null || rect.gameObject == null || !rect.gameObject.activeInHierarchy)
-                    {
-                        continue;
-                    }
-
-                    string name = rect.gameObject.name ?? string.Empty;
-                    string components = ComponentSummary(rect.gameObject);
-                    if (LooksRelevant(name) || LooksRelevant(components) || entries.Count < 24)
-                    {
-                        entries.Add(PathOf(rect) +
-                            " pos=" + rect.position.ToString("F1") +
-                            " local=" + rect.localPosition.ToString("F1") +
-                            " size=" + rect.rect.size.ToString("F1") +
-                            " comps=" + components);
-                    }
-                }
-            }
-
-            logger.Info("NPC/world UI rect diagnostics: " + (entries.Count == 0 ? "<none>" : string.Join(" | ", entries.ToArray())));
-        }
-
-        private static string ComponentSummary(GameObject gameObject)
-        {
-            if (gameObject == null)
-            {
-                return "<null>";
-            }
-
-            Component[] components = gameObject.GetComponents<Component>();
-            int count = Mathf.Min(components.Length, 8);
-            string[] names = new string[count];
-            for (int i = 0; i < count; i++)
-            {
-                Component component = components[i];
-                names[i] = component == null ? "<null>" : component.GetType().FullName;
-            }
-
-            return string.Join(",", names);
-        }
-
-        private static bool LooksRelevant(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return false;
-            }
-
-            return value.IndexOf("npc", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("direct", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("arrow", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("icon", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("name", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("talk", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("interact", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("gauge", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("marker", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static void FixWorldSpaceNpcUi(NpcUiView view, VrRuntimeSettings settings, Camera sourceCamera, Vector3 headPosition, Quaternion headRotation)
@@ -415,13 +205,19 @@ namespace SecretFlasherManakaVR.Runtime
         private static WorldUiState GetOrCreateWorldUiState(NpcUiView view, RectTransform rect)
         {
             int id = view.GetInstanceID();
-            if (worldUiStates.TryGetValue(id, out var existing) &&
-                existing != null &&
-                existing.CanvasObject != null &&
-                existing.CanvasRect != null &&
-                existing.CloneRect != null)
+            if (worldUiStates.TryGetValue(id, out var existing))
             {
-                return existing;
+                if (existing != null &&
+                    existing.CanvasObject != null &&
+                    existing.CanvasRect != null &&
+                    existing.CloneRect != null &&
+                    existing.SourceObject == rect.gameObject)
+                {
+                    return existing;
+                }
+
+                CleanupWorldUiState(existing);
+                worldUiStates.Remove(id);
             }
 
             GameObject canvasObject = new GameObject("SecretFlasherManakaVR Npc World UI");
@@ -501,6 +297,7 @@ namespace SecretFlasherManakaVR.Runtime
                 WorldUiState state = entry.Value;
                 if (state == null || state.CanvasObject == null)
                 {
+                    CleanupWorldUiState(state);
                     if (removedIds == null)
                     {
                         removedIds = new List<int>();
@@ -512,8 +309,7 @@ namespace SecretFlasherManakaVR.Runtime
 
                 if (state.SourceObject == null)
                 {
-                    RestoreSourceUi(state);
-                    UnityEngine.Object.Destroy(state.CanvasObject);
+                    CleanupWorldUiState(state);
                     if (removedIds == null)
                     {
                         removedIds = new List<int>();
@@ -541,17 +337,46 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        private static void RestoreAndDisableWorldUiStates()
+        private static void ClearWorldUiStates()
         {
             foreach (KeyValuePair<int, WorldUiState> entry in worldUiStates)
             {
-                WorldUiState state = entry.Value;
-                RestoreSourceUi(state);
-                if (state != null && state.CanvasObject != null)
-                {
-                    state.CanvasObject.SetActive(false);
-                }
+                CleanupWorldUiState(entry.Value);
             }
+
+            worldUiStates.Clear();
+        }
+
+        private static void CleanupWorldUiState(WorldUiState? state)
+        {
+            RestoreSourceUi(state, true);
+            DestroyCloneObjects(state);
+        }
+
+        private static void DestroyCloneObjects(WorldUiState? state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            if (state.CanvasObject != null)
+            {
+                UnityEngine.Object.Destroy(state.CanvasObject);
+            }
+            else if (state.CloneObject != null)
+            {
+                UnityEngine.Object.Destroy(state.CloneObject);
+            }
+        }
+
+        private static void ResetStaticContext()
+        {
+            currentSettings = null!;
+            currentSourceCamera = null!;
+            currentHeadPosition = Vector3.zero;
+            currentHeadRotation = Quaternion.identity;
+            currentContextValid = false;
         }
 
         private static void HideSourceUi(WorldUiState state)
@@ -566,7 +391,12 @@ namespace SecretFlasherManakaVR.Runtime
             state.SourceGroup.blocksRaycasts = false;
         }
 
-        private static void RestoreSourceUi(WorldUiState state)
+        private static void RestoreSourceUi(WorldUiState? state)
+        {
+            RestoreSourceUi(state, false);
+        }
+
+        private static void RestoreSourceUi(WorldUiState? state, bool removeAddedSourceGroup)
         {
             if (state == null || state.SourceGroup == null)
             {
@@ -577,6 +407,12 @@ namespace SecretFlasherManakaVR.Runtime
             state.SourceGroup.interactable = state.OriginalSourceInteractable;
             state.SourceGroup.blocksRaycasts = state.OriginalSourceBlocksRaycasts;
             state.SourceGroup.ignoreParentGroups = state.OriginalSourceIgnoreParentGroups;
+
+            if (removeAddedSourceGroup && state.AddedSourceGroup && state.SourceGroup != null)
+            {
+                UnityEngine.Object.Destroy(state.SourceGroup);
+                state.SourceGroup = null!;
+            }
         }
 
         private static void SyncCloneFromSource(RectTransform sourceRoot, RectTransform cloneRoot)
@@ -1160,25 +996,6 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             return false;
-        }
-
-        private static string PathOf(Transform transform)
-        {
-            if (transform == null)
-            {
-                return "<null>";
-            }
-
-            string path = transform.gameObject == null ? transform.name : transform.gameObject.name;
-            Transform current = transform.parent;
-            while (current != null)
-            {
-                string name = current.gameObject == null ? current.name : current.gameObject.name;
-                path = name + "/" + path;
-                current = current.parent;
-            }
-
-            return path;
         }
 
         private sealed class WorldUiState

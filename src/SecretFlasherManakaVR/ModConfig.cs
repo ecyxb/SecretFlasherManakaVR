@@ -1,5 +1,4 @@
 using BepInEx.Configuration;
-using BepInEx.Logging;
 using SecretFlasherManakaVR.OpenVR;
 using SecretFlasherManakaVR.Runtime;
 using UnityEngine;
@@ -32,7 +31,6 @@ public sealed class ModConfig
     private const string BodySection = "VR Body";
     private const string CompatibilitySection = "Compatibility";
     private const string VrUiSection = "VR UI";
-    private const string DebugSection = "Debug";
 
     private ModConfig(ConfigFile config)
     {
@@ -322,12 +320,6 @@ public sealed class ModConfig
             SecretFlasherManakaVR.MirrorMode.MainCamera,
             "Controls what the normal desktop window shows while VR output is active.");
 
-        LogPoseDebug = config.Bind(
-            DebugSection,
-            nameof(LogPoseDebug),
-            false,
-            "Write verbose HMD pose diagnostics to the BepInEx log.");
-
         SceneTransitionVrPauseSeconds = config.Bind(
             CompatibilitySection,
             nameof(SceneTransitionVrPauseSeconds),
@@ -427,18 +419,6 @@ public sealed class ModConfig
             nameof(DisableReflectionProbes),
             false,
             "Disable ReflectionProbe components while VR is active. Night scenes can create internal reflection probe cameras that bypass Camera.Render patches.");
-
-        LogReflectionProbeDiagnostics = config.Bind(
-            CompatibilitySection,
-            nameof(LogReflectionProbeDiagnostics),
-            true,
-            "Log a one-shot list of active ReflectionProbe components per scene while VR is active.");
-
-        LogReflectionCameraDiagnostics = config.Bind(
-            CompatibilitySection,
-            nameof(LogReflectionCameraDiagnostics),
-            true,
-            "Log a one-shot list of active cameras and reflection-camera candidates to verify whether the mirror camera is being caught.");
 
         ReflectionCameraNameKeywords = config.Bind(
             CompatibilitySection,
@@ -618,12 +598,6 @@ public sealed class ModConfig
             string.Empty,
             "Optional comma-separated canvas name keywords. Matching canvases are not converted.");
 
-        LogVrUiDiagnostics = config.Bind(
-            VrUiSection,
-            nameof(LogVrUiDiagnostics),
-            false,
-            "Log UI capture panel diagnostics from the VR UI bridge.");
-
         FixNpcWorldSpaceUi = config.Bind(
             VrUiSection,
             nameof(FixNpcWorldSpaceUi),
@@ -662,11 +636,6 @@ public sealed class ModConfig
                 "Farthest distance used for NPC world-space UI scale compensation.",
                 new AcceptableValueRange<float>(0.25f, 100.0f)));
 
-        LogNpcWorldSpaceUiDiagnostics = config.Bind(
-            VrUiSection,
-            nameof(LogNpcWorldSpaceUiDiagnostics),
-            false,
-            "Log one-shot hierarchy diagnostics for NPC head markers and nearby UI canvases while VR is active.");
     }
 
     public ConfigEntry<bool> EnableVR { get; }
@@ -708,7 +677,6 @@ public sealed class ModConfig
     public ConfigEntry<float> PlayerHeadPoseSmoothFactor { get; }
     public ConfigEntry<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
-    public ConfigEntry<bool> LogPoseDebug { get; }
     public ConfigEntry<float> SceneTransitionVrPauseSeconds { get; }
     public ConfigEntry<float> RenderScale { get; }
     public ConfigEntry<bool> UseOpenVRProjection { get; }
@@ -725,8 +693,6 @@ public sealed class ModConfig
     public ConfigEntry<bool> BlockReflectionCameraRenderWhileVrActive { get; }
     public ConfigEntry<bool> BlockNestedCameraRenderDuringVrRender { get; }
     public ConfigEntry<bool> DisableReflectionProbes { get; }
-    public ConfigEntry<bool> LogReflectionProbeDiagnostics { get; }
-    public ConfigEntry<bool> LogReflectionCameraDiagnostics { get; }
     public ConfigEntry<string> ReflectionCameraNameKeywords { get; }
     public ConfigEntry<bool> EnableVrUiBridge { get; }
     public ConfigEntry<bool> ConvertOverlayCanvasToWorldSpace { get; }
@@ -751,18 +717,14 @@ public sealed class ModConfig
     public ConfigEntry<float> VrUiMaxScanInterval { get; }
     public ConfigEntry<string> VrUiCanvasNameWhitelist { get; }
     public ConfigEntry<string> VrUiCanvasNameBlacklist { get; }
-    public ConfigEntry<bool> LogVrUiDiagnostics { get; }
     public ConfigEntry<bool> FixNpcWorldSpaceUi { get; }
     public ConfigEntry<float> NpcWorldSpaceUiVerticalOffset { get; }
     public ConfigEntry<float> NpcWorldSpaceUiScale { get; }
     public ConfigEntry<float> NpcWorldSpaceUiMinScaleDistance { get; }
     public ConfigEntry<float> NpcWorldSpaceUiMaxScaleDistance { get; }
-    public ConfigEntry<bool> LogNpcWorldSpaceUiDiagnostics { get; }
 
-    public static ModConfig Bind(ConfigFile config, ManualLogSource logger)
+    public static ModConfig Bind(ConfigFile config)
     {
-        var settings = new ModConfig(config);
-        logger.LogInfo("VR configuration bound.");
-        return settings;
+        return new ModConfig(config);
     }
 }

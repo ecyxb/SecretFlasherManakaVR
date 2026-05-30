@@ -9,8 +9,6 @@ namespace SecretFlasherManakaVR.Runtime
     {
         private const string RigName = "SecretFlasherManakaVR Camera Rig";
 
-        private readonly IVrRuntimeLogger logger;
-
         private GameObject root;
         private Camera leftEye;
         private Camera rightEye;
@@ -28,7 +26,6 @@ namespace SecretFlasherManakaVR.Runtime
 
         public VrCameraRig(IVrRuntimeLogger logger)
         {
-            this.logger = logger ?? NullVrRuntimeLogger.Instance;
         }
 
         public Camera LeftEyeCamera
@@ -110,7 +107,6 @@ namespace SecretFlasherManakaVR.Runtime
             rightEye = CreateEyeCamera("Right Eye");
             leftUiOverlay = CreateEyeCamera("Left UI Overlay");
             rightUiOverlay = CreateEyeCamera("Right UI Overlay");
-            logger.Info("VR camera rig created.");
         }
 
         public void EnsureRenderTextures(int width, int height, int aa)
@@ -143,13 +139,6 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 rightUiOverlay.targetTexture = rightTexture;
             }
-
-            logger.Info(
-                "VR render textures created: " + width + "x" + height +
-                " AA " + aa +
-                " format " + leftTexture.graphicsFormat + "/" + rightTexture.graphicsFormat + ".");
-            logger.Info("VR left eye native texture: " + D3D11TextureDiagnostics.Describe(leftTexture.GetNativeTexturePtr()));
-            logger.Info("VR right eye native texture: " + D3D11TextureDiagnostics.Describe(rightTexture.GetNativeTexturePtr()));
         }
 
         public void CopyFromSource(Camera source)
@@ -400,11 +389,11 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void PrepareSharedSubmitTextures()
         {
-            PrepareSharedSubmitTexture(leftTexture, ref leftSharedTexture, ref leftSharedTextureFailed, "left");
-            PrepareSharedSubmitTexture(rightTexture, ref rightSharedTexture, ref rightSharedTextureFailed, "right");
+            PrepareSharedSubmitTexture(leftTexture, ref leftSharedTexture, ref leftSharedTextureFailed);
+            PrepareSharedSubmitTexture(rightTexture, ref rightSharedTexture, ref rightSharedTextureFailed);
         }
 
-        private void PrepareSharedSubmitTexture(RenderTexture source, ref D3D11SharedTexture sharedTexture, ref bool failed, string label)
+        private void PrepareSharedSubmitTexture(RenderTexture source, ref D3D11SharedTexture sharedTexture, ref bool failed)
         {
             if (source == null || !source.IsCreated())
             {
@@ -413,21 +402,18 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (sharedTexture == null && !failed)
             {
-                if (D3D11SharedTexture.TryCreate(source, out sharedTexture, out var createError))
+                if (D3D11SharedTexture.TryCreate(source, out sharedTexture, out _))
                 {
-                    logger.Info("VR " + label + " eye shared submit texture created: " + sharedTexture.Description);
                 }
                 else
                 {
                     failed = true;
-                    logger.Warning("VR " + label + " eye shared submit texture unavailable; falling back to Unity RenderTexture. " + createError);
                     return;
                 }
             }
 
-            if (sharedTexture != null && !sharedTexture.CopyFromSource(out var copyError))
+            if (sharedTexture != null && !sharedTexture.CopyFromSource(out _))
             {
-                logger.Warning("VR " + label + " eye shared submit texture copy failed; falling back to Unity RenderTexture. " + copyError);
                 sharedTexture.Dispose();
                 sharedTexture = null;
                 failed = true;

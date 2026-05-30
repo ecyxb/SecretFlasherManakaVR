@@ -45,10 +45,6 @@ internal static class PlayerHeadPoseController
     private static Transform? cachedHead;
     private static Transform? cachedFpCameraTarget;
     private static Transform? cachedCameraTarget;
-    private static float nextDiagnosticTime;
-    private static float nextInactiveDiagnosticTime;
-    private static float nextBodyYawDiagnosticTime;
-    private static float nextMovementDiagnosticTime;
 
     public static bool IsActiveRecently
     {
@@ -58,29 +54,6 @@ internal static class PlayerHeadPoseController
     public static bool ShouldSuppressMode0RightStickY
     {
         get { return CanApply(); }
-    }
-
-    public static string BuildActivityDiagnostics()
-    {
-        Camera? camera = VrRuntimeState.SourceCamera != null ? VrRuntimeState.SourceCamera : Camera.main;
-        Transform? target = cachedFpCameraTarget != null ? cachedFpCameraTarget : cachedCameraTarget != null ? cachedCameraTarget : cachedHead;
-        float distance = camera == null || target == null ? -1.0f : Vector3.Distance(camera.transform.position, target.position);
-        float maxDistance = Plugin.Settings == null ? -1.0f : Mathf.Max(2.0f, Plugin.Settings.PlayerHeadPoseFollowDistance.Value);
-
-        return "activeRecently=" + IsActiveRecently +
-            " frameDelta=" + (Time.frameCount - lastActiveFrame) +
-            " cachedPlayer=" + (cachedPlayerPtr != IntPtr.Zero) +
-            " bones=" + (cachedChest != null) + "/" + (cachedNeck != null) + "/" + (cachedHead != null) +
-            " actualMoving=" + IsPlayerActuallyMoving() +
-            " vrReady=" + VrRuntimeState.IsVrReady +
-            " hasHeadPose=" + VrRuntimeState.HasHeadPose +
-            " enabled=" + (Plugin.Settings != null && Plugin.Settings.EnablePlayerHeadPoseControl.Value) +
-            " yawTurnsBody=" + (Plugin.Settings != null && Plugin.Settings.PlayerHeadPoseYawTurnsBodyWhileMoving.Value) +
-            " sourceCamera=" + (camera == null ? "null" : camera.name) +
-            " target=" + (target == null ? "null" : target.name) +
-            " distance=" + distance.ToString("0.000") +
-            " maxDistance=" + maxDistance.ToString("0.000") +
-            " firstPerson=" + (camera != null && IsFirstPersonView(camera));
     }
 
     public static void CapturePlayer(PlayerController player)
@@ -109,11 +82,9 @@ internal static class PlayerHeadPoseController
             cachedFpCameraTarget = referencer.FPCameraTarget;
             cachedCameraTarget = referencer.CameraTarget;
             hasReset = false;
-            Plugin.Logger?.LogInfo("Player head pose control captured player avatar bones.");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Plugin.Logger?.LogDebug("Player head pose capture skipped: " + ex.Message);
         }
     }
 
@@ -128,7 +99,6 @@ internal static class PlayerHeadPoseController
     {
         if (!CanApply())
         {
-            LogInactiveDiagnostic();
             hasReset = false;
             return;
         }
@@ -149,9 +119,8 @@ internal static class PlayerHeadPoseController
         Quaternion limitedDelta = LimitDelta(rawDelta, headYaw, out float limitedHeadYaw);
         lastConsumedBodyYawStepDegrees = 0.0f;
         if (Plugin.Settings.PlayerHeadPoseYawTurnsBodyWhileMoving.Value &&
-            IsPlayerActuallyMoving(out string movementDiagnostics))
+            IsPlayerActuallyMoving())
         {
-            LogMovementDiagnostic(movementDiagnostics, bodyYaw, headYaw, limitedHeadYaw);
             float residualYaw = ApplyBodyYawCorrection(bodyYaw);
             limitedDelta = LimitDelta(rawDelta, residualYaw, out float correctedHeadYaw);
             smoothedDelta = ConsumeSmoothedYaw(smoothedDelta, lastConsumedBodyYawStepDegrees);
@@ -182,22 +151,10 @@ internal static class PlayerHeadPoseController
         {
             return IsFirstPersonCameraFollowingPlayer();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Plugin.Logger?.LogDebug("Player head pose control skipped: " + ex.Message);
             return false;
         }
-    }
-
-    private static void LogInactiveDiagnostic()
-    {
-        if (Time.unscaledTime < nextInactiveDiagnosticTime)
-        {
-            return;
-        }
-
-        nextInactiveDiagnosticTime = Time.unscaledTime + 5.0f;
-        Plugin.Logger?.LogInfo("Player head pose control inactive. " + BuildActivityDiagnostics());
     }
 
     private static bool IsFirstPersonCameraFollowingPlayer()
@@ -231,28 +188,7 @@ internal static class PlayerHeadPoseController
 
         float maxDistance = Mathf.Max(2.0f, Plugin.Settings.PlayerHeadPoseFollowDistance.Value);
         float distance = Vector3.Distance(camera.transform.position, target.position);
-        bool followsPlayer = distance <= maxDistance;
-        if (followsPlayer)
-        {
-            LogActivationDiagnostic(camera, target, distance, maxDistance);
-        }
-
-        return followsPlayer;
-    }
-
-    private static void LogActivationDiagnostic(Camera camera, Transform target, float distance, float maxDistance)
-    {
-        if (Time.unscaledTime < nextDiagnosticTime)
-        {
-            return;
-        }
-
-        nextDiagnosticTime = Time.unscaledTime + 10.0f;
-        Plugin.Logger?.LogInfo(
-            "Player head pose control active. camera=" + camera.name +
-            " target=" + target.name +
-            " distance=" + distance.ToString("0.000") +
-            " max=" + maxDistance.ToString("0.000"));
+        return distance <= maxDistance;
     }
 
     private static bool IsFirstPersonView(Camera sourceCamera)
@@ -340,27 +276,19 @@ internal static class PlayerHeadPoseController
             cachedRigidbody = pca._Rigidbody_k__BackingField;
             cachedMoveCalculator = pca._PlayerMoveCalculator_k__BackingField;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             cachedPlayerRoot = player.transform;
             cachedCharacterController = null;
             cachedRigidbody = null;
             cachedMoveCalculator = null;
-            Plugin.Logger?.LogDebug("Player movement reference capture skipped: " + ex.Message);
         }
     }
 
     private static bool IsPlayerActuallyMoving()
     {
-        return IsPlayerActuallyMoving(out _);
-    }
-
-    private static bool IsPlayerActuallyMoving(out string diagnostics)
-    {
         float? realtimeMove = null;
         float? lastMove = null;
-        float? characterControllerSpeed = null;
-        float? rigidbodySpeed = null;
         bool movingFromRealtimeMove = false;
         bool movingFromLastMove = false;
         bool movingFromCharacterController = false;
@@ -374,17 +302,6 @@ internal static class PlayerHeadPoseController
                 lastMove = Mathf.Abs(cachedMoveCalculator._LastUpdateJustMoveAmount_k__BackingField);
                 movingFromRealtimeMove = realtimeMove.Value > MovementThreshold;
                 movingFromLastMove = lastMove.Value > MovementThreshold;
-                diagnostics = BuildMovementDiagnostics(
-                    movingFromRealtimeMove,
-                    realtimeMove,
-                    lastMove,
-                    characterControllerSpeed,
-                    rigidbodySpeed,
-                    movingFromRealtimeMove,
-                    movingFromLastMove,
-                    movingFromCharacterController,
-                    movingFromRigidbody,
-                    "moveCalculator");
                 return movingFromRealtimeMove;
             }
 
@@ -392,7 +309,6 @@ internal static class PlayerHeadPoseController
             {
                 Vector3 velocity = cachedCharacterController.velocity;
                 velocity.y = 0.0f;
-                characterControllerSpeed = velocity.magnitude;
                 movingFromCharacterController = velocity.sqrMagnitude > MovementVelocityThreshold * MovementVelocityThreshold;
             }
 
@@ -400,72 +316,17 @@ internal static class PlayerHeadPoseController
             {
                 Vector3 velocity = cachedRigidbody.velocity;
                 velocity.y = 0.0f;
-                rigidbodySpeed = velocity.magnitude;
                 movingFromRigidbody = velocity.sqrMagnitude > MovementVelocityThreshold * MovementVelocityThreshold;
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Plugin.Logger?.LogDebug("Player movement detection skipped: " + ex.Message);
         }
 
-        bool isMoving = movingFromRealtimeMove ||
+        return movingFromRealtimeMove ||
             movingFromLastMove ||
             movingFromCharacterController ||
             movingFromRigidbody;
-        diagnostics = BuildMovementDiagnostics(
-            isMoving,
-            realtimeMove,
-            lastMove,
-            characterControllerSpeed,
-            rigidbodySpeed,
-            movingFromRealtimeMove,
-            movingFromLastMove,
-            movingFromCharacterController,
-            movingFromRigidbody,
-            "velocityFallback");
-        return isMoving;
-    }
-
-    private static string BuildMovementDiagnostics(
-        bool isMoving,
-        float? realtimeMove,
-        float? lastMove,
-        float? characterControllerSpeed,
-        float? rigidbodySpeed,
-        bool movingFromRealtimeMove,
-        bool movingFromLastMove,
-        bool movingFromCharacterController,
-        bool movingFromRigidbody,
-        string source)
-    {
-        return "moving=" + isMoving +
-            " source=" + source +
-            " realtimeMove=" + FormatNullable(realtimeMove) + ">" + MovementThreshold.ToString("0.000000") + ":" + movingFromRealtimeMove +
-            " lastMove=" + FormatNullable(lastMove) + ">" + MovementThreshold.ToString("0.000000") + ":" + movingFromLastMove +
-            " ccSpeed=" + FormatNullable(characterControllerSpeed) + ">" + MovementVelocityThreshold.ToString("0.000000") + ":" + movingFromCharacterController +
-            " rbSpeed=" + FormatNullable(rigidbodySpeed) + ">" + MovementVelocityThreshold.ToString("0.000000") + ":" + movingFromRigidbody;
-    }
-
-    private static void LogMovementDiagnostic(string diagnostics, float bodyYaw, float headYaw, float limitedHeadYaw)
-    {
-        if (Time.unscaledTime < nextMovementDiagnosticTime)
-        {
-            return;
-        }
-
-        nextMovementDiagnosticTime = Time.unscaledTime + 1.0f;
-        Plugin.Logger?.LogInfo(
-            "Player body yaw movement gate passed. " + diagnostics +
-            " bodyYaw=" + bodyYaw.ToString("0.0") +
-            " consumedYaw=" + consumedBodyYawDegrees.ToString("0.0") +
-            " headYaw=" + headYaw.ToString("0.0") +
-            " limitedHeadYaw=" + limitedHeadYaw.ToString("0.0"));
-    }
-
-    private static string FormatNullable(float? value)
-    {
-        return value.HasValue ? value.Value.ToString("0.000000") : "null";
     }
 
     private static void ResetBodyYawBaseline()
@@ -532,7 +393,6 @@ internal static class PlayerHeadPoseController
         lastObservedBodyYawDegrees = nextYaw;
         hasBodyYawObservation = true;
         float residualYaw = Mathf.DeltaAngle(nextYaw, targetYaw);
-        LogBodyYawDiagnostic(currentYaw, nextYaw, targetYaw, bodyYaw, appliedYawDelta, residualYaw);
         return residualYaw;
     }
 
@@ -580,25 +440,6 @@ internal static class PlayerHeadPoseController
     {
         Vector3 angles = transform.rotation.eulerAngles;
         transform.rotation = Quaternion.Euler(angles.x, yaw, angles.z);
-    }
-
-    private static void LogBodyYawDiagnostic(float gameYaw, float correctedYaw, float targetYaw, float bodyYaw, float appliedYawDelta, float residualYaw)
-    {
-        if (Time.unscaledTime < nextBodyYawDiagnosticTime)
-        {
-            return;
-        }
-
-        nextBodyYawDiagnosticTime = Time.unscaledTime + 5.0f;
-        Plugin.Logger?.LogInfo(
-            "Player body yaw hard-corrected. gameYaw=" + gameYaw.ToString("0.0") +
-            " correctedYaw=" + correctedYaw.ToString("0.0") +
-            " targetYaw=" + targetYaw.ToString("0.0") +
-            " bodyYaw=" + bodyYaw.ToString("0.0") +
-            " appliedYaw=" + appliedYawDelta.ToString("0.0") +
-            " consumedYaw=" + consumedBodyYawDegrees.ToString("0.0") +
-            " residualYaw=" + residualYaw.ToString("0.0") +
-            " baseYaw=" + resetBodyYawDegrees.ToString("0.0"));
     }
 
     private static Quaternion Smooth(Quaternion current, Quaternion target)

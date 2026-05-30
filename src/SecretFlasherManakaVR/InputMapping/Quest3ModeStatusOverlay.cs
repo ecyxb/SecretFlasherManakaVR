@@ -1,4 +1,3 @@
-using BepInEx.Logging;
 using SecretFlasherManakaVR.Runtime;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,18 +6,12 @@ namespace SecretFlasherManakaVR.InputMapping;
 
 internal sealed class Quest3ModeStatusOverlay
 {
-    private readonly ManualLogSource? logger;
     private GameObject? canvasObject;
     private RectTransform? canvasRect;
     private Text? label;
     private bool creationFailed;
     private Quest3ControllerMode displayedMode;
     private bool hasDisplayedMode;
-
-    public Quest3ModeStatusOverlay(ManualLogSource? logger)
-    {
-        this.logger = logger;
-    }
 
     public void Tick(Quest3VirtualInputState state)
     {
@@ -118,10 +111,9 @@ internal sealed class Quest3ModeStatusOverlay
 
             SetVisible(false);
         }
-        catch (System.Exception ex)
+        catch (System.Exception)
         {
             creationFailed = true;
-            logger?.LogWarning("Quest 3 mode status overlay creation failed: " + ex.Message);
         }
     }
 
