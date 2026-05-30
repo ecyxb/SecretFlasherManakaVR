@@ -50,9 +50,9 @@ namespace SecretFlasherManakaVR.Runtime
         public OpenVRProjectionMode OpenVRProjectionMode = OpenVRProjectionMode.RawSwapVertical;
         public bool UseSourceProjectionForCulling = true;
         public bool FlipSubmitV = true;
-        public bool DisableReflectionCameras = true;
+        public bool DisableReflectionCameras = false;
         public bool DisableSourceCameraRendering = false;
-        public bool DisableMirrorManagersWhileVrActive = false;
+        public bool DisableMirrorManagersWhileVrActive = true;
         public bool DisableTargetTextureCameras = true;
         public bool KeepReflectionCamerasDisabledWhileVrActive = true;
         public bool PreventReflectionReenableWhileVrActive = true;

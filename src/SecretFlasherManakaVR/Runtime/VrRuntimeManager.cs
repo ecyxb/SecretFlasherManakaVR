@@ -31,12 +31,10 @@ namespace SecretFlasherManakaVR.Runtime
         private int renderHeight;
         private int lastSceneHandle = -1;
         private float sceneTransitionPauseUntil;
-        private string[] reflectionCameraKeywords = Array.Empty<string>();
         private DisabledCameraState? disabledSourceCamera;
-        private readonly List<DisabledCameraState> disabledReflectionCameras = new List<DisabledCameraState>();
-        private readonly List<DisabledCameraState> persistentlyDisabledReflectionCameras = new List<DisabledCameraState>();
         private readonly List<DisabledProbeState> persistentlyDisabledReflectionProbes = new List<DisabledProbeState>();
         private readonly List<DisabledBehaviourState> persistentlyDisabledMirrorManagers = new List<DisabledBehaviourState>();
+        private bool reflectionProbesDisabledForScene;
 
         public VrRuntimeManager()
             : this(NullVrRuntimeLogger.Instance)
@@ -80,7 +78,6 @@ namespace SecretFlasherManakaVR.Runtime
 
             settings = runtimeSettings == null ? new VrRuntimeSettings() : runtimeSettings.Clone();
             settings.Sanitize();
-            reflectionCameraKeywords = Array.Empty<string>();
             initialized = true;
             vrReady = false;
 
@@ -112,7 +109,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             HandleSceneChange();
-            DisableReflectionCamerasEarly();
+            DisableReflectionProbesForCurrentScene();
 
             if (settings.RecenteringKey != KeyCode.None && Input.GetKeyDown(settings.RecenteringKey))
             {
@@ -140,7 +137,7 @@ namespace SecretFlasherManakaVR.Runtime
             HandleSceneChange();
             if (IsInSceneTransitionPause())
             {
-                DisableReflectionCamerasEarly();
+                DisableReflectionProbesForCurrentScene();
                 return;
             }
 
@@ -170,7 +167,7 @@ namespace SecretFlasherManakaVR.Runtime
 
             rig.EnsureCreated();
             rig.EnsureRenderTextures(renderWidth, renderHeight, settings.AntiAliasing);
-            DisableReflectionCamerasEarly();
+            DisableReflectionProbesForCurrentScene();
             rig.CopyFromSource(sourceCamera);
             ApplyPoseToRig();
             SecretFlasherManakaVR.PlayerHeadPoseController.Apply();
@@ -187,18 +184,7 @@ namespace SecretFlasherManakaVR.Runtime
                 uiOverlayLayerMask |= uiBridge.ConvertedLayerMask;
             }
 
-            bool restoreFrameDisabledCameras = DisableReflectionCamerasBeforeVrRender();
-            try
-            {
-                rig.Render(uiOverlayLayerMask);
-            }
-            finally
-            {
-                if (restoreFrameDisabledCameras)
-                {
-                    RestoreReflectionCameras();
-                }
-            }
+            rig.Render(uiOverlayLayerMask);
 
             SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out _);
             SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out _);
@@ -218,10 +204,10 @@ namespace SecretFlasherManakaVR.Runtime
                 return;
             }
 
-            RestorePersistentReflectionCameras();
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
             RestoreSourceCameraRendering();
+            reflectionProbesDisabledForScene = false;
             if (uiBridge != null)
             {
                 uiBridge.OnSceneChanged(settings);
@@ -246,23 +232,19 @@ namespace SecretFlasherManakaVR.Runtime
             return sceneTransitionPauseUntil > 0.0f && Time.unscaledTime < sceneTransitionPauseUntil;
         }
 
-        private void DisableReflectionCamerasEarly()
+        private void DisableReflectionProbesForCurrentScene()
         {
-            if (settings.DisableReflectionCameras && settings.KeepReflectionCamerasDisabledWhileVrActive)
+            if (!settings.DisableReflectionProbes || reflectionProbesDisabledForScene)
             {
-                DisableReflectionCamerasBeforeVrRender();
+                return;
             }
 
-            if (settings.DisableReflectionProbes)
-            {
-                DisableReflectionProbesEarly();
-            }
+            DisableReflectionProbesEarly();
+            reflectionProbesDisabledForScene = true;
         }
 
         public void Shutdown()
         {
-            RestoreReflectionCameras();
-            RestorePersistentReflectionCameras();
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
             RestoreSourceCameraRendering();
@@ -306,6 +288,7 @@ namespace SecretFlasherManakaVR.Runtime
             nextCameraSearchTime = 0.0f;
             nextOpenVRRetryTime = 0.0f;
             sceneTransitionPauseUntil = 0.0f;
+            reflectionProbesDisabledForScene = false;
         }
 
         private bool TryInitializeOpenVR(bool firstAttempt)
@@ -342,6 +325,7 @@ namespace SecretFlasherManakaVR.Runtime
             VrRuntimeState.IsVrReady = true;
             nextOpenVRRetryTime = 0.0f;
             lastSceneHandle = SceneManager.GetActiveScene().handle;
+            reflectionProbesDisabledForScene = false;
             RefreshRenderTargetSize(true);
             FindSourceCamera(true);
             DisableMirrorManagersForCurrentScene();
@@ -508,102 +492,6 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        private bool DisableReflectionCamerasBeforeVrRender()
-        {
-            RestoreReflectionCameras();
-
-            if (!settings.DisableReflectionCameras)
-            {
-                return false;
-            }
-
-            Camera[] cameras = UnityEngine.Object.FindObjectsOfType<Camera>();
-
-            for (int i = 0; i < cameras.Length; i++)
-            {
-                Camera camera = cameras[i];
-                if (!IsReflectionCameraCandidate(camera))
-                {
-                    continue;
-                }
-
-                if (settings.KeepReflectionCamerasDisabledWhileVrActive)
-                {
-                    PersistentlyDisableReflectionCamera(camera);
-                }
-                else
-                {
-                    disabledReflectionCameras.Add(new DisabledCameraState(camera, camera.enabled));
-                    camera.enabled = false;
-                }
-            }
-
-            return !settings.KeepReflectionCamerasDisabledWhileVrActive;
-        }
-
-        private void RestoreReflectionCameras()
-        {
-            for (int i = 0; i < disabledReflectionCameras.Count; i++)
-            {
-                DisabledCameraState state = disabledReflectionCameras[i];
-                if (state.Camera != null)
-                {
-                    state.Camera.enabled = state.WasEnabled;
-                }
-            }
-
-            disabledReflectionCameras.Clear();
-        }
-
-        private void PersistentlyDisableReflectionCamera(Camera camera)
-        {
-            if (camera == null)
-            {
-                return;
-            }
-
-            if (IsPersistentlyDisabled(camera))
-            {
-                if (camera.enabled)
-                {
-                    camera.enabled = false;
-                }
-
-                return;
-            }
-
-            persistentlyDisabledReflectionCameras.Add(new DisabledCameraState(camera, camera.enabled));
-            camera.enabled = false;
-        }
-
-        private bool IsPersistentlyDisabled(Camera camera)
-        {
-            for (int i = 0; i < persistentlyDisabledReflectionCameras.Count; i++)
-            {
-                DisabledCameraState state = persistentlyDisabledReflectionCameras[i];
-                if (state.Camera == camera)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private void RestorePersistentReflectionCameras()
-        {
-            for (int i = 0; i < persistentlyDisabledReflectionCameras.Count; i++)
-            {
-                DisabledCameraState state = persistentlyDisabledReflectionCameras[i];
-                if (state.Camera != null)
-                {
-                    state.Camera.enabled = state.WasEnabled;
-                }
-            }
-
-            persistentlyDisabledReflectionCameras.Clear();
-        }
-
         private void DisableReflectionProbesEarly()
         {
             ReflectionProbe[] probes = UnityEngine.Object.FindObjectsOfType<ReflectionProbe>();
@@ -766,82 +654,6 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             persistentlyDisabledMirrorManagers.Clear();
-        }
-
-        private bool IsReflectionCameraCandidate(Camera camera)
-        {
-            if (camera == null || camera == sourceCamera || ReflectionBlocker.IsUiPreviewCamera(camera))
-            {
-                return false;
-            }
-
-            if (rig != null && rig.IsOurCamera(camera))
-            {
-                return false;
-            }
-
-            if (!camera.enabled || camera.gameObject == null || !camera.gameObject.activeInHierarchy)
-            {
-                return false;
-            }
-
-            string cameraName = GetCameraName(camera);
-            bool nameLooksReflective = NameContainsReflectionKeyword(cameraName);
-            bool targetTextureLooksReflective = camera.targetTexture != null && NameContainsReflectionKeyword(camera.targetTexture.name);
-            bool targetTextureCamera = settings.DisableTargetTextureCameras && camera.targetTexture != null;
-
-            return nameLooksReflective || targetTextureLooksReflective || targetTextureCamera;
-        }
-
-        private bool NameContainsReflectionKeyword(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return false;
-            }
-
-            string[] keywords = GetReflectionCameraKeywords();
-            for (int i = 0; i < keywords.Length; i++)
-            {
-                if (value.IndexOf(keywords[i], StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private string[] GetReflectionCameraKeywords()
-        {
-            if (reflectionCameraKeywords.Length > 0)
-            {
-                return reflectionCameraKeywords;
-            }
-
-            string rawKeywords = settings.ReflectionCameraNameKeywords ?? string.Empty;
-            string[] parts = rawKeywords.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            var keywords = new List<string>();
-            for (int i = 0; i < parts.Length; i++)
-            {
-                string keyword = parts[i].Trim();
-                if (keyword.Length > 0)
-                {
-                    keywords.Add(keyword);
-                }
-            }
-
-            if (keywords.Count == 0)
-            {
-                keywords.Add("mirror");
-                keywords.Add("reflect");
-                keywords.Add("reflection");
-                keywords.Add("planar");
-                keywords.Add("water");
-            }
-
-            reflectionCameraKeywords = keywords.ToArray();
-            return reflectionCameraKeywords;
         }
 
         private void RefreshRenderTargetSize(bool force)

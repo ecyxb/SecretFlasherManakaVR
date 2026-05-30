@@ -369,8 +369,8 @@ public sealed class ModConfig
         DisableReflectionCameras = config.Bind(
             CompatibilitySection,
             nameof(DisableReflectionCameras),
-            true,
-            "Disable likely mirror/reflection cameras while VR is active. This avoids recursive or duplicate mirror rendering from injected stereo eye cameras.");
+            false,
+            "Legacy fallback. Runtime no longer scans all cameras for this; prefer DisableMirrorManagersWhileVrActive plus Camera.Render blocking.");
 
         DisableSourceCameraRendering = config.Bind(
             CompatibilitySection,
@@ -381,8 +381,8 @@ public sealed class ModConfig
         DisableMirrorManagersWhileVrActive = config.Bind(
             CompatibilitySection,
             nameof(DisableMirrorManagersWhileVrActive),
-            false,
-            "Disable AkilliMum MirrorManager components while VR is active. This is safer than patching mirror render callbacks and allows experimenting with source-camera desktop rendering.");
+            true,
+            "Disable AkilliMum MirrorManager components while VR is active. This stops mirror rendering at its owner component without scanning all cameras every frame.");
 
         DisableTargetTextureCameras = config.Bind(
             CompatibilitySection,
