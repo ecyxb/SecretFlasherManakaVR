@@ -29,6 +29,13 @@ namespace SecretFlasherManakaVR.Runtime
         private int textureWidth;
         private int textureHeight;
 
+        private static bool currentPanelVisible;
+        private static Vector3 currentPanelPosition;
+        private static Quaternion currentPanelRotation = Quaternion.identity;
+        private static Vector3 currentPanelScale = Vector3.one;
+        private static int currentTextureWidth;
+        private static int currentTextureHeight;
+
         public VrUiBridge(IVrRuntimeLogger logger)
         {
             this.logger = logger ?? NullVrRuntimeLogger.Instance;
@@ -42,6 +49,56 @@ namespace SecretFlasherManakaVR.Runtime
         public int ConvertedCanvasCount
         {
             get { return activeCanvases.Count; }
+        }
+
+        public static bool TryRaycastCapturedScreen(Vector3 origin, Vector3 direction, out Vector2 screenPoint)
+        {
+            return TryRaycastCapturedScreen(origin, direction, out screenPoint, out _);
+        }
+
+        public static bool TryRaycastCapturedScreen(Vector3 origin, Vector3 direction, out Vector2 screenPoint, out Vector3 hitPoint)
+        {
+            screenPoint = Vector2.zero;
+            hitPoint = Vector3.zero;
+            if (!currentPanelVisible || currentTextureWidth <= 0 || currentTextureHeight <= 0 || direction.sqrMagnitude <= 0.0001f)
+            {
+                return false;
+            }
+
+            Vector3 normal = currentPanelRotation * Vector3.forward;
+            float denominator = Vector3.Dot(direction.normalized, normal);
+            if (Mathf.Abs(denominator) <= 0.0001f)
+            {
+                return false;
+            }
+
+            float distance = Vector3.Dot(currentPanelPosition - origin, normal) / denominator;
+            if (distance < 0.0f)
+            {
+                return false;
+            }
+
+            Vector3 hit = origin + direction.normalized * distance;
+            Matrix4x4 worldToPanel = Matrix4x4.TRS(currentPanelPosition, currentPanelRotation, currentPanelScale).inverse;
+            Vector3 local = worldToPanel.MultiplyPoint3x4(hit);
+            if (local.x < -0.5f || local.x > 0.5f || local.y < -0.5f || local.y > 0.5f)
+            {
+                return false;
+            }
+
+            screenPoint = new Vector2(
+                (local.x + 0.5f) * currentTextureWidth,
+                (local.y + 0.5f) * currentTextureHeight);
+            hitPoint = hit;
+            return true;
+        }
+
+        public static bool TryGetCapturedPanelPose(out Vector3 position, out Quaternion rotation, out Vector3 scale)
+        {
+            position = currentPanelPosition;
+            rotation = currentPanelRotation;
+            scale = currentPanelScale;
+            return currentPanelVisible && currentTextureWidth > 0 && currentTextureHeight > 0;
         }
 
         public void Tick(VrRuntimeSettings settings, Camera sourceCamera, Vector3 headPosition, Quaternion headRotation)
@@ -375,6 +432,7 @@ namespace SecretFlasherManakaVR.Runtime
         {
             if (panelObject == null || uiTexture == null)
             {
+                currentPanelVisible = false;
                 return;
             }
 
@@ -384,6 +442,12 @@ namespace SecretFlasherManakaVR.Runtime
             panelObject.transform.SetPositionAndRotation(uiPosition, uiRotation);
             panelObject.transform.localScale = new Vector3(width, height, 1.0f);
             panelObject.layer = VrUiOverlayLayer;
+
+            currentPanelPosition = uiPosition;
+            currentPanelRotation = uiRotation;
+            currentPanelScale = panelObject.transform.localScale;
+            currentTextureWidth = textureWidth;
+            currentTextureHeight = textureHeight;
         }
 
         private void SetPanelVisible(bool visible)
@@ -392,6 +456,8 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 panelObject.SetActive(visible);
             }
+
+            currentPanelVisible = visible && panelObject != null && textureWidth > 0 && textureHeight > 0;
         }
 
         private static string[] SplitKeywords(string value)

@@ -1,0 +1,50 @@
+{
+  "actions": [
+    { "name": "/actions/quest3/in/a", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/b", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/x", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/y", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/left_menu", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/left_grip", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/right_grip", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/left_trigger", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/right_trigger", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/left_trigger_value", "type": "vector1", "requirement": "optional" },
+    { "name": "/actions/quest3/in/right_trigger_value", "type": "vector1", "requirement": "optional" },
+    { "name": "/actions/quest3/in/l3", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/r3", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/quest3/in/left_stick", "type": "vector2", "requirement": "optional" },
+    { "name": "/actions/quest3/in/right_stick", "type": "vector2", "requirement": "optional" },
+    { "name": "/actions/quest3/in/left_pose", "type": "pose", "requirement": "optional" },
+    { "name": "/actions/quest3/in/right_pose", "type": "pose", "requirement": "optional" }
+  ],
+  "action_sets": [
+    { "name": "/actions/quest3", "usage": "leftright" }
+  ],
+  "default_bindings": [
+    { "controller_type": "oculus_touch", "binding_url": "bindings_oculus_touch.json" }
+  ],
+  "localization": [
+    {
+      "language_tag": "en_us",
+      "/actions/quest3": "Quest 3 Input",
+      "/actions/quest3/in/a": "A",
+      "/actions/quest3/in/b": "B",
+      "/actions/quest3/in/x": "X",
+      "/actions/quest3/in/y": "Y",
+      "/actions/quest3/in/left_menu": "Left Menu",
+      "/actions/quest3/in/left_grip": "Left Grip",
+      "/actions/quest3/in/right_grip": "Right Grip",
+      "/actions/quest3/in/left_trigger": "Left Trigger",
+      "/actions/quest3/in/right_trigger": "Right Trigger",
+      "/actions/quest3/in/left_trigger_value": "Left Trigger Pull",
+      "/actions/quest3/in/right_trigger_value": "Right Trigger Pull",
+      "/actions/quest3/in/l3": "Left Stick Click",
+      "/actions/quest3/in/r3": "Right Stick Click",
+      "/actions/quest3/in/left_stick": "Left Stick",
+      "/actions/quest3/in/right_stick": "Right Stick",
+      "/actions/quest3/in/left_pose": "Left Controller Pose",
+      "/actions/quest3/in/right_pose": "Right Controller Pose"
+    }
+  ]
+}

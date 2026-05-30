@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using SecretFlasherManakaVR.InputMapping;
 using UnityEngine;
 
 namespace SecretFlasherManakaVR;
@@ -12,6 +13,12 @@ internal static class InputGetAxisPatch
         if (ShouldSuppress(axisName))
         {
             __result = 0.0f;
+            return;
+        }
+
+        if (InputMouseAxisPatchShared.IsMouseScrollWheelAxis(axisName))
+        {
+            Quest3InputSystem.TryGetMouseScrollWheelAxis(ref __result);
         }
     }
 
@@ -29,6 +36,12 @@ internal static class InputGetAxisRawPatch
         if (InputMouseAxisPatchShared.ShouldSuppress(axisName))
         {
             __result = 0.0f;
+            return;
+        }
+
+        if (InputMouseAxisPatchShared.IsMouseScrollWheelAxis(axisName))
+        {
+            Quest3InputSystem.TryGetMouseScrollWheelAxis(ref __result);
         }
     }
 }
@@ -41,6 +54,12 @@ internal static class InputMouseAxisPatchShared
             Plugin.Settings != null &&
             Plugin.Settings.SuppressMouseLookInput.Value &&
             IsMouseLookAxis(axisName);
+    }
+
+    public static bool IsMouseScrollWheelAxis(string axisName)
+    {
+        return !string.IsNullOrEmpty(axisName) &&
+            axisName.Equals("Mouse ScrollWheel", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsMouseLookAxis(string axisName)

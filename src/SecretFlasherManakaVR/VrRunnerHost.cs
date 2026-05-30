@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using BepInEx.Logging;
+using SecretFlasherManakaVR.InputMapping;
 using SecretFlasherManakaVR.OpenVR;
 using SecretFlasherManakaVR.Runtime;
 using UnityEngine;
@@ -51,6 +52,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         _settings = settings;
         _logger = logger;
         Instance = this;
+        Quest3InputSystem.Configure(settings, logger);
     }
 
     private void Awake()
@@ -71,6 +73,7 @@ public sealed class VrRunnerHost : MonoBehaviour
             TryStartRuntime();
         }
 
+        Quest3InputSystem.Tick();
         InvokeLifecycle(_updateMethod, "update");
     }
 
@@ -104,6 +107,7 @@ public sealed class VrRunnerHost : MonoBehaviour
     private void OnDestroy()
     {
         InvokeLifecycle(_shutdownMethod, "shutdown");
+        Quest3InputSystem.Shutdown();
         if (ReferenceEquals(Instance, this))
         {
             Instance = null;

@@ -17,6 +17,15 @@ internal static class VrRuntimeState
 
     public static Quaternion HeadRotation { get; private set; } = Quaternion.identity;
 
+    private static bool recenterRequested;
+    private static Vector3 trackingBasePosition;
+    private static Quaternion trackingBaseRotation = Quaternion.identity;
+    private static Vector3 trackingRecenterPosition;
+    private static Quaternion trackingRecenterYaw = Quaternion.identity;
+    private static float trackingWorldScale = 1.0f;
+    private static bool trackingRecenterSet;
+    private static bool hasTrackingToWorldTransform;
+
     private static readonly HashSet<int> AllowedRenderCameraIds = new HashSet<int>();
 
     public static void SetHeadPose(Vector3 position, Quaternion rotation)
@@ -31,6 +40,62 @@ internal static class VrRuntimeState
         HeadPosition = Vector3.zero;
         HeadRotation = Quaternion.identity;
         HasHeadPose = false;
+        hasTrackingToWorldTransform = false;
+    }
+
+    public static void SetTrackingToWorldTransform(
+        Vector3 basePosition,
+        Quaternion baseRotation,
+        Vector3 recenterPosition,
+        Quaternion recenterYaw,
+        float worldScale,
+        bool recenterSet)
+    {
+        trackingBasePosition = basePosition;
+        trackingBaseRotation = baseRotation;
+        trackingRecenterPosition = recenterPosition;
+        trackingRecenterYaw = recenterYaw;
+        trackingWorldScale = Mathf.Max(0.0001f, worldScale);
+        trackingRecenterSet = recenterSet;
+        hasTrackingToWorldTransform = true;
+    }
+
+    public static bool TryTransformTrackingPose(Vector3 trackingPosition, Quaternion trackingRotation, out Vector3 worldPosition, out Quaternion worldRotation)
+    {
+        if (!hasTrackingToWorldTransform)
+        {
+            worldPosition = trackingPosition;
+            worldRotation = trackingRotation;
+            return false;
+        }
+
+        Vector3 scaledPosition = trackingPosition * trackingWorldScale;
+        Quaternion rotation = trackingRotation;
+        if (trackingRecenterSet)
+        {
+            scaledPosition = trackingRecenterYaw * (scaledPosition - trackingRecenterPosition);
+            rotation = trackingRecenterYaw * rotation;
+        }
+
+        worldPosition = trackingBasePosition + trackingBaseRotation * scaledPosition;
+        worldRotation = trackingBaseRotation * rotation;
+        return true;
+    }
+
+    public static void RequestRecenter()
+    {
+        recenterRequested = true;
+    }
+
+    public static bool ConsumeRecenterRequest()
+    {
+        if (!recenterRequested)
+        {
+            return false;
+        }
+
+        recenterRequested = false;
+        return true;
     }
 
     public static void BeginVrEyeRender(params Camera[] cameras)
