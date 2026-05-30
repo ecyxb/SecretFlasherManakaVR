@@ -36,6 +36,13 @@ namespace SecretFlasherManakaVR.Runtime
         public KeyCode RecenteringKey = KeyCode.F12;
         public bool AutoRecenterOnStart = true;
         public bool SuppressMouseLookInput = true;
+        public bool IgnoreHeadPositionForVrCamera = false;
+        public float HeadPositionCameraOffsetMinX = -1.0f;
+        public float HeadPositionCameraOffsetMaxX = 1.0f;
+        public float HeadPositionCameraOffsetMinY = -1.0f;
+        public float HeadPositionCameraOffsetMaxY = 1.0f;
+        public float HeadPositionCameraOffsetMinZ = -1.0f;
+        public float HeadPositionCameraOffsetMaxZ = 1.0f;
         public VrSourceRotationMode SourceRotationMode = VrSourceRotationMode.SourceYawOnly;
         public VrMirrorMode MirrorMode = VrMirrorMode.SourceCamera;
         public bool LogPoseDebug = false;
@@ -91,6 +98,9 @@ namespace SecretFlasherManakaVR.Runtime
             AntiAliasing = Mathf.Clamp(AntiAliasing, 1, 8);
             MissingCameraRetrySeconds = Mathf.Clamp(MissingCameraRetrySeconds, 0.1f, 10.0f);
             RenderTargetCheckSeconds = Mathf.Clamp(RenderTargetCheckSeconds, 0.25f, 30.0f);
+            SanitizeRange(ref HeadPositionCameraOffsetMinX, ref HeadPositionCameraOffsetMaxX);
+            SanitizeRange(ref HeadPositionCameraOffsetMinY, ref HeadPositionCameraOffsetMaxY);
+            SanitizeRange(ref HeadPositionCameraOffsetMinZ, ref HeadPositionCameraOffsetMaxZ);
             VrUiDistance = Mathf.Clamp(VrUiDistance, 0.25f, 5.0f);
             VrUiScale = Mathf.Clamp(VrUiScale, 0.0001f, 0.02f);
             VrUiVerticalOffset = Mathf.Clamp(VrUiVerticalOffset, -2.0f, 2.0f);
@@ -103,6 +113,20 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
             }
+        }
+
+        private static void SanitizeRange(ref float minimum, ref float maximum)
+        {
+            minimum = Mathf.Clamp(minimum, -10.0f, 10.0f);
+            maximum = Mathf.Clamp(maximum, -10.0f, 10.0f);
+            if (minimum <= maximum)
+            {
+                return;
+            }
+
+            float swap = minimum;
+            minimum = maximum;
+            maximum = swap;
         }
 
         public VrRuntimeSettings Clone()

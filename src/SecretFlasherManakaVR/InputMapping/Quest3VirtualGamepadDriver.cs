@@ -11,6 +11,7 @@ internal sealed class Quest3VirtualGamepadDriver
     private readonly ManualLogSource? logger;
     private Gamepad? gamepad;
     private bool creationFailed;
+    private float nextRightStickDiagnosticTime;
 
     public Quest3VirtualGamepadDriver(ManualLogSource? logger)
     {
@@ -25,7 +26,7 @@ internal sealed class Quest3VirtualGamepadDriver
         }
 
         Gamepad device = gamepad!;
-        var gamepadState = BuildState(state);
+        var gamepadState = BuildState(state, logger, ref nextRightStickDiagnosticTime);
         InputSystem.QueueStateEvent(device, gamepadState);
         device.MakeCurrent();
     }
@@ -74,7 +75,7 @@ internal sealed class Quest3VirtualGamepadDriver
         }
     }
 
-    private static GamepadState BuildState(Quest3VirtualInputState state)
+    private static GamepadState BuildState(Quest3VirtualInputState state, ManualLogSource? logger, ref float nextDiagnosticTime)
     {
         Vector2 leftStick = state.LeftStick;
         Vector2 rightStick = state.RightStick;
@@ -83,6 +84,26 @@ internal sealed class Quest3VirtualGamepadDriver
         {
             leftStick = state.RightStick;
             rightStick = state.LeftStick;
+        }
+
+        bool shouldSuppressRightStickY = !state.IsCursorMode &&
+            state.ControllerMode == Quest3ControllerMode.Mode0 &&
+            PlayerHeadPoseController.ShouldSuppressMode0RightStickY;
+
+        if (Time.unscaledTime >= nextDiagnosticTime)
+        {
+            nextDiagnosticTime = Time.unscaledTime + 2.0f;
+            logger?.LogInfo(
+                "Quest3 gamepad right stick diagnostic: mode=" + state.ControllerMode +
+                " cursor=" + state.IsCursorMode +
+                " rawRightY=" + state.RightStick.y.ToString("0.000") +
+                " suppressY=" + shouldSuppressRightStickY +
+                " headPose={" + PlayerHeadPoseController.BuildActivityDiagnostics() + "}");
+        }
+
+        if (shouldSuppressRightStickY)
+        {
+            rightStick.y = 0.0f;
         }
 
         var result = new GamepadState

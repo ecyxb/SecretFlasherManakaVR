@@ -29,6 +29,7 @@ public sealed class ModConfig
     private const string GeneralSection = "General";
     private const string StereoSection = "Stereo";
     private const string InputSection = "Input";
+    private const string BodySection = "VR Body";
     private const string CompatibilitySection = "Compatibility";
     private const string VrUiSection = "VR UI";
     private const string DebugSection = "Debug";
@@ -170,6 +171,144 @@ public sealed class ModConfig
             new ConfigDescription(
                 "Extra local roll correction for the Quest 3 cursor ray.",
                 new AcceptableValueRange<float>(-90.0f, 90.0f)));
+
+        EnablePlayerHeadPoseControl = config.Bind(
+            BodySection,
+            nameof(EnablePlayerHeadPoseControl),
+            true,
+            "While VR is active and the game camera is attached to the first-person player camera target, add HMD-relative rotation to the player head/neck/chest bones.");
+
+        PlayerHeadPoseFollowDistance = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseFollowDistance),
+            0.75f,
+            new ConfigDescription(
+                "Maximum distance from the source camera to the player's first-person camera target for HMD head pose control to activate. GameOver detached cameras should exceed this.",
+                new AcceptableValueRange<float>(0.05f, 3.0f)));
+
+        PlayerHeadPoseYawLimitDegrees = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseYawLimitDegrees),
+            70.0f,
+            new ConfigDescription(
+                "Maximum left/right HMD yaw applied to the player body rig.",
+                new AcceptableValueRange<float>(0.0f, 120.0f)));
+
+        PlayerHeadPosePitchLimitDegrees = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPosePitchLimitDegrees),
+            55.0f,
+            new ConfigDescription(
+                "Maximum up/down HMD pitch applied to the player body rig.",
+                new AcceptableValueRange<float>(0.0f, 90.0f)));
+
+        PlayerHeadPoseRollLimitDegrees = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseRollLimitDegrees),
+            20.0f,
+            new ConfigDescription(
+                "Maximum HMD roll applied to the player head. Keep this small to avoid exaggerated sideways head tilt.",
+                new AcceptableValueRange<float>(0.0f, 45.0f)));
+
+        PlayerHeadPoseYawTurnsBodyWhileMoving = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseYawTurnsBodyWhileMoving),
+            false,
+            "When enabled, HMD yaw keeps driving head bones while standing still, but turns the player's body toward the HMD facing direction while the game reports actual player movement.");
+
+        PlayerHeadPoseBodyYawTurnSpeedDegreesPerSecond = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseBodyYawTurnSpeedDegreesPerSecond),
+            180.0f,
+            new ConfigDescription(
+                "Maximum degrees per second used when HMD yaw turns the player body while moving. The consumed HMD yaw is matched to the actual interpolated body yaw step.",
+                new AcceptableValueRange<float>(0.0f, 1080.0f)));
+
+        IgnoreHeadPositionForVrCamera = config.Bind(
+            BodySection,
+            nameof(IgnoreHeadPositionForVrCamera),
+            false,
+            "When enabled, HMD positional movement is clamped before it is added to the VR camera. HMD rotation, IPD, and player head bone control still apply.");
+
+        HeadPositionCameraOffsetMinX = config.Bind(
+            BodySection,
+            nameof(HeadPositionCameraOffsetMinX),
+            -1.0f,
+            new ConfigDescription(
+                "Minimum local X HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
+                new AcceptableValueRange<float>(-10.0f, 10.0f)));
+
+        HeadPositionCameraOffsetMaxX = config.Bind(
+            BodySection,
+            nameof(HeadPositionCameraOffsetMaxX),
+            1.0f,
+            new ConfigDescription(
+                "Maximum local X HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
+                new AcceptableValueRange<float>(-10.0f, 10.0f)));
+
+        HeadPositionCameraOffsetMinY = config.Bind(
+            BodySection,
+            nameof(HeadPositionCameraOffsetMinY),
+            -1.0f,
+            new ConfigDescription(
+                "Minimum local Y HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
+                new AcceptableValueRange<float>(-10.0f, 10.0f)));
+
+        HeadPositionCameraOffsetMaxY = config.Bind(
+            BodySection,
+            nameof(HeadPositionCameraOffsetMaxY),
+            1.0f,
+            new ConfigDescription(
+                "Maximum local Y HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
+                new AcceptableValueRange<float>(-10.0f, 10.0f)));
+
+        HeadPositionCameraOffsetMinZ = config.Bind(
+            BodySection,
+            nameof(HeadPositionCameraOffsetMinZ),
+            -1.0f,
+            new ConfigDescription(
+                "Minimum local Z HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
+                new AcceptableValueRange<float>(-10.0f, 10.0f)));
+
+        HeadPositionCameraOffsetMaxZ = config.Bind(
+            BodySection,
+            nameof(HeadPositionCameraOffsetMaxZ),
+            1.0f,
+            new ConfigDescription(
+                "Maximum local Z HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
+                new AcceptableValueRange<float>(-10.0f, 10.0f)));
+
+        PlayerHeadPoseChestWeight = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseChestWeight),
+            0.15f,
+            new ConfigDescription(
+                "Fraction of the limited HMD rotation added to the chest.",
+                new AcceptableValueRange<float>(0.0f, 1.0f)));
+
+        PlayerHeadPoseNeckWeight = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseNeckWeight),
+            0.30f,
+            new ConfigDescription(
+                "Fraction of the limited HMD rotation added to the neck.",
+                new AcceptableValueRange<float>(0.0f, 1.0f)));
+
+        PlayerHeadPoseHeadWeight = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseHeadWeight),
+            0.55f,
+            new ConfigDescription(
+                "Fraction of the limited HMD rotation added to the head.",
+                new AcceptableValueRange<float>(0.0f, 1.0f)));
+
+        PlayerHeadPoseSmoothFactor = config.Bind(
+            BodySection,
+            nameof(PlayerHeadPoseSmoothFactor),
+            18.0f,
+            new ConfigDescription(
+                "Smoothing speed for HMD-to-body head rotation. Higher values follow faster.",
+                new AcceptableValueRange<float>(0.0f, 60.0f)));
 
         SourceRotationMode = config.Bind(
             StereoSection,
@@ -439,6 +578,24 @@ public sealed class ModConfig
     public ConfigEntry<float> Quest3CursorRayPitchOffsetDegrees { get; }
     public ConfigEntry<float> Quest3CursorRayYawOffsetDegrees { get; }
     public ConfigEntry<float> Quest3CursorRayRollOffsetDegrees { get; }
+    public ConfigEntry<bool> EnablePlayerHeadPoseControl { get; }
+    public ConfigEntry<float> PlayerHeadPoseFollowDistance { get; }
+    public ConfigEntry<float> PlayerHeadPoseYawLimitDegrees { get; }
+    public ConfigEntry<float> PlayerHeadPosePitchLimitDegrees { get; }
+    public ConfigEntry<float> PlayerHeadPoseRollLimitDegrees { get; }
+    public ConfigEntry<bool> PlayerHeadPoseYawTurnsBodyWhileMoving { get; }
+    public ConfigEntry<float> PlayerHeadPoseBodyYawTurnSpeedDegreesPerSecond { get; }
+    public ConfigEntry<bool> IgnoreHeadPositionForVrCamera { get; }
+    public ConfigEntry<float> HeadPositionCameraOffsetMinX { get; }
+    public ConfigEntry<float> HeadPositionCameraOffsetMaxX { get; }
+    public ConfigEntry<float> HeadPositionCameraOffsetMinY { get; }
+    public ConfigEntry<float> HeadPositionCameraOffsetMaxY { get; }
+    public ConfigEntry<float> HeadPositionCameraOffsetMinZ { get; }
+    public ConfigEntry<float> HeadPositionCameraOffsetMaxZ { get; }
+    public ConfigEntry<float> PlayerHeadPoseChestWeight { get; }
+    public ConfigEntry<float> PlayerHeadPoseNeckWeight { get; }
+    public ConfigEntry<float> PlayerHeadPoseHeadWeight { get; }
+    public ConfigEntry<float> PlayerHeadPoseSmoothFactor { get; }
     public ConfigEntry<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
     public ConfigEntry<bool> LogPoseDebug { get; }

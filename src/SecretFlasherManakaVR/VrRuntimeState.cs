@@ -17,6 +17,12 @@ internal static class VrRuntimeState
 
     public static Quaternion HeadRotation { get; private set; } = Quaternion.identity;
 
+    public static Quaternion HeadTrackingRotation { get; private set; } = Quaternion.identity;
+
+    public static Camera? SourceCamera { get; private set; }
+
+    public static int RecenterSerial { get; private set; }
+
     private static bool recenterRequested;
     private static Vector3 trackingBasePosition;
     private static Quaternion trackingBaseRotation = Quaternion.identity;
@@ -32,6 +38,15 @@ internal static class VrRuntimeState
     {
         HeadPosition = position;
         HeadRotation = rotation;
+        HeadTrackingRotation = rotation;
+        HasHeadPose = true;
+    }
+
+    public static void SetHeadPose(Vector3 position, Quaternion rotation, Quaternion trackingRotation)
+    {
+        HeadPosition = position;
+        HeadRotation = rotation;
+        HeadTrackingRotation = trackingRotation;
         HasHeadPose = true;
     }
 
@@ -39,8 +54,14 @@ internal static class VrRuntimeState
     {
         HeadPosition = Vector3.zero;
         HeadRotation = Quaternion.identity;
+        HeadTrackingRotation = Quaternion.identity;
         HasHeadPose = false;
         hasTrackingToWorldTransform = false;
+    }
+
+    public static void SetSourceCamera(Camera? camera)
+    {
+        SourceCamera = camera;
     }
 
     public static void SetTrackingToWorldTransform(
@@ -85,6 +106,11 @@ internal static class VrRuntimeState
     public static void RequestRecenter()
     {
         recenterRequested = true;
+    }
+
+    public static void MarkRecentered()
+    {
+        RecenterSerial++;
     }
 
     public static bool ConsumeRecenterRequest()

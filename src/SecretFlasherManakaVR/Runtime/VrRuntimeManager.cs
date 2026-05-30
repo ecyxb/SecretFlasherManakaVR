@@ -168,8 +168,10 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (!FindSourceCamera(false))
             {
+                VrRuntimeState.SetSourceCamera(null);
                 return;
             }
+            VrRuntimeState.SetSourceCamera(sourceCamera);
 
             ApplySourceCameraRenderSuppression();
             RefreshRenderTargetSize(false);
@@ -194,6 +196,7 @@ namespace SecretFlasherManakaVR.Runtime
             DisableReflectionCamerasEarly();
             rig.CopyFromSource(sourceCamera);
             ApplyPoseToRig();
+            SecretFlasherManakaVR.PlayerHeadPoseController.Apply();
             ApplyProjectionOrCameraFallback();
             if (npcWorldSpaceUiFixer != null)
             {
@@ -329,6 +332,7 @@ namespace SecretFlasherManakaVR.Runtime
             initialized = false;
             vrReady = false;
             VrRuntimeState.IsVrReady = false;
+            VrRuntimeState.SetSourceCamera(null);
             VrRuntimeState.ClearHeadPose();
             recenterYaw = Quaternion.identity;
             recenterPosition = Vector3.zero;
@@ -411,6 +415,7 @@ namespace SecretFlasherManakaVR.Runtime
             recenterPosition = pose.Position * settings.WorldScale;
             recenterSourceYaw = sourceCamera == null ? Quaternion.identity : ExtractYaw(sourceCamera.transform.rotation);
             recenterSet = true;
+            VrRuntimeState.MarkRecentered();
             logger.Info(message);
         }
 
@@ -436,6 +441,7 @@ namespace SecretFlasherManakaVR.Runtime
             if (candidate == null)
             {
                 sourceCamera = null;
+                VrRuntimeState.SetSourceCamera(null);
                 limitedLog.Warning("camera-missing", "No usable game camera found for VR yet.");
                 return false;
             }
@@ -973,6 +979,14 @@ namespace SecretFlasherManakaVR.Runtime
                 rawRotation = recenterYaw * rawRotation;
             }
 
+            if (settings.IgnoreHeadPositionForVrCamera)
+            {
+                rawPosition = new Vector3(
+                    Mathf.Clamp(rawPosition.x, settings.HeadPositionCameraOffsetMinX, settings.HeadPositionCameraOffsetMaxX),
+                    Mathf.Clamp(rawPosition.y, settings.HeadPositionCameraOffsetMinY, settings.HeadPositionCameraOffsetMaxY),
+                    Mathf.Clamp(rawPosition.z, settings.HeadPositionCameraOffsetMinZ, settings.HeadPositionCameraOffsetMaxZ));
+            }
+
             Vector3 basePosition = sourceCamera.transform.position + sourceCamera.transform.up * settings.CameraHeightOffset;
             Quaternion baseRotation = GetSourceBaseRotation();
             VrRuntimeState.SetTrackingToWorldTransform(
@@ -986,7 +1000,7 @@ namespace SecretFlasherManakaVR.Runtime
             Quaternion headRotation = baseRotation * rawRotation;
             float ipdMeters = bridge == null ? DefaultIpdMeters : GetIpdMeters(DefaultIpdMeters);
             rig.ApplyPose(headPosition, headRotation, ipdMeters, settings.IPDScale, settings.WorldScale);
-            VrRuntimeState.SetHeadPose(headPosition, headRotation);
+            VrRuntimeState.SetHeadPose(headPosition, headRotation, rawRotation);
         }
 
         private Quaternion GetSourceBaseRotation()
