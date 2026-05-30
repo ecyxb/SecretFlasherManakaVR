@@ -23,6 +23,7 @@ namespace SecretFlasherManakaVR.Runtime
         private Vector3 recenterPosition = Vector3.zero;
         private Quaternion recenterSourceYaw = Quaternion.identity;
         private bool recenterSet;
+        private bool recenterPending;
         private bool initialized;
         private bool vrReady;
         private float nextOpenVRRetryTime;
@@ -160,6 +161,11 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 lastPose = RuntimePose.Identity;
             }
+            if (recenterPending)
+            {
+                ApplyRecenter(lastPose);
+                recenterPending = false;
+            }
             else if (settings.AutoRecenterOnStart && !recenterSet)
             {
                 ApplyRecenter(lastPose);
@@ -283,6 +289,7 @@ namespace SecretFlasherManakaVR.Runtime
             recenterPosition = Vector3.zero;
             recenterSourceYaw = Quaternion.identity;
             recenterSet = false;
+            recenterPending = false;
             renderWidth = 0;
             renderHeight = 0;
             nextCameraSearchTime = 0.0f;
@@ -334,17 +341,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void Recenter()
         {
-            RuntimePose pose;
-            if (bridge != null && TryGetHmdPose(out pose) && pose.IsValid)
-            {
-                lastPose = pose;
-            }
-            else
-            {
-                pose = lastPose.IsValid ? lastPose : RuntimePose.Identity;
-            }
-
-            ApplyRecenter(pose);
+            recenterPending = true;
         }
 
         private void ApplyRecenter(RuntimePose pose)
