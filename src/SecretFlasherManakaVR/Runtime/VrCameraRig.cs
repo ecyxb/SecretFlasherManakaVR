@@ -234,8 +234,6 @@ namespace SecretFlasherManakaVR.Runtime
                 VrRuntimeState.EndVrEyeRender();
             }
 
-            GL.Flush();
-
             // Keep all texture ownership inside Unity. Direct D3D11 copy/submit
             // paths were accepted by OpenVR but crashed in the NVIDIA user-mode
             // driver on some runs.
