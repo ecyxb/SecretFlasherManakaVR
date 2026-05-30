@@ -25,10 +25,15 @@ namespace SecretFlasherManakaVR.Runtime
         private GameObject root;
         private Camera captureCamera;
         private RenderTexture uiTexture;
+        private RenderTexture fullscreenEffectTexture;
         private GameObject panelObject;
+        private GameObject fullscreenEffectPanelObject;
         private Material panelMaterial;
+        private Material fullscreenEffectPanelMaterial;
+        private Mesh fullscreenEffectMesh;
         private int textureWidth;
         private int textureHeight;
+        private int fullscreenEffectMeshSignature;
 
         private static bool currentPanelVisible;
         private static Vector3 currentPanelPosition;
@@ -107,6 +112,7 @@ namespace SecretFlasherManakaVR.Runtime
             if (settings == null || !settings.EnableVrUiBridge || !settings.ConvertOverlayCanvasToWorldSpace)
             {
                 SetPanelVisible(false);
+                SetFullscreenEffectPanelVisible(false);
                 convertedLayerMask = 0;
                 return;
             }
@@ -125,6 +131,7 @@ namespace SecretFlasherManakaVR.Runtime
             nextScanTime = 0.0f;
             worldFixedPoseSet = false;
             SetPanelVisible(false);
+            SetFullscreenEffectPanelVisible(false);
             convertedLayerMask = 0;
         }
 
@@ -133,11 +140,24 @@ namespace SecretFlasherManakaVR.Runtime
             activeCanvases.Clear();
             convertedLayerMask = 0;
             ReleaseTexture();
+            ReleaseFullscreenEffectTexture();
 
             if (panelMaterial != null)
             {
                 UnityEngine.Object.Destroy(panelMaterial);
                 panelMaterial = null;
+            }
+
+            if (fullscreenEffectPanelMaterial != null)
+            {
+                UnityEngine.Object.Destroy(fullscreenEffectPanelMaterial);
+                fullscreenEffectPanelMaterial = null;
+            }
+
+            if (fullscreenEffectMesh != null)
+            {
+                UnityEngine.Object.Destroy(fullscreenEffectMesh);
+                fullscreenEffectMesh = null;
             }
 
             if (root != null)
@@ -148,6 +168,7 @@ namespace SecretFlasherManakaVR.Runtime
 
             captureCamera = null;
             panelObject = null;
+            fullscreenEffectPanelObject = null;
             worldFixedPoseSet = false;
         }
 
@@ -191,7 +212,22 @@ namespace SecretFlasherManakaVR.Runtime
             Renderer renderer = panelObject.GetComponent<Renderer>();
             panelMaterial = CreatePanelMaterial();
             renderer.sharedMaterial = panelMaterial;
+
+            fullscreenEffectPanelObject = new GameObject("SecretFlasherManakaVR Fullscreen Effect Curved Panel");
+            fullscreenEffectPanelObject.hideFlags = HideFlags.HideAndDontSave;
+            fullscreenEffectPanelObject.transform.SetParent(root.transform, false);
+            fullscreenEffectPanelObject.layer = VrUiOverlayLayer;
+            MeshFilter meshFilter = fullscreenEffectPanelObject.AddComponent<MeshFilter>();
+            MeshRenderer meshRenderer = fullscreenEffectPanelObject.AddComponent<MeshRenderer>();
+            fullscreenEffectPanelMaterial = CreatePanelMaterial();
+            fullscreenEffectPanelMaterial.name = "SecretFlasherManakaVR Fullscreen Effect Panel Material";
+            fullscreenEffectPanelMaterial.renderQueue = 4001;
+            meshRenderer.sharedMaterial = fullscreenEffectPanelMaterial;
+            fullscreenEffectMesh = new Mesh();
+            fullscreenEffectMesh.name = "SecretFlasherManakaVR Fullscreen Effect Curved Mesh";
+            meshFilter.sharedMesh = fullscreenEffectMesh;
             SetPanelVisible(false);
+            SetFullscreenEffectPanelVisible(false);
         }
 
         private Material CreatePanelMaterial()
@@ -220,6 +256,7 @@ namespace SecretFlasherManakaVR.Runtime
             Material material = new Material(shader);
             material.name = "SecretFlasherManakaVR UI Panel Material";
             material.renderQueue = 4000;
+            material.SetInt("_Cull", 0);
             return material;
         }
 
@@ -335,6 +372,7 @@ namespace SecretFlasherManakaVR.Runtime
             if (activeCanvases.Count == 0 || captureCamera == null)
             {
                 SetPanelVisible(false);
+                SetFullscreenEffectPanelVisible(false);
                 return;
             }
 
@@ -342,11 +380,13 @@ namespace SecretFlasherManakaVR.Runtime
             if (uiTexture == null)
             {
                 SetPanelVisible(false);
+                SetFullscreenEffectPanelVisible(false);
                 return;
             }
 
             var states = new List<CanvasCaptureState>();
             var hudLayout = new HudLayoutScope(logger, settings);
+            FullscreenEffectCaptureSet fullscreenEffects = null;
             try
             {
                 captureCamera.targetTexture = uiTexture;
@@ -368,14 +408,20 @@ namespace SecretFlasherManakaVR.Runtime
                     canvas.worldCamera = captureCamera;
                     canvas.planeDistance = 10.0f;
                     hudLayout.Apply(canvas);
+                    if (fullscreenEffects == null && canvas.name == "InGameCanvas")
+                    {
+                        fullscreenEffects = FullscreenEffectCaptureSet.FromCanvas(canvas);
+                    }
                 }
 
-                captureCamera.Render();
+                RenderMainHudPass(fullscreenEffects);
+                RenderFullscreenEffectPass(settings, fullscreenEffects);
                 SetPanelVisible(true);
             }
             catch (Exception ex)
             {
                 SetPanelVisible(false);
+                SetFullscreenEffectPanelVisible(false);
                 logger.Warning("VR UI capture failed: " + ex.Message);
             }
             finally
@@ -385,6 +431,67 @@ namespace SecretFlasherManakaVR.Runtime
                 {
                     states[i].Restore();
                 }
+            }
+        }
+
+        private void RenderMainHudPass(FullscreenEffectCaptureSet fullscreenEffects)
+        {
+            CanvasGroupAlphaScope hiddenEffects = null;
+            try
+            {
+                if (fullscreenEffects != null)
+                {
+                    hiddenEffects = CanvasGroupAlphaScope.Hide(fullscreenEffects.EffectObjects);
+                }
+
+                captureCamera.targetTexture = uiTexture;
+                captureCamera.Render();
+            }
+            finally
+            {
+                if (hiddenEffects != null)
+                {
+                    hiddenEffects.Restore();
+                }
+            }
+        }
+
+        private void RenderFullscreenEffectPass(VrRuntimeSettings settings, FullscreenEffectCaptureSet fullscreenEffects)
+        {
+            if (settings == null || !settings.EnableVrFullscreenEffectLayer || fullscreenEffects == null || !fullscreenEffects.HasRenderableEffect)
+            {
+                SetFullscreenEffectPanelVisible(false);
+                return;
+            }
+
+            EnsureFullscreenEffectTexture();
+            if (fullscreenEffectTexture == null)
+            {
+                SetFullscreenEffectPanelVisible(false);
+                return;
+            }
+
+            FullscreenEffectIsolationScope isolatedEffects = null;
+            try
+            {
+                isolatedEffects = FullscreenEffectIsolationScope.Isolate(fullscreenEffects.Root, fullscreenEffects.EffectObjects);
+                captureCamera.targetTexture = fullscreenEffectTexture;
+                captureCamera.Render();
+                if (fullscreenEffectPanelMaterial != null)
+                {
+                    fullscreenEffectPanelMaterial.mainTexture = fullscreenEffectTexture;
+                }
+
+                SetFullscreenEffectPanelVisible(true);
+            }
+            finally
+            {
+                if (isolatedEffects != null)
+                {
+                    isolatedEffects.Restore();
+                }
+
+                captureCamera.targetTexture = uiTexture;
             }
         }
 
@@ -412,6 +519,31 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
+        private void EnsureFullscreenEffectTexture()
+        {
+            if (uiTexture == null)
+            {
+                return;
+            }
+
+            if (fullscreenEffectTexture != null && fullscreenEffectTexture.width == textureWidth && fullscreenEffectTexture.height == textureHeight)
+            {
+                return;
+            }
+
+            ReleaseFullscreenEffectTexture();
+            fullscreenEffectTexture = new RenderTexture(textureWidth, textureHeight, 24, RenderTextureFormat.ARGB32);
+            fullscreenEffectTexture.name = "SecretFlasherManakaVR Fullscreen Effect Capture Texture";
+            fullscreenEffectTexture.useMipMap = false;
+            fullscreenEffectTexture.autoGenerateMips = false;
+            fullscreenEffectTexture.Create();
+
+            if (fullscreenEffectPanelMaterial != null)
+            {
+                fullscreenEffectPanelMaterial.mainTexture = fullscreenEffectTexture;
+            }
+        }
+
         private void ReleaseTexture()
         {
             if (captureCamera != null)
@@ -428,6 +560,21 @@ namespace SecretFlasherManakaVR.Runtime
 
             textureWidth = 0;
             textureHeight = 0;
+        }
+
+        private void ReleaseFullscreenEffectTexture()
+        {
+            if (captureCamera != null && captureCamera.targetTexture == fullscreenEffectTexture)
+            {
+                captureCamera.targetTexture = null;
+            }
+
+            if (fullscreenEffectTexture != null)
+            {
+                fullscreenEffectTexture.Release();
+                UnityEngine.Object.Destroy(fullscreenEffectTexture);
+                fullscreenEffectTexture = null;
+            }
         }
 
         private void ApplyPanelTransform(VrRuntimeSettings settings)
@@ -453,6 +600,102 @@ namespace SecretFlasherManakaVR.Runtime
             currentPanelScale = panelObject.transform.localScale;
             currentTextureWidth = textureWidth;
             currentTextureHeight = textureHeight;
+
+            ApplyFullscreenEffectPanelTransform(settings, width, height, panelPosition);
+        }
+
+        private void ApplyFullscreenEffectPanelTransform(VrRuntimeSettings settings, float baseWidth, float baseHeight, Vector3 basePosition)
+        {
+            if (fullscreenEffectPanelObject == null || fullscreenEffectTexture == null || settings == null)
+            {
+                return;
+            }
+
+            float scale = Mathf.Max(0.01f, settings.VrFullscreenEffectPanelScale);
+            float width = baseWidth * scale;
+            float height = baseHeight * scale;
+            float depthOffset = settings.VrFullscreenEffectDepthOffset;
+            Vector3 position = basePosition + uiRotation * (Vector3.back * depthOffset);
+            fullscreenEffectPanelObject.transform.SetPositionAndRotation(position, uiRotation);
+            fullscreenEffectPanelObject.transform.localScale = new Vector3(width, height, 1.0f);
+            fullscreenEffectPanelObject.layer = VrUiOverlayLayer;
+            UpdateFullscreenEffectMesh(settings.VrFullscreenEffectCurveDegrees);
+        }
+
+        private void UpdateFullscreenEffectMesh(float curveDegrees)
+        {
+            if (fullscreenEffectMesh == null)
+            {
+                return;
+            }
+
+            int signature = Mathf.RoundToInt(curveDegrees * 100.0f);
+            if (fullscreenEffectMeshSignature == signature && fullscreenEffectMesh.vertexCount > 0)
+            {
+                return;
+            }
+
+            fullscreenEffectMeshSignature = signature;
+            const int columns = 32;
+            const int rows = 1;
+            Vector3[] vertices = new Vector3[(columns + 1) * (rows + 1)];
+            Vector2[] uvs = new Vector2[vertices.Length];
+            int[] triangles = new int[columns * rows * 6];
+            float halfAngle = Mathf.Deg2Rad * Mathf.Max(0.0f, curveDegrees) * 0.5f;
+            float sinHalfAngle = Mathf.Sin(Mathf.Max(0.0001f, halfAngle));
+
+            for (int y = 0; y <= rows; y++)
+            {
+                float v = y / (float)rows;
+                float localY = v - 0.5f;
+                for (int x = 0; x <= columns; x++)
+                {
+                    float u = x / (float)columns;
+                    float normalizedX = u * 2.0f - 1.0f;
+                    float localX;
+                    float localZ;
+                    if (halfAngle <= 0.0001f)
+                    {
+                        localX = normalizedX * 0.5f;
+                        localZ = 0.0f;
+                    }
+                    else
+                    {
+                        float angle = normalizedX * halfAngle;
+                        localX = Mathf.Sin(angle) / sinHalfAngle * 0.5f;
+                        localZ = -(1.0f - Mathf.Cos(angle)) / Mathf.Max(0.0001f, 1.0f - Mathf.Cos(halfAngle)) * 0.12f;
+                    }
+
+                    int index = y * (columns + 1) + x;
+                    vertices[index] = new Vector3(localX, localY, localZ);
+                    uvs[index] = new Vector2(u, v);
+                }
+            }
+
+            int triangleIndex = 0;
+            for (int y = 0; y < rows; y++)
+            {
+                for (int x = 0; x < columns; x++)
+                {
+                    int a = y * (columns + 1) + x;
+                    int b = a + 1;
+                    int c = a + columns + 1;
+                    int d = c + 1;
+                    triangles[triangleIndex++] = a;
+                    triangles[triangleIndex++] = c;
+                    triangles[triangleIndex++] = b;
+                    triangles[triangleIndex++] = b;
+                    triangles[triangleIndex++] = c;
+                    triangles[triangleIndex++] = d;
+                }
+            }
+
+            fullscreenEffectMesh.Clear();
+            fullscreenEffectMesh.vertices = vertices;
+            fullscreenEffectMesh.uv = uvs;
+            fullscreenEffectMesh.triangles = triangles;
+            fullscreenEffectMesh.RecalculateBounds();
+            fullscreenEffectMesh.RecalculateNormals();
         }
 
         private void SetPanelVisible(bool visible)
@@ -463,6 +706,14 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             currentPanelVisible = visible && panelObject != null && textureWidth > 0 && textureHeight > 0;
+        }
+
+        private void SetFullscreenEffectPanelVisible(bool visible)
+        {
+            if (fullscreenEffectPanelObject != null && fullscreenEffectPanelObject.activeSelf != visible)
+            {
+                fullscreenEffectPanelObject.SetActive(visible);
+            }
         }
 
         private static string[] SplitKeywords(string value)
@@ -505,11 +756,339 @@ namespace SecretFlasherManakaVR.Runtime
             Body
         }
 
+        private sealed class FullscreenEffectCaptureSet
+        {
+            private readonly List<GameObject> effectObjects = new List<GameObject>();
+            private readonly HashSet<int> effectObjectIds = new HashSet<int>();
+
+            private FullscreenEffectCaptureSet(RectTransform root)
+            {
+                Root = root;
+            }
+
+            public RectTransform Root { get; }
+
+            public List<GameObject> EffectObjects
+            {
+                get { return effectObjects; }
+            }
+
+            public bool HasRenderableEffect
+            {
+                get
+                {
+                    for (int i = 0; i < effectObjects.Count; i++)
+                    {
+                        GameObject effect = effectObjects[i];
+                        if (effect != null && effect.activeInHierarchy && !IsCanvasGroupChainFullyTransparent(effect.transform))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+            }
+
+            public static FullscreenEffectCaptureSet FromCanvas(Canvas canvas)
+            {
+                if (canvas == null || canvas.name != "InGameCanvas")
+                {
+                    return null;
+                }
+
+                RectTransform root = canvas.GetComponent<RectTransform>();
+                if (root == null)
+                {
+                    return null;
+                }
+
+                var set = new FullscreenEffectCaptureSet(root);
+                InGameUiManager manager = canvas.GetComponentInParent<InGameUiManager>();
+                if (manager != null)
+                {
+                    set.AddComponent(manager.BlindVignette);
+                    set.AddComponent(manager.invisibleVignette);
+                    if (manager.heartRatePanelView != null && manager.heartRatePanelView.vignetteCanvas != null)
+                    {
+                        set.Add(manager.heartRatePanelView.vignetteCanvas.gameObject);
+                    }
+                }
+
+                set.AddPath("BackLayer/BlindVignette");
+                set.AddPath("MiddleLayer/InvisibleVignette");
+                set.AddPath("MiddleLayer/InvisibleVignette/InvisibleVignette");
+                set.AddPath("MiddleLayer/HeartBeatPanel/Vignette");
+                set.AddPath("MiddleLayer/SlowAssistPanel/MainContents/Vignette");
+                return set.effectObjects.Count == 0 ? null : set;
+            }
+
+            private void AddPath(string path)
+            {
+                if (Root == null)
+                {
+                    return;
+                }
+
+                Transform target = Root.Find(path);
+                if (target != null)
+                {
+                    Add(target.gameObject);
+                }
+            }
+
+            private void Add(GameObject gameObject)
+            {
+                if (gameObject == null || Root == null || !gameObject.transform.IsChildOf(Root.transform))
+                {
+                    return;
+                }
+
+                int id = gameObject.GetInstanceID();
+                if (effectObjectIds.Contains(id))
+                {
+                    return;
+                }
+
+                effectObjectIds.Add(id);
+                effectObjects.Add(gameObject);
+            }
+
+            private void AddComponent(Component component)
+            {
+                if (component != null)
+                {
+                    Add(component.gameObject);
+                }
+            }
+
+            private void AddTransform(Transform transform)
+            {
+                if (transform != null)
+                {
+                    Add(transform.gameObject);
+                }
+            }
+
+            private static bool IsCanvasGroupChainFullyTransparent(Transform transform)
+            {
+                Transform current = transform;
+                while (current != null)
+                {
+                    CanvasGroup group = current.GetComponent<CanvasGroup>();
+                    if (group != null && group.alpha <= 0.001f)
+                    {
+                        return true;
+                    }
+
+                    current = current.parent;
+                }
+
+                return false;
+            }
+        }
+
+        private sealed class CanvasGroupAlphaScope
+        {
+            private readonly List<CanvasGroupState> states = new List<CanvasGroupState>();
+            private readonly HashSet<int> savedGroups = new HashSet<int>();
+
+            public static CanvasGroupAlphaScope Hide(List<GameObject> objects)
+            {
+                var scope = new CanvasGroupAlphaScope();
+                if (objects == null)
+                {
+                    return scope;
+                }
+
+                for (int i = 0; i < objects.Count; i++)
+                {
+                    scope.SetAlpha(objects[i], 0.0f);
+                }
+
+                return scope;
+            }
+
+            public void Restore()
+            {
+                for (int i = states.Count - 1; i >= 0; i--)
+                {
+                    states[i].Restore();
+                }
+
+                states.Clear();
+                savedGroups.Clear();
+            }
+
+            public void SetAlpha(GameObject gameObject, float alpha)
+            {
+                if (gameObject == null)
+                {
+                    return;
+                }
+
+                CanvasGroup group = GetOrAddCanvasGroup(gameObject);
+                if (group == null)
+                {
+                    return;
+                }
+
+                int id = group.GetInstanceID();
+                if (!savedGroups.Contains(id))
+                {
+                    savedGroups.Add(id);
+                    states.Add(new CanvasGroupState(group));
+                }
+
+                group.alpha = alpha;
+            }
+
+            internal static CanvasGroup GetOrAddCanvasGroup(GameObject gameObject)
+            {
+                if (gameObject == null)
+                {
+                    return null;
+                }
+
+                CanvasGroup group = gameObject.GetComponent<CanvasGroup>();
+                return group != null ? group : gameObject.AddComponent<CanvasGroup>();
+            }
+
+            private readonly struct CanvasGroupState
+            {
+                private readonly CanvasGroup group;
+                private readonly float alpha;
+
+                public CanvasGroupState(CanvasGroup group)
+                {
+                    this.group = group;
+                    alpha = group.alpha;
+                }
+
+                public void Restore()
+                {
+                    if (group != null)
+                    {
+                        group.alpha = alpha;
+                    }
+                }
+            }
+        }
+
+        private sealed class FullscreenEffectIsolationScope
+        {
+            private readonly GraphicAlphaScope alphaScope = new GraphicAlphaScope();
+
+            public static FullscreenEffectIsolationScope Isolate(RectTransform root, List<GameObject> effects)
+            {
+                var scope = new FullscreenEffectIsolationScope();
+                if (root == null || effects == null || effects.Count == 0)
+                {
+                    return scope;
+                }
+
+                Graphic[] graphics = root.GetComponentsInChildren<Graphic>(true);
+                for (int i = 0; i < graphics.Length; i++)
+                {
+                    Graphic graphic = graphics[i];
+                    if (graphic == null)
+                    {
+                        continue;
+                    }
+
+                    if (!ShouldRenderWithEffects(graphic.transform, effects))
+                    {
+                        scope.alphaScope.SetAlpha(graphic, 0.0f);
+                    }
+                }
+
+                return scope;
+            }
+
+            public void Restore()
+            {
+                alphaScope.Restore();
+            }
+
+            private static bool ShouldRenderWithEffects(Transform transform, List<GameObject> effects)
+            {
+                for (int i = 0; i < effects.Count; i++)
+                {
+                    GameObject effect = effects[i];
+                    if (effect == null)
+                    {
+                        continue;
+                    }
+
+                    Transform effectTransform = effect.transform;
+                    if (transform == effectTransform || transform.IsChildOf(effectTransform) || effectTransform.IsChildOf(transform))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        private sealed class GraphicAlphaScope
+        {
+            private readonly List<GraphicState> states = new List<GraphicState>();
+            private readonly HashSet<int> savedGraphics = new HashSet<int>();
+
+            public void SetAlpha(Graphic graphic, float alpha)
+            {
+                if (graphic == null || graphic.canvasRenderer == null)
+                {
+                    return;
+                }
+
+                int id = graphic.GetInstanceID();
+                if (!savedGraphics.Contains(id))
+                {
+                    savedGraphics.Add(id);
+                    states.Add(new GraphicState(graphic));
+                }
+
+                graphic.canvasRenderer.SetAlpha(alpha);
+            }
+
+            public void Restore()
+            {
+                for (int i = states.Count - 1; i >= 0; i--)
+                {
+                    states[i].Restore();
+                }
+
+                states.Clear();
+                savedGraphics.Clear();
+            }
+
+            private readonly struct GraphicState
+            {
+                private readonly Graphic graphic;
+                private readonly float alpha;
+
+                public GraphicState(Graphic graphic)
+                {
+                    this.graphic = graphic;
+                    alpha = graphic.canvasRenderer.GetAlpha();
+                }
+
+                public void Restore()
+                {
+                    if (graphic != null && graphic.canvasRenderer != null)
+                    {
+                        graphic.canvasRenderer.SetAlpha(alpha);
+                    }
+                }
+            }
+        }
+
         private sealed class HudLayoutScope
         {
             private const float HudReferenceWidth = 2560.0f;
             private const float HudReferenceHeight = 1440.0f;
-            private const float StatusInfoOffsetX = -150.0f;
 
             private readonly VrRuntimeSettings settings;
             private readonly List<RectState> rectStates = new List<RectState>();
@@ -553,7 +1132,7 @@ namespace SecretFlasherManakaVR.Runtime
                     MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1495.0f, 1326.0f), null, 0.46f, 0.0f, true);
                     ApplySelfCameraRt(manager.faceCameraImage, HudRtKind.Face);
                     ApplySelfCameraRt(manager.bodyCameraImage, HudRtKind.Body);
-                    ShiftPathX(root, "MiddleLayer/Right/StatusInfo", StatusInfoOffsetX);
+                    ShiftPath(root, "MiddleLayer/Right/StatusInfo", GetStatusInfoOffset());
                 }
 
                 HideIfNameContains(root, "Shortcut");
@@ -589,7 +1168,7 @@ namespace SecretFlasherManakaVR.Runtime
                 rect.localScale = ScaleVector(rect.localScale, Mathf.Max(0.1f, configScale));
             }
 
-            private void ShiftPathX(RectTransform root, string path, float offsetX)
+            private void ShiftPath(RectTransform root, string path, Vector2 offset)
             {
                 if (root == null)
                 {
@@ -604,7 +1183,17 @@ namespace SecretFlasherManakaVR.Runtime
                 }
 
                 SaveRect(rect);
-                rect.anchoredPosition += new Vector2(offsetX, 0.0f);
+                rect.anchoredPosition += offset;
+            }
+
+            private Vector2 GetStatusInfoOffset()
+            {
+                if (settings == null)
+                {
+                    return new Vector2(-150.0f, 0.0f);
+                }
+
+                return new Vector2(settings.VrUiStatusInfoOffsetX, settings.VrUiStatusInfoOffsetY);
             }
 
             private Vector2 GetConfiguredOffset(HudRtKind kind)

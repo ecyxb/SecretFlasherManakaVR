@@ -504,6 +504,52 @@ public sealed class ModConfig
                 "Vertical panel offset in captured UI pixels. Negative values move the HUD downward.",
                 new AcceptableValueRange<float>(-2160.0f, 2160.0f)));
 
+        VrUiStatusInfoOffsetX = config.Bind(
+            VrUiSection,
+            nameof(VrUiStatusInfoOffsetX),
+            -150.0f,
+            new ConfigDescription(
+                "Horizontal pixel offset for InGameCanvas/MiddleLayer/Right/StatusInfo in the captured VR HUD.",
+                new AcceptableValueRange<float>(-4096.0f, 4096.0f)));
+
+        VrUiStatusInfoOffsetY = config.Bind(
+            VrUiSection,
+            nameof(VrUiStatusInfoOffsetY),
+            0.0f,
+            new ConfigDescription(
+                "Vertical pixel offset for InGameCanvas/MiddleLayer/Right/StatusInfo in the captured VR HUD.",
+                new AcceptableValueRange<float>(-4096.0f, 4096.0f)));
+
+        EnableVrFullscreenEffectLayer = config.Bind(
+            VrUiSection,
+            nameof(EnableVrFullscreenEffectLayer),
+            true,
+            "Render InGameCanvas fullscreen vignette/effect elements into a separate VR overlay texture.");
+
+        VrFullscreenEffectPanelScale = config.Bind(
+            VrUiSection,
+            nameof(VrFullscreenEffectPanelScale),
+            1.08f,
+            new ConfigDescription(
+                "Additional multiplier for the separated fullscreen effect overlay size.",
+                new AcceptableValueRange<float>(0.25f, 3.0f)));
+
+        VrFullscreenEffectCurveDegrees = config.Bind(
+            VrUiSection,
+            nameof(VrFullscreenEffectCurveDegrees),
+            36.0f,
+            new ConfigDescription(
+                "Horizontal inward curvature, in degrees, for the separated fullscreen effect overlay.",
+                new AcceptableValueRange<float>(0.0f, 120.0f)));
+
+        VrFullscreenEffectDepthOffset = config.Bind(
+            VrUiSection,
+            nameof(VrFullscreenEffectDepthOffset),
+            0.01f,
+            new ConfigDescription(
+                "Local depth offset for the fullscreen effect overlay. Positive values move it slightly toward the headset.",
+                new AcceptableValueRange<float>(-0.25f, 0.25f)));
+
         VrUiFaceRtOffsetX = config.Bind(
             VrUiSection,
             nameof(VrUiFaceRtOffsetX),
@@ -690,6 +736,12 @@ public sealed class ModConfig
     public ConfigEntry<float> VrUiVerticalOffset { get; }
     public ConfigEntry<float> VrUiPanelScale { get; }
     public ConfigEntry<float> VrUiPanelPixelOffsetY { get; }
+    public ConfigEntry<float> VrUiStatusInfoOffsetX { get; }
+    public ConfigEntry<float> VrUiStatusInfoOffsetY { get; }
+    public ConfigEntry<bool> EnableVrFullscreenEffectLayer { get; }
+    public ConfigEntry<float> VrFullscreenEffectPanelScale { get; }
+    public ConfigEntry<float> VrFullscreenEffectCurveDegrees { get; }
+    public ConfigEntry<float> VrFullscreenEffectDepthOffset { get; }
     public ConfigEntry<float> VrUiFaceRtOffsetX { get; }
     public ConfigEntry<float> VrUiFaceRtOffsetY { get; }
     public ConfigEntry<float> VrUiFaceRtScale { get; }
