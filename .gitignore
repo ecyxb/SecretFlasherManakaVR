@@ -1,6 +1,7 @@
 # Build intermediates
 src/**/bin/
 src/**/obj/
+release
 
 # Local IDE/editor state
 .vs/
