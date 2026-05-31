@@ -158,7 +158,7 @@ internal sealed class Quest3InputMapper
             }
             else
             {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.Select);
+                state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
             }
         }
 
@@ -170,7 +170,7 @@ internal sealed class Quest3InputMapper
             }
             else
             {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
+                state.Gamepad.Press(Quest3VirtualGamepadButton.Select);
             }
         }
 
@@ -424,8 +424,7 @@ internal sealed class Quest3InputMapper
 
         if (snapshot.IsPressed(Quest3Button.LeftTrigger))
         {
-            state.PressMouseButton(1);
-            state.Press(InputManager.InputType.RightClick);
+            state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
         }
 
         if (snapshot.IsPressed(Quest3Button.LeftGrip))
@@ -523,10 +522,16 @@ internal sealed class Quest3InputMapper
                     InputManager.InputType.Tab2Right);
                 break;
             case Quest3SemanticInput.Up:
-                state.Press(InputManager.InputType.UIUp);
+                PressAll(
+                    state,
+                    InputManager.InputType.UIUp,
+                    InputManager.InputType.UIScrollA);
                 break;
             case Quest3SemanticInput.Down:
-                state.Press(InputManager.InputType.UIDown);
+                PressAll(
+                    state,
+                    InputManager.InputType.UIDown,
+                    InputManager.InputType.UIScrollB);
                 break;
             case Quest3SemanticInput.Confirm:
                 PressAll(

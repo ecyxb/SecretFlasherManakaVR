@@ -27,6 +27,7 @@ namespace SecretFlasherManakaVR.Runtime
         private Camera captureCamera;
         private RenderTexture uiTexture;
         private RenderTexture fullscreenEffectTexture;
+        private RenderTexture eyeMaskTexture;
         private GameObject panelObject;
         private GameObject fullscreenEffectPanelObject;
         private Material panelMaterial;
@@ -39,6 +40,7 @@ namespace SecretFlasherManakaVR.Runtime
         private RectTransform fullscreenEffectRoot;
         private FullscreenEffectCaptureSet fullscreenEffectCache;
         private bool fullscreenEffectCacheScanned;
+        private bool eyeMaskOverlayVisible;
 
         private static bool currentPanelVisible;
         private static Vector3 currentPanelPosition;
@@ -59,6 +61,11 @@ namespace SecretFlasherManakaVR.Runtime
         public int ConvertedCanvasCount
         {
             get { return activeCanvases.Count; }
+        }
+
+        public Texture EyeMaskOverlayTexture
+        {
+            get { return eyeMaskOverlayVisible ? eyeMaskTexture : null; }
         }
 
         public static bool TryRaycastCapturedScreen(Vector3 origin, Vector3 direction, out Vector2 screenPoint)
@@ -119,6 +126,7 @@ namespace SecretFlasherManakaVR.Runtime
                 activeCanvases.Clear();
                 SetPanelVisible(false);
                 SetFullscreenEffectPanelVisible(false);
+                eyeMaskOverlayVisible = false;
                 convertedLayerMask = 0;
                 return;
             }
@@ -140,6 +148,7 @@ namespace SecretFlasherManakaVR.Runtime
             worldFixedPoseSet = false;
             SetPanelVisible(false);
             SetFullscreenEffectPanelVisible(false);
+            eyeMaskOverlayVisible = false;
             convertedLayerMask = 0;
         }
 
@@ -151,6 +160,7 @@ namespace SecretFlasherManakaVR.Runtime
             convertedLayerMask = 0;
             ReleaseTexture();
             ReleaseFullscreenEffectTexture();
+            ReleaseEyeMaskTexture();
 
             if (panelMaterial != null)
             {
@@ -570,6 +580,7 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 SetPanelVisible(false);
                 SetFullscreenEffectPanelVisible(false);
+                eyeMaskOverlayVisible = false;
                 return;
             }
 
@@ -578,6 +589,7 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 SetPanelVisible(false);
                 SetFullscreenEffectPanelVisible(false);
+                eyeMaskOverlayVisible = false;
                 return;
             }
 
@@ -610,12 +622,14 @@ namespace SecretFlasherManakaVR.Runtime
 
                 RenderMainHudPass(fullscreenEffects);
                 RenderFullscreenEffectPass(settings, fullscreenEffects);
+                RenderEyeMaskOverlayPass(settings, fullscreenEffects);
                 SetPanelVisible(true);
             }
             catch (Exception)
             {
                 SetPanelVisible(false);
                 SetFullscreenEffectPanelVisible(false);
+                eyeMaskOverlayVisible = false;
             }
             finally
             {
@@ -630,7 +644,7 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 if (fullscreenEffects != null)
                 {
-                    hiddenEffects = CanvasGroupAlphaScope.Hide(fullscreenEffects.EffectObjects);
+                    hiddenEffects = CanvasGroupAlphaScope.Hide(fullscreenEffects.MainHudHiddenObjects);
                 }
 
                 captureCamera.targetTexture = uiTexture;
@@ -685,6 +699,40 @@ namespace SecretFlasherManakaVR.Runtime
                 if (isolatedEffects != null)
                 {
                     isolatedEffects.Restore();
+                }
+
+                captureCamera.targetTexture = uiTexture;
+            }
+        }
+
+        private void RenderEyeMaskOverlayPass(VrRuntimeSettings settings, FullscreenEffectCaptureSet fullscreenEffects)
+        {
+            if (settings == null || !settings.EnableVrFullscreenEffectLayer || fullscreenEffects == null || !fullscreenEffects.HasRenderableEyeMask)
+            {
+                eyeMaskOverlayVisible = false;
+                return;
+            }
+
+            EnsureEyeMaskTexture();
+            if (eyeMaskTexture == null)
+            {
+                eyeMaskOverlayVisible = false;
+                return;
+            }
+
+            CanvasGroupAlphaScope isolatedEyeMask = null;
+            try
+            {
+                isolatedEyeMask = CanvasGroupAlphaScope.Hide(fullscreenEffects.EyeMaskHiddenBranches);
+                captureCamera.targetTexture = eyeMaskTexture;
+                captureCamera.Render();
+                eyeMaskOverlayVisible = true;
+            }
+            finally
+            {
+                if (isolatedEyeMask != null)
+                {
+                    isolatedEyeMask.Restore();
                 }
 
                 captureCamera.targetTexture = uiTexture;
@@ -797,6 +845,26 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
+        private void EnsureEyeMaskTexture()
+        {
+            if (uiTexture == null)
+            {
+                return;
+            }
+
+            if (eyeMaskTexture != null && eyeMaskTexture.width == textureWidth && eyeMaskTexture.height == textureHeight)
+            {
+                return;
+            }
+
+            ReleaseEyeMaskTexture();
+            eyeMaskTexture = new RenderTexture(textureWidth, textureHeight, 24, RenderTextureFormat.ARGB32);
+            eyeMaskTexture.name = "SecretFlasherManakaVR Eye Mask Capture Texture";
+            eyeMaskTexture.useMipMap = false;
+            eyeMaskTexture.autoGenerateMips = false;
+            eyeMaskTexture.Create();
+        }
+
         private void ReleaseTexture()
         {
             if (captureCamera != null)
@@ -828,6 +896,23 @@ namespace SecretFlasherManakaVR.Runtime
                 UnityEngine.Object.Destroy(fullscreenEffectTexture);
                 fullscreenEffectTexture = null;
             }
+        }
+
+        private void ReleaseEyeMaskTexture()
+        {
+            if (captureCamera != null && captureCamera.targetTexture == eyeMaskTexture)
+            {
+                captureCamera.targetTexture = null;
+            }
+
+            if (eyeMaskTexture != null)
+            {
+                eyeMaskTexture.Release();
+                UnityEngine.Object.Destroy(eyeMaskTexture);
+                eyeMaskTexture = null;
+            }
+
+            eyeMaskOverlayVisible = false;
         }
 
         private void ApplyPanelTransform(VrRuntimeSettings settings)
@@ -1015,9 +1100,15 @@ namespace SecretFlasherManakaVR.Runtime
             private const float HeartBeatPanelScaleY = 0.9f;
 
             private readonly List<GameObject> effectObjects = new List<GameObject>();
+            private readonly List<GameObject> eyeMaskObjects = new List<GameObject>();
+            private readonly List<GameObject> mainHudHiddenObjects = new List<GameObject>();
             private readonly List<GameObject> hiddenBranches = new List<GameObject>();
+            private readonly List<GameObject> eyeMaskHiddenBranches = new List<GameObject>();
             private readonly HashSet<int> effectObjectIds = new HashSet<int>();
+            private readonly HashSet<int> eyeMaskObjectIds = new HashSet<int>();
+            private readonly HashSet<int> mainHudHiddenObjectIds = new HashSet<int>();
             private readonly HashSet<int> hiddenBranchIds = new HashSet<int>();
+            private readonly HashSet<int> eyeMaskHiddenBranchIds = new HashSet<int>();
             private readonly HashSet<int> keptTransformIds = new HashSet<int>();
             private TransformScaleState heartBeatPanelScaleState;
 
@@ -1028,14 +1119,19 @@ namespace SecretFlasherManakaVR.Runtime
 
             public RectTransform Root { get; }
 
-            public List<GameObject> EffectObjects
+            public List<GameObject> MainHudHiddenObjects
             {
-                get { return effectObjects; }
+                get { return mainHudHiddenObjects; }
             }
 
             public List<GameObject> HiddenBranches
             {
                 get { return hiddenBranches; }
+            }
+
+            public List<GameObject> EyeMaskHiddenBranches
+            {
+                get { return eyeMaskHiddenBranches; }
             }
 
             public bool IsValid
@@ -1056,9 +1152,36 @@ namespace SecretFlasherManakaVR.Runtime
                         }
                     }
 
+                    for (int i = eyeMaskObjects.Count - 1; i >= 0; i--)
+                    {
+                        GameObject eyeMask = eyeMaskObjects[i];
+                        if (eyeMask == null || eyeMask.transform == null || !eyeMask.transform.IsChildOf(Root.transform))
+                        {
+                            return false;
+                        }
+                    }
+
+                    for (int i = mainHudHiddenObjects.Count - 1; i >= 0; i--)
+                    {
+                        GameObject hidden = mainHudHiddenObjects[i];
+                        if (hidden == null || hidden.transform == null || !hidden.transform.IsChildOf(Root.transform))
+                        {
+                            return false;
+                        }
+                    }
+
                     for (int i = hiddenBranches.Count - 1; i >= 0; i--)
                     {
                         GameObject branch = hiddenBranches[i];
+                        if (branch == null || branch.transform == null || !branch.transform.IsChildOf(Root.transform))
+                        {
+                            return false;
+                        }
+                    }
+
+                    for (int i = eyeMaskHiddenBranches.Count - 1; i >= 0; i--)
+                    {
+                        GameObject branch = eyeMaskHiddenBranches[i];
                         if (branch == null || branch.transform == null || !branch.transform.IsChildOf(Root.transform))
                         {
                             return false;
@@ -1086,6 +1209,23 @@ namespace SecretFlasherManakaVR.Runtime
                 }
             }
 
+            public bool HasRenderableEyeMask
+            {
+                get
+                {
+                    for (int i = 0; i < eyeMaskObjects.Count; i++)
+                    {
+                        GameObject eyeMask = eyeMaskObjects[i];
+                        if (eyeMask != null && eyeMask.activeInHierarchy && !IsCanvasGroupChainFullyTransparent(eyeMask.transform))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+            }
+
             public static FullscreenEffectCaptureSet FromCanvas(Canvas canvas, RectTransform root)
             {
                 if (canvas == null || canvas.name != "InGameCanvas")
@@ -1102,7 +1242,7 @@ namespace SecretFlasherManakaVR.Runtime
                 InGameUiManager manager = canvas.GetComponentInParent<InGameUiManager>();
                 if (manager != null)
                 {
-                    set.AddComponent(manager.BlindVignette);
+                    set.AddEyeMaskComponent(manager.BlindVignette);
                     set.AddComponent(manager.invisibleVignette);
                     if (manager.heartRatePanelView != null && manager.heartRatePanelView.vignetteCanvas != null)
                     {
@@ -1110,18 +1250,19 @@ namespace SecretFlasherManakaVR.Runtime
                     }
                 }
 
-                set.AddPath("BackLayer/BlindVignette");
+                set.AddEyeMaskPath("BackLayer/BlindVignette");
                 set.AddPath("MiddleLayer/InvisibleVignette");
                 set.AddPath("MiddleLayer/InvisibleVignette/InvisibleVignette");
                 set.AddPath("MiddleLayer/HeartBeatPanel/Vignette");
                 set.AddPath("MiddleLayer/SlowAssistPanel/MainContents/Vignette");
-                if (set.effectObjects.Count == 0)
+                if (set.effectObjects.Count == 0 && set.eyeMaskObjects.Count == 0 && set.mainHudHiddenObjects.Count == 0)
                 {
                     return null;
                 }
 
                 set.ApplyHeartBeatPanelScale();
                 set.CacheHiddenBranches();
+                set.CacheEyeMaskHiddenBranches();
                 return set;
             }
 
@@ -1163,6 +1304,47 @@ namespace SecretFlasherManakaVR.Runtime
 
                 effectObjectIds.Add(id);
                 effectObjects.Add(gameObject);
+                AddMainHudHidden(gameObject);
+            }
+
+            private void AddEyeMaskPath(string path)
+            {
+                if (Root == null)
+                {
+                    return;
+                }
+
+                Transform target = Root.Find(path);
+                if (target != null)
+                {
+                    AddEyeMask(target.gameObject);
+                }
+            }
+
+            private void AddEyeMask(GameObject gameObject)
+            {
+                if (gameObject == null || Root == null || !gameObject.transform.IsChildOf(Root.transform))
+                {
+                    return;
+                }
+
+                int id = gameObject.GetInstanceID();
+                if (eyeMaskObjectIds.Contains(id))
+                {
+                    return;
+                }
+
+                eyeMaskObjectIds.Add(id);
+                eyeMaskObjects.Add(gameObject);
+                AddMainHudHidden(gameObject);
+            }
+
+            private void AddEyeMaskComponent(Component component)
+            {
+                if (component != null)
+                {
+                    AddEyeMask(component.gameObject);
+                }
             }
 
             private void AddComponent(Component component)
@@ -1171,6 +1353,23 @@ namespace SecretFlasherManakaVR.Runtime
                 {
                     Add(component.gameObject);
                 }
+            }
+
+            private void AddMainHudHidden(GameObject gameObject)
+            {
+                if (gameObject == null || Root == null || !gameObject.transform.IsChildOf(Root.transform))
+                {
+                    return;
+                }
+
+                int id = gameObject.GetInstanceID();
+                if (mainHudHiddenObjectIds.Contains(id))
+                {
+                    return;
+                }
+
+                mainHudHiddenObjectIds.Add(id);
+                mainHudHiddenObjects.Add(gameObject);
             }
 
             private void ApplyHeartBeatPanelScale()
@@ -1191,34 +1390,36 @@ namespace SecretFlasherManakaVR.Runtime
                 target.localScale = new Vector3(HeartBeatPanelScaleX, HeartBeatPanelScaleY, scale.z);
             }
 
-            private void AddTransform(Transform transform)
-            {
-                if (transform != null)
-                {
-                    Add(transform.gameObject);
-                }
-            }
-
             private void CacheHiddenBranches()
             {
-                keptTransformIds.Clear();
-                hiddenBranches.Clear();
-                hiddenBranchIds.Clear();
+                CacheHiddenBranchesFor(effectObjects, hiddenBranches, hiddenBranchIds);
+            }
 
-                if (Root == null)
+            private void CacheEyeMaskHiddenBranches()
+            {
+                CacheHiddenBranchesFor(eyeMaskObjects, eyeMaskHiddenBranches, eyeMaskHiddenBranchIds);
+            }
+
+            private void CacheHiddenBranchesFor(List<GameObject> keptObjects, List<GameObject> targetBranches, HashSet<int> targetBranchIds)
+            {
+                keptTransformIds.Clear();
+                targetBranches.Clear();
+                targetBranchIds.Clear();
+
+                if (Root == null || keptObjects == null)
                 {
                     return;
                 }
 
-                for (int i = 0; i < effectObjects.Count; i++)
+                for (int i = 0; i < keptObjects.Count; i++)
                 {
-                    GameObject effect = effectObjects[i];
-                    if (effect == null)
+                    GameObject keptObject = keptObjects[i];
+                    if (keptObject == null)
                     {
                         continue;
                     }
 
-                    Transform current = effect.transform;
+                    Transform current = keptObject.transform;
                     while (current != null && current != Root.transform)
                     {
                         keptTransformIds.Add(current.GetInstanceID());
@@ -1227,14 +1428,14 @@ namespace SecretFlasherManakaVR.Runtime
                 }
 
                 var keptAncestors = new List<Transform>();
-                for (int i = 0; i < effectObjects.Count; i++)
+                for (int i = 0; i < keptObjects.Count; i++)
                 {
-                    AddKeptAncestors(effectObjects[i], keptAncestors);
+                    AddKeptAncestors(keptObjects[i], keptAncestors);
                 }
 
                 for (int i = 0; i < keptAncestors.Count; i++)
                 {
-                    AddHiddenSiblings(keptAncestors[i]);
+                    AddHiddenSiblings(keptAncestors[i], targetBranches, targetBranchIds);
                 }
             }
 
@@ -1273,7 +1474,7 @@ namespace SecretFlasherManakaVR.Runtime
                 transforms.Add(transform);
             }
 
-            private void AddHiddenSiblings(Transform parent)
+            private void AddHiddenSiblings(Transform parent, List<GameObject> targetBranches, HashSet<int> targetBranchIds)
             {
                 if (parent == null)
                 {
@@ -1288,11 +1489,11 @@ namespace SecretFlasherManakaVR.Runtime
                         continue;
                     }
 
-                    AddHiddenBranch(child.gameObject);
+                    AddHiddenBranch(child.gameObject, targetBranches, targetBranchIds);
                 }
             }
 
-            private void AddHiddenBranch(GameObject gameObject)
+            private static void AddHiddenBranch(GameObject gameObject, List<GameObject> targetBranches, HashSet<int> targetBranchIds)
             {
                 if (gameObject == null)
                 {
@@ -1300,13 +1501,13 @@ namespace SecretFlasherManakaVR.Runtime
                 }
 
                 int id = gameObject.GetInstanceID();
-                if (hiddenBranchIds.Contains(id))
+                if (targetBranchIds.Contains(id))
                 {
                     return;
                 }
 
-                hiddenBranchIds.Add(id);
-                hiddenBranches.Add(gameObject);
+                targetBranchIds.Add(id);
+                targetBranches.Add(gameObject);
             }
 
             public GraphicColorScope BoostHeartBeatVignetteAlpha(float boost)

@@ -211,7 +211,7 @@ BepInEx/plugins/SecretFlasherManakaVR_Input/
 
 ### Quest 3 输入映射
 
-`mode1` 和 `mode2` 是按住修饰键后的临时模式：按住 `L2` 时再按 `ABXY` 或 `R2` 进入 `mode1`；按住 `L1` 时再按 `ABXY` 或 `R2` 进入 `mode2`。如果 `L2` / `L1` 没有和 `ABXY` / `R2` 组成组合，松开时分别输出 `Select` / `Start`。进入模式时不吞输入；退出模式时，仍按住的 `ABXY` 会被忽略到松开，`R2` 会被忽略到松开，右摇杆会被忽略到回中。
+`mode1` 和 `mode2` 是按住修饰键后的临时模式：按住 `L2` 时再按 `ABXY` 或 `R2` 进入 `mode1`；按住 `L1` 时再按 `ABXY` 或 `R2` 进入 `mode2`。如果 `L2` / `L1` 没有和 `ABXY` / `R2` 组成组合，松开时分别输出 `Start` / `Select`。进入模式时不吞输入；退出模式时，仍按住的 `ABXY` 会被忽略到松开，`R2` 会被忽略到松开，右摇杆会被忽略到回中。
 
 | Quest 3 输入 | mode0 / normal | mode1 / L2 临时模式 | mode2 / L1 临时模式 | 光标模式 |
 | --- | --- | --- | --- | --- |
@@ -219,12 +219,12 @@ BepInEx/plugins/SecretFlasherManakaVR_Input/
 | B | Circle；按住 L2 再按进入 mode1，按住 L1 再按进入 mode2 | DPadRight | Circle | `Cancel` + `SystemMenu` |
 | X | Triangle；按住 L2 再按进入 mode1，按住 L1 再按进入 mode2 | DPadUp | Triangle | Triangle |
 | Y | Square；按住 L2 再按进入 mode1，按住 L1 再按进入 mode2 | DPadLeft | Square | Square |
-| L2 / Left Trigger | 松开时 Select；按住后配合 ABXY/R2 进入 mode1 | 松开 L2 回到 mode0 | 松开时 Select | 鼠标右键 + `RightClick` |
-| L1 / Left Grip | 松开时 Start；按住后配合 ABXY/R2 进入 mode2 | 松开时 Start | 松开 L1 回到 mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
+| L2 / Left Trigger | 松开时 Start；按住后配合 ABXY/R2 进入 mode1 | 松开 L2 回到 mode0 | 松开时 Start | Start |
+| L1 / Left Grip | 松开时 Select；按住后配合 ABXY/R2 进入 mode2 | 松开时 Select | 松开 L1 回到 mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | R2 / Right Trigger | R2；按住 L2 会进入 mode1，按住 L1 会进入 mode2 | `DrinkWater` | `EyeMask` | 鼠标左键 + `LeftClick` |
 | Right Grip | R1 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
 | Left Stick | 虚拟左摇杆 | 虚拟左摇杆 | 虚拟左摇杆 | 虚拟左摇杆 |
-| Right Stick | 虚拟右摇杆；部分头控场景会屏蔽 Y 轴 | 虚拟右摇杆 | 虚拟右摇杆 | 上/下 = 鼠标滚轮 + `UIUp` / `UIDown`，不输出右摇杆 |
+| Right Stick | 虚拟右摇杆；部分头控场景会屏蔽 Y 轴 | 虚拟右摇杆 | 虚拟右摇杆 | 上/下 = 鼠标滚轮 + `UIUp` / `UIDown` + `UIScrollA/B`，不输出右摇杆 |
 | L3 / Left Stick Click | 单独按下再松开 = 重置视角；和 R3 同按 = 切换光标模式 | 同 mode0 | 同 mode0 | 和 R3 同按 = 退出光标模式并回 mode0 |
 | R3 / Right Stick Click | L1；和 L3 同按时只切换光标模式 | L1 | L1 | L1；和 L3 同按时退出光标模式 |
 | Left Menu | 源码读取，但当前未映射输出 | 源码读取，但当前未映射输出 | 源码读取，但当前未映射输出 | 源码读取，但当前未映射输出 |

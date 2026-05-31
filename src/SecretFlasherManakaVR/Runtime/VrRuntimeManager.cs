@@ -16,6 +16,8 @@ namespace SecretFlasherManakaVR.Runtime
         private IOpenVRBridge bridge;
         private VrCameraRig rig;
         private VrUiBridge uiBridge;
+        private EyeMaskFinalComposite eyeMaskFinalComposite;
+        private EyeMaskWeatherFogSuppressor eyeMaskWeatherFogSuppressor;
         private NpcWorldSpaceUiFixer npcWorldSpaceUiFixer;
         private PlayerSkinningPreRenderRefresher playerSkinningPreRenderRefresher;
         private Camera sourceCamera;
@@ -196,7 +198,16 @@ namespace SecretFlasherManakaVR.Runtime
                 uiOverlayLayerMask |= uiBridge.ConvertedLayerMask;
             }
 
+            if (eyeMaskWeatherFogSuppressor != null)
+            {
+                eyeMaskWeatherFogSuppressor.Tick();
+            }
+
             rig.Render(uiOverlayLayerMask);
+            if (eyeMaskFinalComposite != null && uiBridge != null)
+            {
+                eyeMaskFinalComposite.Apply(rig.LeftTexture, rig.RightTexture, uiBridge.EyeMaskOverlayTexture);
+            }
 
             SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out _);
             SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out _);
@@ -273,6 +284,18 @@ namespace SecretFlasherManakaVR.Runtime
                 uiBridge = null;
             }
 
+            if (eyeMaskFinalComposite != null)
+            {
+                eyeMaskFinalComposite.Shutdown();
+                eyeMaskFinalComposite = null;
+            }
+
+            if (eyeMaskWeatherFogSuppressor != null)
+            {
+                eyeMaskWeatherFogSuppressor.Shutdown();
+                eyeMaskWeatherFogSuppressor = null;
+            }
+
             if (npcWorldSpaceUiFixer != null)
             {
                 npcWorldSpaceUiFixer.Shutdown();
@@ -339,6 +362,16 @@ namespace SecretFlasherManakaVR.Runtime
             if (uiBridge == null)
             {
                 uiBridge = new VrUiBridge(NullVrRuntimeLogger.Instance);
+            }
+
+            if (eyeMaskFinalComposite == null)
+            {
+                eyeMaskFinalComposite = new EyeMaskFinalComposite();
+            }
+
+            if (eyeMaskWeatherFogSuppressor == null)
+            {
+                eyeMaskWeatherFogSuppressor = new EyeMaskWeatherFogSuppressor();
             }
 
             if (npcWorldSpaceUiFixer == null)
