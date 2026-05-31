@@ -30,9 +30,8 @@ public sealed class VrRunnerHost : MonoBehaviour
     private bool _runtimeShutdownInProgress;
     private bool _missingRuntimeReported;
     private int _lastLateTickFrame = -1;
-    private float _preferGameLateUpdateUntil;
-
-    private const float GameLateUpdateGraceSeconds = 2.0f;
+    private int _lastGameLateUpdateFrame = -1;
+    private bool _gameLateUpdateObserved;
 
     public VrRunnerHost(IntPtr pointer)
         : base(pointer)
@@ -77,24 +76,25 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (Time.unscaledTime < _preferGameLateUpdateUntil)
+        if (_gameLateUpdateObserved && Time.frameCount <= _lastGameLateUpdateFrame + 1)
         {
             return;
         }
 
-        InvokeLateTick("late update");
+        InvokeLateTick("late update fallback");
     }
 
-    public void LateTickFromGame()
+    public void LateTickFromGameLateUpdate()
     {
-        _preferGameLateUpdateUntil = Time.unscaledTime + GameLateUpdateGraceSeconds;
+        _gameLateUpdateObserved = true;
+        _lastGameLateUpdateFrame = Time.frameCount;
 
         if (!_startupAttempted)
         {
             TryStartRuntime();
         }
 
-        InvokeLateTick("game late update");
+        InvokeLateTick("game late update dispatcher");
     }
 
     private void OnDestroy()

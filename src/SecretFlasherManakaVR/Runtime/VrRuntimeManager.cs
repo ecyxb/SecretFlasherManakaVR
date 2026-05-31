@@ -17,6 +17,7 @@ namespace SecretFlasherManakaVR.Runtime
         private VrCameraRig rig;
         private VrUiBridge uiBridge;
         private NpcWorldSpaceUiFixer npcWorldSpaceUiFixer;
+        private PlayerSkinningPreRenderRefresher playerSkinningPreRenderRefresher;
         private Camera sourceCamera;
         private RuntimePose lastPose;
         private Quaternion recenterYaw = Quaternion.identity;
@@ -176,6 +177,11 @@ namespace SecretFlasherManakaVR.Runtime
             DisableReflectionProbesForCurrentScene();
             rig.CopyFromSource(sourceCamera);
             ApplyPoseToRig();
+            if (playerSkinningPreRenderRefresher != null)
+            {
+                playerSkinningPreRenderRefresher.RefreshBeforeManualRender();
+            }
+
             SecretFlasherManakaVR.PlayerHeadPoseController.Apply();
             ApplyProjectionOrCameraFallback();
             if (npcWorldSpaceUiFixer != null)
@@ -225,6 +231,11 @@ namespace SecretFlasherManakaVR.Runtime
                 npcWorldSpaceUiFixer.Shutdown();
             }
 
+            if (playerSkinningPreRenderRefresher != null)
+            {
+                playerSkinningPreRenderRefresher.Reset();
+            }
+
             lastSceneHandle = activeSceneHandle;
             sourceCamera = null;
             nextCameraSearchTime = 0.0f;
@@ -266,6 +277,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 npcWorldSpaceUiFixer.Shutdown();
                 npcWorldSpaceUiFixer = null;
+            }
+
+            if (playerSkinningPreRenderRefresher != null)
+            {
+                playerSkinningPreRenderRefresher.Reset();
+                playerSkinningPreRenderRefresher = null;
             }
 
             if (rig != null)
@@ -327,6 +344,11 @@ namespace SecretFlasherManakaVR.Runtime
             if (npcWorldSpaceUiFixer == null)
             {
                 npcWorldSpaceUiFixer = new NpcWorldSpaceUiFixer(NullVrRuntimeLogger.Instance);
+            }
+
+            if (playerSkinningPreRenderRefresher == null)
+            {
+                playerSkinningPreRenderRefresher = new PlayerSkinningPreRenderRefresher();
             }
 
             vrReady = true;
