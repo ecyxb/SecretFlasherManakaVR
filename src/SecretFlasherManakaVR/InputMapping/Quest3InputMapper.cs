@@ -17,11 +17,13 @@ internal enum Quest3SemanticInput
 
 internal sealed class Quest3InputMapper
 {
-    private bool trackingAbxyPress;
-    private bool circleOpenedSinceAbxyDown;
     private bool l3PressOverlappedR3;
     private bool r3PressOverlappedL3;
     private bool stickClickComboConsumed;
+    private Quest3Button? activeMomentaryModeButton;
+    private readonly bool[] suppressedFaceButtonsUntilUp = new bool[4];
+    private bool suppressRightTriggerUntilUp;
+    private bool suppressRightStickUntilNeutral;
 
     public Quest3ControllerMode ControllerMode { get; private set; }
 
@@ -47,13 +49,18 @@ internal sealed class Quest3InputMapper
             return state;
         }
 
-        bool suppressRightStickClick = UpdateModes(buttons, settings.Quest3LongPressSeconds.Value, state, out bool suppressRightTrigger);
+        bool suppressRightStickClick = UpdateModes(
+            snapshot,
+            buttons,
+            settings.Quest3RightStickDeadzone.Value,
+            state);
         state.ControllerMode = ControllerMode;
         state.IsCursorMode = IsCursorMode;
+        ApplySuppressedInputs(snapshot, settings.Quest3RightStickDeadzone.Value, state);
 
         if (!IsCursorMode)
         {
-            MapModeButtons(snapshot, buttons, settings.Quest3LongPressSeconds.Value, suppressRightStickClick, suppressRightTrigger, state);
+            MapModeButtons(snapshot, suppressRightStickClick, state);
         }
 
         if (IsCursorMode)
@@ -63,13 +70,15 @@ internal sealed class Quest3InputMapper
         }
 
         MapControllerMode(snapshot, buttons, uiContext, settings, state);
-        UpdateCircleUiAutoReturn(buttons, uiContext, state);
         return state;
     }
 
-    private bool UpdateModes(Quest3ButtonTrackerSet buttons, float longPressSeconds, Quest3VirtualInputState state, out bool suppressRightTrigger)
+    private bool UpdateModes(
+        Quest3InputSnapshot snapshot,
+        Quest3ButtonTrackerSet buttons,
+        float rightStickDeadzone,
+        Quest3VirtualInputState state)
     {
-        suppressRightTrigger = false;
         var l3 = buttons[Quest3Button.LeftStickClick];
         var r3 = buttons[Quest3Button.RightStickClick];
 
@@ -90,10 +99,8 @@ internal sealed class Quest3InputMapper
             if (!stickClickComboConsumed)
             {
                 IsCursorMode = !IsCursorMode;
-                if (!IsCursorMode)
-                {
-                    SetControllerMode(Quest3ControllerMode.Mode0);
-                }
+                activeMomentaryModeButton = null;
+                SetControllerMode(Quest3ControllerMode.Mode0);
 
                 stickClickComboConsumed = true;
             }
@@ -125,60 +132,78 @@ internal sealed class Quest3InputMapper
             return suppressRightStickClick;
         }
 
+        var l1 = buttons[Quest3Button.LeftGrip];
         var l2 = buttons[Quest3Button.LeftTrigger];
         var r2 = buttons[Quest3Button.RightTrigger];
+        bool chordInputDownFrame = IsAnyFaceButtonDownFrame(buttons) || r2.IsDownFrame;
+        bool chordInputDown = snapshot.PressedAbxyCount > 0 || r2.IsDown;
+
+        if (ControllerMode == Quest3ControllerMode.Mode0)
+        {
+            if (l2.IsDown && (chordInputDownFrame || (l2.IsDownFrame && chordInputDown)))
+            {
+                BeginMomentaryMode(Quest3Button.LeftTrigger, Quest3ControllerMode.Mode1);
+            }
+            else if (l1.IsDown && (chordInputDownFrame || (l1.IsDownFrame && chordInputDown)))
+            {
+                BeginMomentaryMode(Quest3Button.LeftGrip, Quest3ControllerMode.Mode2);
+            }
+        }
+
+        if (l2.IsUpFrame)
+        {
+            if (activeMomentaryModeButton == Quest3Button.LeftTrigger)
+            {
+                EndMomentaryMode(snapshot, rightStickDeadzone);
+            }
+            else
+            {
+                state.Gamepad.Press(Quest3VirtualGamepadButton.Select);
+            }
+        }
+
+        if (l1.IsUpFrame)
+        {
+            if (activeMomentaryModeButton == Quest3Button.LeftGrip)
+            {
+                EndMomentaryMode(snapshot, rightStickDeadzone);
+            }
+            else
+            {
+                state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
+            }
+        }
+
+        if (!IsMappedRightTriggerPressed(snapshot))
+        {
+            return suppressRightStickClick;
+        }
 
         if (ControllerMode == Quest3ControllerMode.Mode1 && r2.IsDownFrame)
         {
             PressSemanticInput(state, Quest3SemanticInput.DrinkWater);
-            SetControllerMode(Quest3ControllerMode.Mode0);
-            suppressRightTrigger = true;
         }
         else if (ControllerMode == Quest3ControllerMode.Mode2 && r2.IsDownFrame)
         {
             PressSemanticInput(state, Quest3SemanticInput.EyeMask);
-            SetControllerMode(Quest3ControllerMode.Mode0);
-            suppressRightTrigger = true;
-        }
-
-        if (l2.WasLongPress(longPressSeconds))
-        {
-            SetControllerMode(ControllerMode == Quest3ControllerMode.Mode0 ? Quest3ControllerMode.Mode2 : Quest3ControllerMode.Mode0);
-        }
-        else if (l2.WasShortPress(longPressSeconds))
-        {
-            SetControllerMode(ControllerMode == Quest3ControllerMode.Mode0 ? Quest3ControllerMode.Mode1 : Quest3ControllerMode.Mode0);
         }
 
         return suppressRightStickClick;
     }
 
-    private static void MapModeButtons(
+    private void MapModeButtons(
         Quest3InputSnapshot snapshot,
-        Quest3ButtonTrackerSet buttons,
-        float longPressSeconds,
         bool suppressRightStickClick,
-        bool suppressRightTrigger,
         Quest3VirtualInputState state)
     {
         if (state.ControllerMode == Quest3ControllerMode.Mode0)
         {
-            var l1 = buttons[Quest3Button.LeftGrip];
-            if (l1.WasLongPress(longPressSeconds))
-            {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
-            }
-            else if (l1.WasShortPress(longPressSeconds))
-            {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.Select);
-            }
-
             if (snapshot.IsPressed(Quest3Button.RightGrip))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.R1);
             }
 
-            if (!suppressRightTrigger && snapshot.IsPressed(Quest3Button.RightTrigger))
+            if (IsMappedRightTriggerPressed(snapshot))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.R2);
             }
@@ -189,11 +214,6 @@ internal sealed class Quest3InputMapper
             }
 
             return;
-        }
-
-        if (snapshot.IsPressed(Quest3Button.LeftGrip))
-        {
-            state.Gamepad.Press(Quest3VirtualGamepadButton.L1);
         }
 
         if (!suppressRightStickClick && snapshot.IsPressed(Quest3Button.RightStickClick))
@@ -211,22 +231,22 @@ internal sealed class Quest3InputMapper
     {
         if (uiContext.Kind == Quest3UiContextKind.Pop)
         {
-            if (snapshot.IsPressed(Quest3Button.Y))
+            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.Y))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.DPadUp);
             }
 
-            if (snapshot.IsPressed(Quest3Button.X))
+            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.X))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.DPadDown);
             }
 
-            if (snapshot.IsPressed(Quest3Button.B))
+            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.B))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.Circle);
             }
 
-            if (snapshot.IsPressed(Quest3Button.A))
+            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.A))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.Cross);
             }
@@ -261,68 +281,123 @@ internal sealed class Quest3InputMapper
         }
         if (uiContext.Kind == Quest3UiContextKind.Circle &&
             ControllerMode != Quest3ControllerMode.Mode0 &&
-            snapshot.PressedAbxyCount == 1 &&
-            (snapshot.IsPressed(Quest3Button.A) || snapshot.IsPressed(Quest3Button.B)))
+            MappedFaceButtonCount(snapshot) == 1 &&
+            (IsMappedFaceButtonPressed(snapshot, Quest3Button.A) || IsMappedFaceButtonPressed(snapshot, Quest3Button.B)))
         {
             state.SwapMoveAndCameraSticks = true;
         }
     }
 
-    private void UpdateCircleUiAutoReturn(Quest3ButtonTrackerSet buttons, Quest3UiContext uiContext, Quest3VirtualInputState state)
+    private void BeginMomentaryMode(Quest3Button modeButton, Quest3ControllerMode mode)
     {
-        if (ControllerMode == Quest3ControllerMode.Mode0)
+        activeMomentaryModeButton = modeButton;
+        SetControllerMode(mode);
+    }
+
+    private void EndMomentaryMode(Quest3InputSnapshot snapshot, float rightStickDeadzone)
+    {
+        activeMomentaryModeButton = null;
+        SetControllerMode(Quest3ControllerMode.Mode0);
+        SuppressActionInputsIfHeld(snapshot);
+        suppressRightStickUntilNeutral = snapshot.Right.Stick.magnitude > rightStickDeadzone;
+    }
+
+    private void SuppressActionInputsIfHeld(Quest3InputSnapshot snapshot)
+    {
+        SuppressFaceButtonIfHeld(snapshot, Quest3Button.A);
+        SuppressFaceButtonIfHeld(snapshot, Quest3Button.B);
+        SuppressFaceButtonIfHeld(snapshot, Quest3Button.X);
+        SuppressFaceButtonIfHeld(snapshot, Quest3Button.Y);
+
+        if (snapshot.IsPressed(Quest3Button.RightTrigger))
         {
-            if (trackingAbxyPress)
-            {
-                ClearCircleUiAutoReturnState();
-            }
-
-            return;
-        }
-
-        if (IsAnyAbxyDownFrame(buttons))
-        {
-            trackingAbxyPress = true;
-            circleOpenedSinceAbxyDown = false;
-        }
-
-        if (trackingAbxyPress && uiContext.Kind == Quest3UiContextKind.Circle)
-        {
-            if (!circleOpenedSinceAbxyDown)
-            {
-                circleOpenedSinceAbxyDown = true;
-            }
-        }
-
-        if (trackingAbxyPress && IsAnyAbxyUpFrame(buttons))
-        {
-            if (!circleOpenedSinceAbxyDown)
-            {
-                SetControllerMode(Quest3ControllerMode.Mode0);
-            }
-            else
-            {
-                ClearCircleUiAutoReturnState();
-            }
-
-            state.ControllerMode = ControllerMode;
+            suppressRightTriggerUntilUp = true;
         }
     }
 
-    private static bool IsAnyAbxyDownFrame(Quest3ButtonTrackerSet buttons)
+    private void SuppressFaceButtonIfHeld(Quest3InputSnapshot snapshot, Quest3Button button)
+    {
+        if (snapshot.IsPressed(button))
+        {
+            suppressedFaceButtonsUntilUp[(int)button] = true;
+        }
+    }
+
+    private void ApplySuppressedInputs(Quest3InputSnapshot snapshot, float rightStickDeadzone, Quest3VirtualInputState state)
+    {
+        UpdateFaceButtonSuppression(snapshot, Quest3Button.A);
+        UpdateFaceButtonSuppression(snapshot, Quest3Button.B);
+        UpdateFaceButtonSuppression(snapshot, Quest3Button.X);
+        UpdateFaceButtonSuppression(snapshot, Quest3Button.Y);
+        if (suppressRightTriggerUntilUp && !snapshot.IsPressed(Quest3Button.RightTrigger))
+        {
+            suppressRightTriggerUntilUp = false;
+        }
+
+        if (!suppressRightStickUntilNeutral)
+        {
+            return;
+        }
+
+        if (snapshot.Right.Stick.magnitude <= rightStickDeadzone)
+        {
+            suppressRightStickUntilNeutral = false;
+            return;
+        }
+
+        state.RightStick = Vector2.zero;
+    }
+
+    private void UpdateFaceButtonSuppression(Quest3InputSnapshot snapshot, Quest3Button button)
+    {
+        if (suppressedFaceButtonsUntilUp[(int)button] && !snapshot.IsPressed(button))
+        {
+            suppressedFaceButtonsUntilUp[(int)button] = false;
+        }
+    }
+
+    private bool IsMappedFaceButtonPressed(Quest3InputSnapshot snapshot, Quest3Button button)
+    {
+        return snapshot.IsPressed(button) && !suppressedFaceButtonsUntilUp[(int)button];
+    }
+
+    private bool IsMappedRightTriggerPressed(Quest3InputSnapshot snapshot)
+    {
+        return snapshot.IsPressed(Quest3Button.RightTrigger) && !suppressRightTriggerUntilUp;
+    }
+
+    private int MappedFaceButtonCount(Quest3InputSnapshot snapshot)
+    {
+        int count = 0;
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.A))
+        {
+            count++;
+        }
+
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.B))
+        {
+            count++;
+        }
+
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.X))
+        {
+            count++;
+        }
+
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.Y))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    private static bool IsAnyFaceButtonDownFrame(Quest3ButtonTrackerSet buttons)
     {
         return buttons[Quest3Button.A].IsDownFrame ||
             buttons[Quest3Button.B].IsDownFrame ||
             buttons[Quest3Button.X].IsDownFrame ||
             buttons[Quest3Button.Y].IsDownFrame;
-    }
-
-    private static bool IsAnyAbxyUpFrame(Quest3ButtonTrackerSet buttons)
-    {
-        return buttons[Quest3Button.A].IsUpFrame ||
-            buttons[Quest3Button.B].IsUpFrame ||
-            buttons[Quest3Button.X].IsUpFrame ||
-            buttons[Quest3Button.Y].IsUpFrame;
     }
 
     private void SetControllerMode(Quest3ControllerMode mode)
@@ -333,16 +408,9 @@ internal sealed class Quest3InputMapper
         }
 
         ControllerMode = mode;
-        ClearCircleUiAutoReturnState();
     }
 
-    private void ClearCircleUiAutoReturnState()
-    {
-        trackingAbxyPress = false;
-        circleOpenedSinceAbxyDown = false;
-    }
-
-    private static void MapCursorMode(
+    private void MapCursorMode(
         Quest3InputSnapshot snapshot,
         ModConfig settings,
         bool suppressRightStickClick,
@@ -375,22 +443,22 @@ internal sealed class Quest3InputMapper
             state.Gamepad.Press(Quest3VirtualGamepadButton.L1);
         }
 
-        if (snapshot.IsPressed(Quest3Button.A))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.A))
         {
             PressSemanticInput(state, Quest3SemanticInput.Confirm);
         }
 
-        if (snapshot.IsPressed(Quest3Button.B))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.B))
         {
             PressSemanticInput(state, Quest3SemanticInput.Cancel);
         }
 
-        if (snapshot.IsPressed(Quest3Button.Y))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.Y))
         {
             state.Gamepad.Press(Quest3VirtualGamepadButton.Square);
         }
 
-        if (snapshot.IsPressed(Quest3Button.X))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.X))
         {
             state.Gamepad.Press(Quest3VirtualGamepadButton.Triangle);
         }
@@ -489,47 +557,47 @@ internal sealed class Quest3InputMapper
         }
     }
 
-    private static void MapAbxyToDPad(Quest3InputSnapshot snapshot, Quest3VirtualGamepadState gamepad)
+    private void MapAbxyToDPad(Quest3InputSnapshot snapshot, Quest3VirtualGamepadState gamepad)
     {
-        if (snapshot.IsPressed(Quest3Button.X))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.X))
         {
             gamepad.Press(Quest3VirtualGamepadButton.DPadUp);
         }
 
-        if (snapshot.IsPressed(Quest3Button.A))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.A))
         {
             gamepad.Press(Quest3VirtualGamepadButton.DPadDown);
         }
 
-        if (snapshot.IsPressed(Quest3Button.Y))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.Y))
         {
             gamepad.Press(Quest3VirtualGamepadButton.DPadLeft);
         }
 
-        if (snapshot.IsPressed(Quest3Button.B))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.B))
         {
             gamepad.Press(Quest3VirtualGamepadButton.DPadRight);
         }
     }
 
-    private static void MapAbxyToPsFaceButtons(Quest3InputSnapshot snapshot, Quest3VirtualGamepadState gamepad)
+    private void MapAbxyToPsFaceButtons(Quest3InputSnapshot snapshot, Quest3VirtualGamepadState gamepad)
     {
-        if (snapshot.IsPressed(Quest3Button.X))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.X))
         {
             gamepad.Press(Quest3VirtualGamepadButton.Triangle);
         }
 
-        if (snapshot.IsPressed(Quest3Button.A))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.A))
         {
             gamepad.Press(Quest3VirtualGamepadButton.Cross);
         }
 
-        if (snapshot.IsPressed(Quest3Button.Y))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.Y))
         {
             gamepad.Press(Quest3VirtualGamepadButton.Square);
         }
 
-        if (snapshot.IsPressed(Quest3Button.B))
+        if (IsMappedFaceButtonPressed(snapshot, Quest3Button.B))
         {
             gamepad.Press(Quest3VirtualGamepadButton.Circle);
         }

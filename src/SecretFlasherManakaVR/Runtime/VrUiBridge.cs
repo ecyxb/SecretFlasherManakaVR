@@ -661,9 +661,11 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             CanvasGroupAlphaScope isolatedEffects = null;
+            GraphicColorScope boostedHeartBeatVignette = null;
             try
             {
                 isolatedEffects = CanvasGroupAlphaScope.Hide(fullscreenEffects.HiddenBranches);
+                boostedHeartBeatVignette = fullscreenEffects.BoostHeartBeatVignetteAlpha(settings.VrFullscreenEffectHeartBeatAlphaBoost);
                 captureCamera.targetTexture = fullscreenEffectTexture;
                 captureCamera.Render();
                 if (fullscreenEffectPanelMaterial != null)
@@ -675,6 +677,11 @@ namespace SecretFlasherManakaVR.Runtime
             }
             finally
             {
+                if (boostedHeartBeatVignette != null)
+                {
+                    boostedHeartBeatVignette.Restore();
+                }
+
                 if (isolatedEffects != null)
                 {
                     isolatedEffects.Restore();
@@ -695,6 +702,11 @@ namespace SecretFlasherManakaVR.Runtime
             bool cacheInvalid = fullscreenEffectCache != null && !fullscreenEffectCache.IsValid;
             if (!fullscreenEffectCacheScanned || fullscreenEffectCanvas != canvas || fullscreenEffectRoot != rootTransform || cacheInvalid)
             {
+                if (fullscreenEffectCache != null)
+                {
+                    fullscreenEffectCache.RestorePersistentChanges();
+                }
+
                 fullscreenEffectCanvas = canvas;
                 fullscreenEffectRoot = rootTransform;
                 fullscreenEffectCache = FullscreenEffectCaptureSet.FromCanvas(canvas, rootTransform);
@@ -706,6 +718,11 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void ClearFullscreenEffectCache()
         {
+            if (fullscreenEffectCache != null)
+            {
+                fullscreenEffectCache.RestorePersistentChanges();
+            }
+
             fullscreenEffectCanvas = null;
             fullscreenEffectRoot = null;
             fullscreenEffectCache = null;
@@ -994,11 +1011,15 @@ namespace SecretFlasherManakaVR.Runtime
 
         private sealed class FullscreenEffectCaptureSet
         {
+            private const float HeartBeatPanelScaleX = 0.7f;
+            private const float HeartBeatPanelScaleY = 0.9f;
+
             private readonly List<GameObject> effectObjects = new List<GameObject>();
             private readonly List<GameObject> hiddenBranches = new List<GameObject>();
             private readonly HashSet<int> effectObjectIds = new HashSet<int>();
             private readonly HashSet<int> hiddenBranchIds = new HashSet<int>();
             private readonly HashSet<int> keptTransformIds = new HashSet<int>();
+            private TransformScaleState heartBeatPanelScaleState;
 
             private FullscreenEffectCaptureSet(RectTransform root)
             {
@@ -1099,8 +1120,18 @@ namespace SecretFlasherManakaVR.Runtime
                     return null;
                 }
 
+                set.ApplyHeartBeatPanelScale();
                 set.CacheHiddenBranches();
                 return set;
+            }
+
+            public void RestorePersistentChanges()
+            {
+                if (heartBeatPanelScaleState != null)
+                {
+                    heartBeatPanelScaleState.Restore();
+                    heartBeatPanelScaleState = null;
+                }
             }
 
             private void AddPath(string path)
@@ -1140,6 +1171,24 @@ namespace SecretFlasherManakaVR.Runtime
                 {
                     Add(component.gameObject);
                 }
+            }
+
+            private void ApplyHeartBeatPanelScale()
+            {
+                if (Root == null || heartBeatPanelScaleState != null)
+                {
+                    return;
+                }
+
+                Transform target = Root.Find("MiddleLayer/HeartBeatPanel");
+                if (target == null)
+                {
+                    return;
+                }
+
+                heartBeatPanelScaleState = new TransformScaleState(target);
+                Vector3 scale = target.localScale;
+                target.localScale = new Vector3(HeartBeatPanelScaleX, HeartBeatPanelScaleY, scale.z);
             }
 
             private void AddTransform(Transform transform)
@@ -1260,6 +1309,30 @@ namespace SecretFlasherManakaVR.Runtime
                 hiddenBranches.Add(gameObject);
             }
 
+            public GraphicColorScope BoostHeartBeatVignetteAlpha(float boost)
+            {
+                if (boost <= 1.001f || Root == null)
+                {
+                    return null;
+                }
+
+                Transform target = Root.Find("MiddleLayer/HeartBeatPanel/Vignette");
+                if (target == null || !target.gameObject.activeInHierarchy)
+                {
+                    return null;
+                }
+
+                Graphic graphic = target.GetComponent<Graphic>();
+                if (graphic == null || !graphic.enabled)
+                {
+                    return null;
+                }
+
+                var scope = new GraphicColorScope();
+                scope.BoostAlpha(graphic, boost);
+                return scope;
+            }
+
             private static bool IsCanvasGroupChainFullyTransparent(Transform transform)
             {
                 Transform current = transform;
@@ -1275,6 +1348,26 @@ namespace SecretFlasherManakaVR.Runtime
                 }
 
                 return false;
+            }
+
+            private sealed class TransformScaleState
+            {
+                private readonly Transform transform;
+                private readonly Vector3 localScale;
+
+                public TransformScaleState(Transform transform)
+                {
+                    this.transform = transform;
+                    localScale = transform.localScale;
+                }
+
+                public void Restore()
+                {
+                    if (transform != null)
+                    {
+                        transform.localScale = localScale;
+                    }
+                }
             }
         }
 
@@ -1360,6 +1453,62 @@ namespace SecretFlasherManakaVR.Runtime
                     if (group != null)
                     {
                         group.alpha = alpha;
+                    }
+                }
+            }
+        }
+
+        private sealed class GraphicColorScope
+        {
+            private readonly List<GraphicColorState> states = new List<GraphicColorState>();
+            private readonly HashSet<int> savedGraphics = new HashSet<int>();
+
+            public void BoostAlpha(Graphic graphic, float boost)
+            {
+                if (graphic == null || boost <= 1.001f)
+                {
+                    return;
+                }
+
+                int id = graphic.GetInstanceID();
+                if (!savedGraphics.Contains(id))
+                {
+                    savedGraphics.Add(id);
+                    states.Add(new GraphicColorState(graphic));
+                }
+
+                Color color = graphic.color;
+                color.a = Mathf.Clamp01(color.a * boost);
+                graphic.color = color;
+            }
+
+            public void Restore()
+            {
+                for (int i = states.Count - 1; i >= 0; i--)
+                {
+                    states[i].Restore();
+                }
+
+                states.Clear();
+                savedGraphics.Clear();
+            }
+
+            private readonly struct GraphicColorState
+            {
+                private readonly Graphic graphic;
+                private readonly Color color;
+
+                public GraphicColorState(Graphic graphic)
+                {
+                    this.graphic = graphic;
+                    color = graphic.color;
+                }
+
+                public void Restore()
+                {
+                    if (graphic != null)
+                    {
+                        graphic.color = color;
                     }
                 }
             }

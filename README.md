@@ -209,6 +209,28 @@ When `EnableQuest3InputMapping = true`, the VR plugin calls SteamVR's `SetAction
 
 If `actions.json` is missing, SteamVR action input cannot initialize. If `bindings_oculus_touch.json` is missing, the manifest may load but Quest/Oculus Touch default bindings are not available. The plugin can fall back to legacy OpenVR controller state, but that fallback is less expressive and should not be treated as the primary input path.
 
+### Quest 3 Input Mapping
+
+`mode1` and `mode2` are temporary modifier modes. Hold `L2` and press `ABXY` or `R2` to enter `mode1`; hold `L1` and press `ABXY` or `R2` to enter `mode2`. If `L2` / `L1` is released without forming an `ABXY` / `R2` chord, it outputs `Select` / `Start`. Entering a mode does not suppress input. Exiting a mode suppresses currently held `ABXY` until release, `R2` until release, and the right stick until it returns to neutral.
+
+| Quest 3 input | mode0 / normal | mode1 / L2 temporary mode | mode2 / L1 temporary mode | Cursor mode |
+| --- | --- | --- | --- | --- |
+| A | Cross; with L2 held enters mode1, with L1 held enters mode2 | DPadDown | Cross | `Interact` + `Accept` |
+| B | Circle; with L2 held enters mode1, with L1 held enters mode2 | DPadRight | Circle | `Cancel` + `SystemMenu` |
+| X | Triangle; with L2 held enters mode1, with L1 held enters mode2 | DPadUp | Triangle | Triangle |
+| Y | Square; with L2 held enters mode1, with L1 held enters mode2 | DPadLeft | Square | Square |
+| L2 / Left Trigger | Select on release; hold with ABXY/R2 to enter mode1 | Release L2 to return to mode0 | Select on release | Right mouse button + `RightClick` |
+| L1 / Left Grip | Start on release; hold with ABXY/R2 to enter mode2 | Start on release | Release L1 to return to mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
+| R2 / Right Trigger | R2; enters mode1 with L2 held, or mode2 with L1 held | `DrinkWater` | `EyeMask` | Left mouse button + `LeftClick` |
+| Right Grip | R1 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
+| Left Stick | Virtual left stick | Virtual left stick | Virtual left stick | Virtual left stick |
+| Right Stick | Virtual right stick; Y may be suppressed in some HMD-driven view states | Virtual right stick | Virtual right stick | Up/down = mouse wheel + `UIUp` / `UIDown`; no right-stick gamepad output |
+| L3 / Left Stick Click | Press and release alone = recenter view; with R3 = toggle cursor mode | Same as mode0 | Same as mode0 | With R3 = exit cursor mode and return to mode0 |
+| R3 / Right Stick Click | L1; with L3, only toggles cursor mode | L1 | L1 | L1; with L3, exits cursor mode |
+| Left Menu | Read by the input source, but not currently mapped to output | Read but unmapped | Read but unmapped | Read but unmapped |
+
+When POP UI is open, `ABXY` is overridden before normal mode mapping: `Y = DPadUp`, `X = DPadDown`, `A = Cross`, and `B = Circle`. When Circle UI / the ring menu is open, holding exactly one of `A` or `B` in `mode1` / `mode2` temporarily swaps the movement and camera sticks.
+
 ## Implementation Overview
 
 VR runtime:
@@ -284,4 +306,3 @@ SecretFlasherManakaVR_Package/
    │  └─ config/
    └─ debug_symbols/
 ```
-

@@ -372,6 +372,14 @@ public sealed class ModConfig
                 "Local depth offset for the fullscreen effect overlay. Positive values move it slightly toward the headset.",
                 new AcceptableValueRange<float>(-0.25f, 0.25f)));
 
+        VrFullscreenEffectHeartBeatAlphaBoost = config.Bind(
+            VrUiSection,
+            nameof(VrFullscreenEffectHeartBeatAlphaBoost),
+            8.0f,
+            new ConfigDescription(
+                "Alpha multiplier applied only to InGameCanvas/MiddleLayer/HeartBeatPanel/Vignette while rendering the separated fullscreen effect overlay.",
+                new AcceptableValueRange<float>(1.0f, 30.0f)));
+
         VrUiFaceRtOffsetX = config.Bind(
             VrUiSection,
             nameof(VrUiFaceRtOffsetX),
@@ -547,6 +555,7 @@ public sealed class ModConfig
     public ConfigEntry<float> VrFullscreenEffectPanelScale { get; }
     public ConfigEntry<float> VrFullscreenEffectCurveDegrees { get; }
     public ConfigEntry<float> VrFullscreenEffectDepthOffset { get; }
+    public ConfigEntry<float> VrFullscreenEffectHeartBeatAlphaBoost { get; }
     public ConfigEntry<float> VrUiFaceRtOffsetX { get; }
     public ConfigEntry<float> VrUiFaceRtOffsetY { get; }
     public ConfigEntry<float> VrUiFaceRtScale { get; }

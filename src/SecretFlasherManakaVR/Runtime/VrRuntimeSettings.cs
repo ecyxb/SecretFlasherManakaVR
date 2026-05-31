@@ -71,6 +71,7 @@ namespace SecretFlasherManakaVR.Runtime
         public float VrFullscreenEffectPanelScale = 1.08f;
         public float VrFullscreenEffectCurveDegrees = 36.0f;
         public float VrFullscreenEffectDepthOffset = 0.01f;
+        public float VrFullscreenEffectHeartBeatAlphaBoost = 8.0f;
         public float VrUiFaceRtOffsetX = 0.0f;
         public float VrUiFaceRtOffsetY = 0.0f;
         public float VrUiFaceRtScale = 1.0f;
@@ -114,6 +115,7 @@ namespace SecretFlasherManakaVR.Runtime
             VrFullscreenEffectPanelScale = Mathf.Clamp(VrFullscreenEffectPanelScale, 0.25f, 3.0f);
             VrFullscreenEffectCurveDegrees = Mathf.Clamp(VrFullscreenEffectCurveDegrees, 0.0f, 120.0f);
             VrFullscreenEffectDepthOffset = Mathf.Clamp(VrFullscreenEffectDepthOffset, -0.25f, 0.25f);
+            VrFullscreenEffectHeartBeatAlphaBoost = Mathf.Clamp(VrFullscreenEffectHeartBeatAlphaBoost, 1.0f, 30.0f);
             VrUiFaceRtOffsetX = Mathf.Clamp(VrUiFaceRtOffsetX, -4096.0f, 4096.0f);
             VrUiFaceRtOffsetY = Mathf.Clamp(VrUiFaceRtOffsetY, -4096.0f, 4096.0f);
             VrUiFaceRtScale = Mathf.Clamp(VrUiFaceRtScale, 0.1f, 5.0f);
