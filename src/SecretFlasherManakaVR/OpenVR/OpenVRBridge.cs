@@ -393,6 +393,23 @@ namespace SecretFlasherManakaVR.OpenVR
             }
         }
 
+        public void PostPresentHandoff()
+        {
+            if (!initialized || compositor == null)
+            {
+                return;
+            }
+
+            try
+            {
+                compositor.PostPresentHandoff();
+            }
+            catch
+            {
+                SetError("OpenVR PostPresentHandoff failed.");
+            }
+        }
+
         public void Dispose()
         {
             Shutdown();

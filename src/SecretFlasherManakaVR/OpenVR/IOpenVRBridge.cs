@@ -30,5 +30,7 @@ namespace SecretFlasherManakaVR.OpenVR
         bool Submit(OpenVREye eye, IntPtr textureHandle, OpenVRTextureSubmitType submitType, bool isLinearColorSpace, out string error);
 
         bool Submit(OpenVREye eye, IntPtr textureHandle, OpenVRTextureSubmitType submitType, bool isLinearColorSpace, bool flipV, out string error);
+
+        void PostPresentHandoff();
     }
 }

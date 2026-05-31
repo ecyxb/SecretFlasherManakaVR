@@ -194,6 +194,7 @@ namespace SecretFlasherManakaVR.Runtime
 
             SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out _);
             SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out _);
+            bridge.PostPresentHandoff();
 
             if (settings.MirrorMode == VrMirrorMode.LeftEye || settings.MirrorMode == VrMirrorMode.RightEye)
             {

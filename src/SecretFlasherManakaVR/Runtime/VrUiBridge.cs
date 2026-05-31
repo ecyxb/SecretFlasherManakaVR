@@ -9,6 +9,7 @@ namespace SecretFlasherManakaVR.Runtime
     internal sealed class VrUiBridge
     {
         internal const int VrUiOverlayLayer = 30;
+        private const int UnityUiLayer = 5;
         private const int FallbackTextureWidth = 1920;
         private const int FallbackTextureHeight = 1080;
         private const string DefaultCapturedCanvasName = "InGameCanvas";
@@ -199,7 +200,7 @@ namespace SecretFlasherManakaVR.Runtime
             captureCamera.enabled = false;
             captureCamera.clearFlags = CameraClearFlags.SolidColor;
             captureCamera.backgroundColor = Color.clear;
-            captureCamera.cullingMask = ~0;
+            captureCamera.cullingMask = 1 << UnityUiLayer;
             captureCamera.orthographic = true;
             captureCamera.nearClipPlane = 0.01f;
             captureCamera.farClipPlane = 100.0f;
@@ -589,6 +590,7 @@ namespace SecretFlasherManakaVR.Runtime
                 captureCamera.orthographicSize = textureHeight * 0.5f;
                 captureCamera.clearFlags = CameraClearFlags.SolidColor;
                 captureCamera.backgroundColor = Color.clear;
+                captureCamera.cullingMask = 1 << UnityUiLayer;
 
                 for (int i = 0; i < activeCanvases.Count; i++)
                 {
