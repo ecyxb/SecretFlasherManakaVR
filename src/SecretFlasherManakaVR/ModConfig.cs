@@ -262,6 +262,32 @@ public sealed class ModConfig
                 "Scale applied to the OpenVR recommended eye texture size. Lower values are safer while stabilizing the injected renderer.",
                 new AcceptableValueRange<float>(0.25f, 1.5f)));
 
+        EnableVrCameraPostProcessing = config.Bind(
+            StereoSection,
+            nameof(EnableVrCameraPostProcessing),
+            true,
+            "Copy whitelisted source-camera post-processing components to the VR eye cameras only when the source camera changes or the scene changes.");
+
+        VrCameraPostProcessingWhitelist = config.Bind(
+            StereoSection,
+            nameof(VrCameraPostProcessingWhitelist),
+            "UB.VignettesPE,UB.ExposuresPE,UB.BleachsBypassPE,UB.VintagesPE",
+            "Comma-separated full component type names allowed to be copied from the source camera to the VR eye cameras. This is sync-on-source-camera-change / sync-on-scene-change only.");
+
+        VrPp2EffectWhitelist = config.Bind(
+            StereoSection,
+            nameof(VrPp2EffectWhitelist),
+            string.Empty,
+            "Comma-separated PPv2 effect names copied into VRmod-owned filtered PostProcessVolumes. Test one at a time, for example Bloom, then Bloom,ColorGrading. Leave empty to disable PPv2 copying.");
+
+        VrPp2VolumeLayer = config.Bind(
+            StereoSection,
+            nameof(VrPp2VolumeLayer),
+            30,
+            new ConfigDescription(
+                "Unity layer used internally for VRmod-owned filtered PPv2 volumes. Use an otherwise unused layer.",
+                new AcceptableValueRange<int>(0, 31)));
+
         UseOpenVRProjection = Fixed(true);
         OpenVRProjectionMode = Fixed(SecretFlasherManakaVR.OpenVR.OpenVRProjectionMode.RawSwapVertical);
         UseSourceProjectionForCulling = Fixed(true);
@@ -529,6 +555,10 @@ public sealed class ModConfig
     public ConfigEntry<MirrorMode> MirrorMode { get; }
     public FixedConfigValue<float> SceneTransitionVrPauseSeconds { get; }
     public ConfigEntry<float> RenderScale { get; }
+    public ConfigEntry<bool> EnableVrCameraPostProcessing { get; }
+    public ConfigEntry<string> VrCameraPostProcessingWhitelist { get; }
+    public ConfigEntry<string> VrPp2EffectWhitelist { get; }
+    public ConfigEntry<int> VrPp2VolumeLayer { get; }
     public FixedConfigValue<bool> UseOpenVRProjection { get; }
     public FixedConfigValue<OpenVRProjectionMode> OpenVRProjectionMode { get; }
     public FixedConfigValue<bool> UseSourceProjectionForCulling { get; }

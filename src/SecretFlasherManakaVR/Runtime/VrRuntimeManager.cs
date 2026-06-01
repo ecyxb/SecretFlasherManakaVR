@@ -20,6 +20,7 @@ namespace SecretFlasherManakaVR.Runtime
         private EyeMaskWeatherFogSuppressor eyeMaskWeatherFogSuppressor;
         private NpcWorldSpaceUiFixer npcWorldSpaceUiFixer;
         private PlayerSkinningPreRenderRefresher playerSkinningPreRenderRefresher;
+        private VrCameraPostProcessingSynchronizer cameraPostProcessingSynchronizer;
         private Camera sourceCamera;
         private RuntimePose lastPose;
         private Quaternion recenterYaw = Quaternion.identity;
@@ -35,6 +36,7 @@ namespace SecretFlasherManakaVR.Runtime
         private int renderHeight;
         private int lastSceneHandle = -1;
         private float sceneTransitionPauseUntil;
+        private bool cameraPostProcessingSyncPending;
         private DisabledCameraState? disabledSourceCamera;
         private readonly List<DisabledProbeState> persistentlyDisabledReflectionProbes = new List<DisabledProbeState>();
         private readonly List<DisabledBehaviourState> persistentlyDisabledMirrorManagers = new List<DisabledBehaviourState>();
@@ -184,6 +186,8 @@ namespace SecretFlasherManakaVR.Runtime
                 playerSkinningPreRenderRefresher.RefreshBeforeManualRender();
             }
 
+            SyncCameraPostProcessingIfNeeded();
+
             SecretFlasherManakaVR.PlayerHeadPoseController.Apply();
             ApplyProjectionOrCameraFallback();
             if (npcWorldSpaceUiFixer != null)
@@ -250,6 +254,12 @@ namespace SecretFlasherManakaVR.Runtime
             lastSceneHandle = activeSceneHandle;
             sourceCamera = null;
             nextCameraSearchTime = 0.0f;
+            cameraPostProcessingSyncPending = true;
+            if (cameraPostProcessingSynchronizer != null)
+            {
+                cameraPostProcessingSynchronizer.Clear();
+            }
+
             DisableMirrorManagersForCurrentScene();
             sceneTransitionPauseUntil = settings.SceneTransitionVrPauseSeconds <= 0.0f
                 ? 0.0f
@@ -308,6 +318,12 @@ namespace SecretFlasherManakaVR.Runtime
                 playerSkinningPreRenderRefresher = null;
             }
 
+            if (cameraPostProcessingSynchronizer != null)
+            {
+                cameraPostProcessingSynchronizer.Clear();
+                cameraPostProcessingSynchronizer = null;
+            }
+
             if (rig != null)
             {
                 rig.Shutdown();
@@ -336,6 +352,7 @@ namespace SecretFlasherManakaVR.Runtime
             nextCameraSearchTime = 0.0f;
             nextOpenVRRetryTime = 0.0f;
             sceneTransitionPauseUntil = 0.0f;
+            cameraPostProcessingSyncPending = false;
             reflectionProbesDisabledForScene = false;
         }
 
@@ -384,6 +401,11 @@ namespace SecretFlasherManakaVR.Runtime
                 playerSkinningPreRenderRefresher = new PlayerSkinningPreRenderRefresher();
             }
 
+            if (cameraPostProcessingSynchronizer == null)
+            {
+                cameraPostProcessingSynchronizer = new VrCameraPostProcessingSynchronizer();
+            }
+
             vrReady = true;
             VrRuntimeState.IsVrReady = true;
             nextOpenVRRetryTime = 0.0f;
@@ -391,6 +413,7 @@ namespace SecretFlasherManakaVR.Runtime
             reflectionProbesDisabledForScene = false;
             RefreshRenderTargetSize(true);
             FindSourceCamera(true);
+            cameraPostProcessingSyncPending = true;
             DisableMirrorManagersForCurrentScene();
             return true;
         }
@@ -439,9 +462,26 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 RestoreSourceCameraRendering();
                 sourceCamera = candidate;
+                cameraPostProcessingSyncPending = true;
             }
 
             return true;
+        }
+
+        private void SyncCameraPostProcessingIfNeeded()
+        {
+            if (!cameraPostProcessingSyncPending)
+            {
+                return;
+            }
+
+            cameraPostProcessingSyncPending = false;
+            if (cameraPostProcessingSynchronizer == null || rig == null)
+            {
+                return;
+            }
+
+            cameraPostProcessingSynchronizer.Sync(sourceCamera, rig.LeftEyeCamera, rig.RightEyeCamera, settings);
         }
 
         private Camera FindBestEnabledCamera()
@@ -646,7 +686,7 @@ namespace SecretFlasherManakaVR.Runtime
                     manager.gameObject != null &&
                     manager.gameObject.activeInHierarchy;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return false;
             }
@@ -841,16 +881,6 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 rig.ResetCullingMatrices();
             }
-        }
-
-        private string GetCameraName(Camera camera)
-        {
-            if (camera == null || camera.gameObject == null)
-            {
-                return "<null>";
-            }
-
-            return camera.gameObject.name;
         }
 
         private readonly struct DisabledCameraState
