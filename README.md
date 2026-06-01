@@ -287,6 +287,22 @@ OpenVR texture submit succeeded for both eyes.
 
 5. In game, check view stability, recentering, UI panels, NPC markers, Quest input, and scene transitions.
 
+## Known Issues
+
+- The VR cursor may not line up with the hand pose. Resetting the in-game view to first person usually fixes it.
+- The game may freeze or crash in unknown rendering edge cases. If this happens, try disabling post-processing or other rendering-related options in `com.codex.secretflashermanaka.vr.cfg`.
+- Mirrors and reflections are disabled. There is no current plan to fix or restore them.
+
+## Risk Warning
+
+This package has not been adapted for or tested with any other mods. It also uses many hooks and special-case runtime handling functions, so compatibility with other mods is not guaranteed.
+
+This package has not gone through a full end-to-end playthrough test.
+
+Input mapping is mainly tested for Quest 3 / Oculus Touch controllers. Other SteamVR controllers may require custom bindings and are not guaranteed to work fully.
+
+During scene transitions, special cutscene cameras, or GameOver cameras, the VR view may briefly black out, misalign, or jitter. Waiting for the transition to finish or recentering the view usually restores it.
+
 ## License And Distribution
 
 This project is licensed under the MIT License. See `LICENSE`.
