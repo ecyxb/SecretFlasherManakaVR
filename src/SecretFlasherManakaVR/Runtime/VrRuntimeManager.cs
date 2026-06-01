@@ -11,6 +11,8 @@ namespace SecretFlasherManakaVR.Runtime
     {
         private const float DefaultIpdMeters = 0.064f;
         private const float OpenVRRetrySeconds = 5.0f;
+        private const float SourceBaseSmoothingSnapDistance = 2.0f;
+        private const float SourceBaseSmoothingSnapAngleDegrees = 45.0f;
 
         private VrRuntimeSettings settings;
         private IOpenVRBridge bridge;
@@ -37,6 +39,9 @@ namespace SecretFlasherManakaVR.Runtime
         private int lastSceneHandle = -1;
         private float sceneTransitionPauseUntil;
         private bool cameraPostProcessingSyncPending;
+        private Vector3 smoothedSourceBasePosition;
+        private Quaternion smoothedSourceBaseRotation = Quaternion.identity;
+        private bool hasSmoothedSourceBasePose;
         private DisabledCameraState? disabledSourceCamera;
         private readonly List<DisabledProbeState> persistentlyDisabledReflectionProbes = new List<DisabledProbeState>();
         private readonly List<DisabledBehaviourState> persistentlyDisabledMirrorManagers = new List<DisabledBehaviourState>();
@@ -240,6 +245,7 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 uiBridge.OnSceneChanged(settings);
             }
+            ResetSourceBaseSmoothing();
 
             if (npcWorldSpaceUiFixer != null)
             {
@@ -353,6 +359,7 @@ namespace SecretFlasherManakaVR.Runtime
             nextOpenVRRetryTime = 0.0f;
             sceneTransitionPauseUntil = 0.0f;
             cameraPostProcessingSyncPending = false;
+            ResetSourceBaseSmoothing();
             reflectionProbesDisabledForScene = false;
         }
 
@@ -463,6 +470,7 @@ namespace SecretFlasherManakaVR.Runtime
                 RestoreSourceCameraRendering();
                 sourceCamera = candidate;
                 cameraPostProcessingSyncPending = true;
+                ResetSourceBaseSmoothing();
             }
 
             return true;
@@ -797,6 +805,7 @@ namespace SecretFlasherManakaVR.Runtime
 
             Vector3 basePosition = sourceCamera.transform.position + sourceCamera.transform.up * settings.CameraHeightOffset;
             Quaternion baseRotation = GetSourceBaseRotation();
+            ApplySourceBaseSmoothing(ref basePosition, ref baseRotation);
             VrRuntimeState.SetTrackingToWorldTransform(
                 basePosition,
                 baseRotation,
@@ -834,6 +843,65 @@ namespace SecretFlasherManakaVR.Runtime
         private static Quaternion ExtractYaw(Quaternion rotation)
         {
             return Quaternion.Euler(0.0f, rotation.eulerAngles.y, 0.0f);
+        }
+
+        private void ApplySourceBaseSmoothing(ref Vector3 basePosition, ref Quaternion baseRotation)
+        {
+            float positionSpeed = settings.VrCameraBasePositionSmoothFactor;
+            float rotationSpeed = settings.VrCameraBaseRotationSmoothFactor;
+            if (positionSpeed <= 0.0f && rotationSpeed <= 0.0f)
+            {
+                ResetSourceBaseSmoothing();
+                return;
+            }
+
+            if (!hasSmoothedSourceBasePose ||
+                Vector3.Distance(smoothedSourceBasePosition, basePosition) > SourceBaseSmoothingSnapDistance ||
+                Quaternion.Angle(smoothedSourceBaseRotation, baseRotation) > SourceBaseSmoothingSnapAngleDegrees)
+            {
+                smoothedSourceBasePosition = basePosition;
+                smoothedSourceBaseRotation = baseRotation;
+                hasSmoothedSourceBasePose = true;
+                return;
+            }
+
+            if (positionSpeed > 0.0f)
+            {
+                smoothedSourceBasePosition = Vector3.Lerp(
+                    smoothedSourceBasePosition,
+                    basePosition,
+                    SmoothingStep(positionSpeed));
+                basePosition = smoothedSourceBasePosition;
+            }
+            else
+            {
+                smoothedSourceBasePosition = basePosition;
+            }
+
+            if (rotationSpeed > 0.0f)
+            {
+                smoothedSourceBaseRotation = Quaternion.Slerp(
+                    smoothedSourceBaseRotation,
+                    baseRotation,
+                    SmoothingStep(rotationSpeed));
+                baseRotation = smoothedSourceBaseRotation;
+            }
+            else
+            {
+                smoothedSourceBaseRotation = baseRotation;
+            }
+        }
+
+        private static float SmoothingStep(float speed)
+        {
+            return Mathf.Clamp01(1.0f - Mathf.Exp(-speed * Time.unscaledDeltaTime));
+        }
+
+        private void ResetSourceBaseSmoothing()
+        {
+            smoothedSourceBasePosition = Vector3.zero;
+            smoothedSourceBaseRotation = Quaternion.identity;
+            hasSmoothedSourceBasePose = false;
         }
 
         private void ApplyProjectionOrCameraFallback()

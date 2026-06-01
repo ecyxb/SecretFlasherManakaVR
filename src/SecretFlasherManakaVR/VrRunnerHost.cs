@@ -268,6 +268,8 @@ public sealed class VrRunnerHost : MonoBehaviour
             HeadPositionCameraOffsetMaxY = settings.HeadPositionCameraOffsetMaxY.Value,
             HeadPositionCameraOffsetMinZ = settings.HeadPositionCameraOffsetMinZ.Value,
             HeadPositionCameraOffsetMaxZ = settings.HeadPositionCameraOffsetMaxZ.Value,
+            VrCameraBasePositionSmoothFactor = settings.VrCameraBasePositionSmoothFactor.Value,
+            VrCameraBaseRotationSmoothFactor = settings.VrCameraBaseRotationSmoothFactor.Value,
             SourceRotationMode = settings.SourceRotationMode.Value,
             MirrorMode = VrMirrorMode.Disabled,
             SceneTransitionVrPauseSeconds = settings.SceneTransitionVrPauseSeconds.Value,

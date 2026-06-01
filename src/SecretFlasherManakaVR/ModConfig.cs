@@ -212,6 +212,22 @@ public sealed class ModConfig
                 "Maximum local Z HMD positional offset applied to the VR camera when IgnoreHeadPositionForVrCamera is enabled.",
                 new AcceptableValueRange<float>(-10.0f, 10.0f)));
 
+        VrCameraBasePositionSmoothFactor = config.Bind(
+            BodySection,
+            nameof(VrCameraBasePositionSmoothFactor),
+            18.0f,
+            new ConfigDescription(
+                "Smoothing speed for the source camera base position before HMD pose is applied. Higher values follow faster; 0 disables position smoothing.",
+                new AcceptableValueRange<float>(0.0f, 120.0f)));
+
+        VrCameraBaseRotationSmoothFactor = config.Bind(
+            BodySection,
+            nameof(VrCameraBaseRotationSmoothFactor),
+            24.0f,
+            new ConfigDescription(
+                "Smoothing speed for the source camera base rotation/yaw before HMD pose is applied. Higher values follow faster; 0 disables rotation smoothing.",
+                new AcceptableValueRange<float>(0.0f, 120.0f)));
+
         PlayerHeadPoseChestWeight = config.Bind(
             BodySection,
             nameof(PlayerHeadPoseChestWeight),
@@ -547,6 +563,8 @@ public sealed class ModConfig
     public ConfigEntry<float> HeadPositionCameraOffsetMaxY { get; }
     public ConfigEntry<float> HeadPositionCameraOffsetMinZ { get; }
     public ConfigEntry<float> HeadPositionCameraOffsetMaxZ { get; }
+    public ConfigEntry<float> VrCameraBasePositionSmoothFactor { get; }
+    public ConfigEntry<float> VrCameraBaseRotationSmoothFactor { get; }
     public ConfigEntry<float> PlayerHeadPoseChestWeight { get; }
     public ConfigEntry<float> PlayerHeadPoseNeckWeight { get; }
     public ConfigEntry<float> PlayerHeadPoseHeadWeight { get; }

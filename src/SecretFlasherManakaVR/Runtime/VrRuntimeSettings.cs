@@ -43,6 +43,8 @@ namespace SecretFlasherManakaVR.Runtime
         public float HeadPositionCameraOffsetMaxY = 1.0f;
         public float HeadPositionCameraOffsetMinZ = -1.0f;
         public float HeadPositionCameraOffsetMaxZ = 1.0f;
+        public float VrCameraBasePositionSmoothFactor = 18.0f;
+        public float VrCameraBaseRotationSmoothFactor = 24.0f;
         public VrSourceRotationMode SourceRotationMode = VrSourceRotationMode.SourceYawOnly;
         public VrMirrorMode MirrorMode = VrMirrorMode.SourceCamera;
         public float SceneTransitionVrPauseSeconds = 1.5f;
@@ -115,6 +117,8 @@ namespace SecretFlasherManakaVR.Runtime
             SanitizeRange(ref HeadPositionCameraOffsetMinX, ref HeadPositionCameraOffsetMaxX);
             SanitizeRange(ref HeadPositionCameraOffsetMinY, ref HeadPositionCameraOffsetMaxY);
             SanitizeRange(ref HeadPositionCameraOffsetMinZ, ref HeadPositionCameraOffsetMaxZ);
+            VrCameraBasePositionSmoothFactor = Mathf.Clamp(VrCameraBasePositionSmoothFactor, 0.0f, 120.0f);
+            VrCameraBaseRotationSmoothFactor = Mathf.Clamp(VrCameraBaseRotationSmoothFactor, 0.0f, 120.0f);
             VrUiDistance = Mathf.Clamp(VrUiDistance, 0.25f, 5.0f);
             VrUiVerticalOffset = Mathf.Clamp(VrUiVerticalOffset, -2.0f, 2.0f);
             VrUiPanelScale = Mathf.Clamp(VrUiPanelScale, 0.25f, 3.0f);
