@@ -180,7 +180,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         }
 
         return Activator.CreateInstance(runtimeType)
-            ?? throw new InvalidOperationException($"Could not construct runtime type {runtimeType.FullName}.");
+            ?? throw new InvalidOperationException("Could not construct runtime type.");
     }
 
     private void InvokeBestInitializeMethod(object runtime)
@@ -272,6 +272,10 @@ public sealed class VrRunnerHost : MonoBehaviour
             MirrorMode = VrMirrorMode.Disabled,
             SceneTransitionVrPauseSeconds = settings.SceneTransitionVrPauseSeconds.Value,
             RenderScale = settings.RenderScale.Value,
+            EnableVrCameraPostProcessing = settings.EnableVrCameraPostProcessing.Value,
+            VrCameraPostProcessingWhitelist = settings.VrCameraPostProcessingWhitelist.Value,
+            VrPp2EffectWhitelist = settings.VrPp2EffectWhitelist.Value,
+            VrPp2VolumeLayer = settings.VrPp2VolumeLayer.Value,
             UseOpenVRProjection = settings.UseOpenVRProjection.Value,
             OpenVRProjectionMode = settings.OpenVRProjectionMode.Value,
             UseSourceProjectionForCulling = settings.UseSourceProjectionForCulling.Value,
@@ -353,7 +357,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         }
         catch (Exception ex)
         {
-            DisableRuntime($"VR runtime {phase} failed.", ex);
+            DisableRuntime("VR runtime lifecycle failed.", ex);
         }
     }
 

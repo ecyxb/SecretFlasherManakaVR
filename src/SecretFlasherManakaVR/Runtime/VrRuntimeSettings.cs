@@ -58,6 +58,14 @@ namespace SecretFlasherManakaVR.Runtime
         public bool BlockNestedCameraRenderDuringVrRender = true;
         public bool DisableReflectionProbes = false;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
+        public bool EnableVrCameraPostProcessing = true;
+        public string VrCameraPostProcessingWhitelist =
+            "UB.VignettesPE," +
+            "UB.ExposuresPE," +
+            "UB.BleachsBypassPE," +
+            "UB.VintagesPE";
+        public string VrPp2EffectWhitelist = string.Empty;
+        public int VrPp2VolumeLayer = 30;
         public bool EnableVrUiBridge = true;
         public bool ConvertOverlayCanvasToWorldSpace = true;
         public VrUiFollowMode VrUiFollowMode = VrUiFollowMode.HeadLocked;
@@ -99,6 +107,7 @@ namespace SecretFlasherManakaVR.Runtime
             WorldScale = Mathf.Clamp(WorldScale, 0.01f, 100.0f);
             RenderScale = Mathf.Clamp(RenderScale, 0.25f, 2.0f);
             SceneTransitionVrPauseSeconds = Mathf.Clamp(SceneTransitionVrPauseSeconds, 0.0f, 10.0f);
+            VrPp2VolumeLayer = Mathf.Clamp(VrPp2VolumeLayer, 0, 31);
             FallbackRenderWidth = Mathf.Clamp(FallbackRenderWidth, 256, 8192);
             FallbackRenderHeight = Mathf.Clamp(FallbackRenderHeight, 256, 8192);
             AntiAliasing = Mathf.Clamp(AntiAliasing, 1, 8);
@@ -130,6 +139,11 @@ namespace SecretFlasherManakaVR.Runtime
             if (string.IsNullOrWhiteSpace(ReflectionCameraNameKeywords))
             {
                 ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
+            }
+
+            if (string.IsNullOrWhiteSpace(VrCameraPostProcessingWhitelist))
+            {
+                EnableVrCameraPostProcessing = false;
             }
         }
 
