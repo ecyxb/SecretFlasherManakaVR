@@ -99,6 +99,11 @@ internal static class PlayerHeadPoseController
             GetObjectPointer(player) == cachedPlayerPtr;
     }
 
+    public static Transform? CachedPlayerRoot
+    {
+        get { return cachedPlayerRoot; }
+    }
+
     public static void Apply()
     {
         if (!CanApply())

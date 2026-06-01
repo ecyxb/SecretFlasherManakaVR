@@ -11,6 +11,8 @@ namespace SecretFlasherManakaVR.Runtime
     internal sealed class NpcWorldSpaceUiFixer
     {
         private const float FallbackHeadOffset = 1.75f;
+        private const float SceneObjectScanMinIntervalSeconds = 0.5f;
+        private const float SceneObjectScanMaxIntervalSeconds = 1.0f;
 
         private static VrRuntimeSettings currentSettings = null!;
         private static Camera currentSourceCamera = null!;
@@ -18,6 +20,10 @@ namespace SecretFlasherManakaVR.Runtime
         private static Quaternion currentHeadRotation = Quaternion.identity;
         private static bool currentContextValid;
         private static readonly Dictionary<int, WorldUiState> worldUiStates = new Dictionary<int, WorldUiState>();
+
+        private NpcUiView[] cachedViews = Array.Empty<NpcUiView>();
+        private NpcDirectionArrowView[] cachedArrows = Array.Empty<NpcDirectionArrowView>();
+        private float nextSceneObjectScanTime;
 
         public NpcWorldSpaceUiFixer(IVrRuntimeLogger logger)
         {
@@ -34,6 +40,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
             finally
             {
+                ClearCachedSceneObjects();
                 ResetStaticContext();
             }
         }
@@ -54,8 +61,7 @@ namespace SecretFlasherManakaVR.Runtime
                 currentHeadRotation = headRotation;
                 currentContextValid = settings.FixNpcWorldSpaceUi;
 
-                NpcUiView[] views = UnityEngine.Object.FindObjectsOfType<NpcUiView>();
-                NpcDirectionArrowView[] arrows = UnityEngine.Object.FindObjectsOfType<NpcDirectionArrowView>();
+                RefreshCachedSceneObjectsIfNeeded();
 
                 if (!settings.FixNpcWorldSpaceUi)
                 {
@@ -64,14 +70,14 @@ namespace SecretFlasherManakaVR.Runtime
                     return;
                 }
 
-                for (int i = 0; i < arrows.Length; i++)
+                for (int i = 0; i < cachedArrows.Length; i++)
                 {
-                    TryFixArrow(arrows[i], settings, sourceCamera, headPosition, headRotation);
+                    TryFixArrow(cachedArrows[i], settings, sourceCamera, headPosition, headRotation);
                 }
 
-                for (int i = 0; i < views.Length; i++)
+                for (int i = 0; i < cachedViews.Length; i++)
                 {
-                    TryFixNpcUi(views[i], settings, sourceCamera, headPosition, headRotation);
+                    TryFixNpcUi(cachedViews[i], settings, sourceCamera, headPosition, headRotation);
                 }
 
                 DeactivateUntouchedWorldUiStates(Time.frameCount);
@@ -79,6 +85,48 @@ namespace SecretFlasherManakaVR.Runtime
             catch (Exception)
             {
             }
+        }
+
+        private void RefreshCachedSceneObjectsIfNeeded()
+        {
+            if (Time.unscaledTime < nextSceneObjectScanTime && !HasInvalidCachedSceneObjects())
+            {
+                return;
+            }
+
+            cachedViews = UnityEngine.Object.FindObjectsOfType<NpcUiView>();
+            cachedArrows = UnityEngine.Object.FindObjectsOfType<NpcDirectionArrowView>();
+            nextSceneObjectScanTime = Time.unscaledTime + UnityEngine.Random.Range(
+                SceneObjectScanMinIntervalSeconds,
+                SceneObjectScanMaxIntervalSeconds);
+        }
+
+        private bool HasInvalidCachedSceneObjects()
+        {
+            for (int i = 0; i < cachedViews.Length; i++)
+            {
+                if (cachedViews[i] == null)
+                {
+                    return true;
+                }
+            }
+
+            for (int i = 0; i < cachedArrows.Length; i++)
+            {
+                if (cachedArrows[i] == null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void ClearCachedSceneObjects()
+        {
+            cachedViews = Array.Empty<NpcUiView>();
+            cachedArrows = Array.Empty<NpcDirectionArrowView>();
+            nextSceneObjectScanTime = 0.0f;
         }
 
         public static void ApplyNpcUiPostLateUpdate(NpcUiView view)
