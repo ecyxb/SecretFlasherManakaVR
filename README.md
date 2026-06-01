@@ -90,7 +90,9 @@ File:
 com.codex.secretflashermanaka.vr.cfg
 ```
 
-Public user-facing settings are intentionally limited. Internal projection, reflection, and SteamVR action tuning values are fixed in code so normal users do not have to maintain a fragile advanced configuration set.
+The snippets below match the shipped config templates. If an older BepInEx config already exists, missing keys are added the next time the plugin loads, but manually edited values are preserved.
+
+Projection, reflection, and SteamVR action tuning internals are fixed in code so normal users do not have to maintain a fragile advanced configuration set.
 
 Core:
 
@@ -105,6 +107,10 @@ Stereo rendering:
 ```ini
 CameraHeightOffset = 0
 RenderScale = 0.5
+EnableVrCameraPostProcessing = true
+VrCameraPostProcessingWhitelist = UB.VignettesPE,UB.ExposuresPE,UB.BleachsBypassPE,UB.VintagesPE
+VrPp2EffectWhitelist =
+VrPp2VolumeLayer = 30
 ```
 
 Input:
@@ -132,11 +138,15 @@ HeadPositionCameraOffsetMinY = -0.05
 HeadPositionCameraOffsetMaxY = 0.05
 HeadPositionCameraOffsetMinZ = -0.05
 HeadPositionCameraOffsetMaxZ = 0.05
+VrCameraBasePositionSmoothFactor = 18
+VrCameraBaseRotationSmoothFactor = 24
 PlayerHeadPoseChestWeight = 0.15
 PlayerHeadPoseNeckWeight = 0.3
 PlayerHeadPoseHeadWeight = 0.55
 PlayerHeadPoseSmoothFactor = 18
 ```
+
+`VrCameraBasePositionSmoothFactor` and `VrCameraBaseRotationSmoothFactor` smooth the source game camera before the raw HMD pose is applied. Higher values follow faster; `0` disables smoothing.
 
 VR UI panel:
 
@@ -154,6 +164,7 @@ EnableVrFullscreenEffectLayer = true
 VrFullscreenEffectPanelScale = 2.7
 VrFullscreenEffectCurveDegrees = 36
 VrFullscreenEffectDepthOffset = 0.01
+VrFullscreenEffectHeartBeatAlphaBoost = 8
 VrUiFaceRtOffsetX = -100
 VrUiFaceRtOffsetY = 300
 VrUiFaceRtScale = 1
@@ -276,10 +287,20 @@ OpenVR texture submit succeeded for both eyes.
 
 5. In game, check view stability, recentering, UI panels, NPC markers, Quest input, and scene transitions.
 
+## License And Distribution
+
+This project is licensed under the MIT License. See `LICENSE`.
+
+The bundled Valve OpenVR files are covered by Valve's BSD 3-Clause License. See `THIRD_PARTY_NOTICES.md`.
+
+This project is an unofficial mod package. It does not distribute SecretFlasherManaka game files, BepInEx, Harmony, generated interop assemblies, or Unity runtime files. Players must provide their own game installation and runtime dependencies.
+
 ## Package Layout
 
 ```text
 SecretFlasherManakaVR_Package/
+├─ LICENSE
+├─ THIRD_PARTY_NOTICES.md
 ├─ README.md
 ├─ README.zh-CN.md
 ├─ src/

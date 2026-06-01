@@ -90,7 +90,9 @@ scripts\install.ps1 -GameRoot "<游戏根目录>" -Configuration Release
 com.codex.secretflashermanaka.vr.cfg
 ```
 
-公开配置项刻意保持较少。投影、反射、SteamVR action 细节等容易相互影响的高级参数已经固定在代码里，普通用户不需要维护一大组脆弱配置。
+下面的片段与随包配置模板保持一致。如果本机已经有旧版 BepInEx 配置，插件下次加载时会补齐缺失项，但不会覆盖你手动改过的值。
+
+投影、反射、SteamVR action 细节等容易相互影响的高级参数仍固定在代码里，普通用户不需要维护一大组脆弱配置。
 
 核心：
 
@@ -105,6 +107,10 @@ MirrorMode = MainCamera
 ```ini
 CameraHeightOffset = 0
 RenderScale = 0.5
+EnableVrCameraPostProcessing = true
+VrCameraPostProcessingWhitelist = UB.VignettesPE,UB.ExposuresPE,UB.BleachsBypassPE,UB.VintagesPE
+VrPp2EffectWhitelist =
+VrPp2VolumeLayer = 30
 ```
 
 输入：
@@ -132,11 +138,15 @@ HeadPositionCameraOffsetMinY = -0.05
 HeadPositionCameraOffsetMaxY = 0.05
 HeadPositionCameraOffsetMinZ = -0.05
 HeadPositionCameraOffsetMaxZ = 0.05
+VrCameraBasePositionSmoothFactor = 18
+VrCameraBaseRotationSmoothFactor = 24
 PlayerHeadPoseChestWeight = 0.15
 PlayerHeadPoseNeckWeight = 0.3
 PlayerHeadPoseHeadWeight = 0.55
 PlayerHeadPoseSmoothFactor = 18
 ```
+
+`VrCameraBasePositionSmoothFactor` 和 `VrCameraBaseRotationSmoothFactor` 会在应用原始 HMD 姿态前平滑游戏源相机的基础位置和旋转。数值越高跟随越快；设为 `0` 可关闭平滑。
 
 VR UI 面板：
 
@@ -154,6 +164,7 @@ EnableVrFullscreenEffectLayer = true
 VrFullscreenEffectPanelScale = 2.7
 VrFullscreenEffectCurveDegrees = 36
 VrFullscreenEffectDepthOffset = 0.01
+VrFullscreenEffectHeartBeatAlphaBoost = 8
 VrUiFaceRtOffsetX = -100
 VrUiFaceRtOffsetY = 300
 VrUiFaceRtScale = 1
@@ -276,10 +287,20 @@ OpenVR texture submit succeeded for both eyes.
 
 5. 在游戏内检查视角稳定性、重置视角、UI 面板、NPC 标记、Quest 输入和场景切换。
 
+## 许可证和分发规则
+
+本项目使用 MIT License。详见 `LICENSE`。
+
+随包附带的 Valve OpenVR 文件使用 Valve 的 BSD 3-Clause License。详见 `THIRD_PARTY_NOTICES.md`。
+
+这是一个非官方 Mod 包。本项目不分发 SecretFlasherManaka 游戏文件、BepInEx、Harmony、生成的 interop assemblies 或 Unity runtime 文件。玩家需要自行提供游戏安装目录和运行依赖。
+
 ## 包目录结构
 
 ```text
 SecretFlasherManakaVR_Package/
+├─ LICENSE
+├─ THIRD_PARTY_NOTICES.md
 ├─ README.md
 ├─ README.zh-CN.md
 ├─ src/

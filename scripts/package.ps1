@@ -143,6 +143,9 @@ Copy-RequiredFile -Source (Join-Path $packageRoot "input\bindings_oculus_touch.j
 Copy-RequiredFile -Source (Join-Path $packageRoot "config\com.codex.secretflashermanaka.vr.cfg") -Destination (Join-Path $configDir "com.codex.secretflashermanaka.vr.cfg")
 Copy-RequiredFile -Source (Join-Path $packageRoot "config\com.codex.secretflashermanaka.ringmenulongpress.cfg") -Destination (Join-Path $configDir "com.codex.secretflashermanaka.ringmenulongpress.cfg")
 
+Copy-RequiredFile -Source (Join-Path $packageRoot "LICENSE") -Destination (Join-Path $stagingRoot "LICENSE")
+Copy-RequiredFile -Source (Join-Path $packageRoot "THIRD_PARTY_NOTICES.md") -Destination (Join-Path $stagingRoot "THIRD_PARTY_NOTICES.md")
+
 if ($IncludeDebugSymbols) {
     $symbolsDir = Join-Path $stagingRoot "debug_symbols"
     Copy-RequiredFile -Source (Join-Path $packageRoot "src\SecretFlasherManakaVR\bin\$Configuration\SecretFlasherManakaVR.pdb") -Destination (Join-Path $symbolsDir "SecretFlasherManakaVR.pdb")
