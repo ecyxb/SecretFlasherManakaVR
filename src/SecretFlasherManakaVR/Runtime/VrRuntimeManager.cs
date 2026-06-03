@@ -24,6 +24,7 @@ namespace SecretFlasherManakaVR.Runtime
         private PlayerSkinningPreRenderRefresher playerSkinningPreRenderRefresher;
         private VrCameraPostProcessingSynchronizer cameraPostProcessingSynchronizer;
         private Camera sourceCamera;
+        private readonly IVrRuntimeLogger logger;
         private RuntimePose lastPose;
         private Quaternion recenterYaw = Quaternion.identity;
         private Vector3 recenterPosition = Vector3.zero;
@@ -54,6 +55,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public VrRuntimeManager(IVrRuntimeLogger logger)
         {
+            this.logger = logger ?? NullVrRuntimeLogger.Instance;
             settings = new VrRuntimeSettings();
             lastPose = RuntimePose.Identity;
         }
@@ -85,20 +87,30 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void Initialize(IOpenVRBridge openVrBridge, VrRuntimeSettings runtimeSettings)
         {
+            logger.Info("VrRuntimeManager.Initialize started.");
             Shutdown();
 
             settings = runtimeSettings == null ? new VrRuntimeSettings() : runtimeSettings.Clone();
             settings.Sanitize();
             initialized = true;
             vrReady = false;
+            logger.Info(
+                "Runtime settings sanitized. " +
+                $"EnableVR={settings.EnableVR}, " +
+                $"AutoStartSteamVR={settings.AutoStartSteamVR}, " +
+                $"RenderScale={settings.RenderScale}, " +
+                $"MirrorMode={settings.MirrorMode}, " +
+                $"EnableVrUiBridge={settings.EnableVrUiBridge}.");
 
             if (!settings.EnableVR)
             {
+                logger.Info("VrRuntimeManager.Initialize stopped because EnableVR is false.");
                 return;
             }
 
             if (openVrBridge == null)
             {
+                logger.Warning("VrRuntimeManager.Initialize stopped because OpenVR bridge is null.");
                 return;
             }
 
@@ -290,6 +302,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void Shutdown()
         {
+            logger.Info("VrRuntimeManager.Shutdown started.");
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
             RestoreSourceCameraRendering();
@@ -361,13 +374,24 @@ namespace SecretFlasherManakaVR.Runtime
             cameraPostProcessingSyncPending = false;
             ResetSourceBaseSmoothing();
             reflectionProbesDisabledForScene = false;
+            logger.Info("VrRuntimeManager.Shutdown completed.");
         }
 
         private bool TryInitializeOpenVR(bool firstAttempt)
         {
             if (bridge == null)
             {
+                if (firstAttempt)
+                {
+                    logger.Warning("OpenVR initialization skipped because bridge is null.");
+                }
+
                 return false;
+            }
+
+            if (firstAttempt)
+            {
+                logger.Info($"Initializing OpenVR. AutoStartSteamVR={settings.AutoStartSteamVR}.");
             }
 
             OpenVRInitResult initResult = bridge.Initialize(settings.AutoStartSteamVR);
@@ -375,42 +399,54 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 vrReady = false;
                 nextOpenVRRetryTime = Time.unscaledTime + OpenVRRetrySeconds;
+                if (firstAttempt)
+                {
+                    logger.Warning($"OpenVR initialization failed: {initResult.Error}");
+                }
+
                 return false;
             }
 
             if (rig == null)
             {
-                rig = new VrCameraRig(NullVrRuntimeLogger.Instance);
+                rig = new VrCameraRig(logger);
+                logger.Info("VR camera rig component created.");
             }
 
             if (uiBridge == null)
             {
-                uiBridge = new VrUiBridge(NullVrRuntimeLogger.Instance);
+                uiBridge = new VrUiBridge(logger);
+                logger.Info("VR UI bridge component created.");
             }
 
             if (eyeMaskFinalComposite == null)
             {
                 eyeMaskFinalComposite = new EyeMaskFinalComposite();
+                logger.Info("Eye mask final composite component created.");
             }
 
             if (eyeMaskWeatherFogSuppressor == null)
             {
                 eyeMaskWeatherFogSuppressor = new EyeMaskWeatherFogSuppressor();
+                logger.Info("Eye mask weather fog suppressor component created.");
             }
 
             if (npcWorldSpaceUiFixer == null)
             {
-                npcWorldSpaceUiFixer = new NpcWorldSpaceUiFixer(NullVrRuntimeLogger.Instance);
+                npcWorldSpaceUiFixer = new NpcWorldSpaceUiFixer(logger);
+                logger.Info("NPC world-space UI fixer component created.");
             }
 
             if (playerSkinningPreRenderRefresher == null)
             {
                 playerSkinningPreRenderRefresher = new PlayerSkinningPreRenderRefresher();
+                logger.Info("Player skinning pre-render refresher component created.");
             }
 
             if (cameraPostProcessingSynchronizer == null)
             {
                 cameraPostProcessingSynchronizer = new VrCameraPostProcessingSynchronizer();
+                logger.Info("VR camera post-processing synchronizer component created.");
             }
 
             vrReady = true;
@@ -420,6 +456,11 @@ namespace SecretFlasherManakaVR.Runtime
             reflectionProbesDisabledForScene = false;
             RefreshRenderTargetSize(true);
             FindSourceCamera(true);
+            logger.Info(
+                "OpenVR initialization succeeded. " +
+                $"RecommendedRenderTarget={initResult.RecommendedWidth}x{initResult.RecommendedHeight}, " +
+                $"ActualRenderTarget={renderWidth}x{renderHeight}, " +
+                $"SourceCamera={(sourceCamera == null ? "not found" : sourceCamera.name)}.");
             cameraPostProcessingSyncPending = true;
             DisableMirrorManagersForCurrentScene();
             return true;

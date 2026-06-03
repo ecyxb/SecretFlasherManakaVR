@@ -86,9 +86,11 @@ internal static class PlayerHeadPoseController
             cachedFpCameraTarget = referencer.FPCameraTarget;
             cachedCameraTarget = referencer.CameraTarget;
             hasReset = false;
+            Plugin.Logger.LogInfo($"Player head pose controller captured player: {player.name}.");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Plugin.Logger.LogError($"Player head pose controller failed to capture player during initialization. {ex}");
         }
     }
 
@@ -287,8 +289,9 @@ internal static class PlayerHeadPoseController
             cachedRigidbody = pca._Rigidbody_k__BackingField;
             cachedMoveCalculator = pca._PlayerMoveCalculator_k__BackingField;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Plugin.Logger.LogWarning($"Player movement reference cache failed; falling back to transform-only tracking. {ex}");
             cachedPlayerRoot = player.transform;
             cachedCharacterController = null;
             cachedRigidbody = null;

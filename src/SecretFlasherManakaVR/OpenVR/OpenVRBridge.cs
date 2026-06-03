@@ -73,15 +73,15 @@ namespace SecretFlasherManakaVR.OpenVR
             }
             catch (DllNotFoundException ex)
             {
-                return FailInit("openvr_api.dll could not be loaded: " + ex.Message);
+                return FailInit("openvr_api.dll could not be loaded: " + ex);
             }
             catch (EntryPointNotFoundException ex)
             {
-                return FailInit("The loaded openvr_api.dll is missing a required entry point: " + ex.Message);
+                return FailInit("The loaded openvr_api.dll is missing a required entry point: " + ex);
             }
             catch (Exception ex)
             {
-                return FailInit("Unexpected OpenVR init failure: " + ex.Message);
+                return FailInit("Unexpected OpenVR init failure: " + ex);
             }
         }
 
@@ -96,8 +96,9 @@ namespace SecretFlasherManakaVR.OpenVR
             {
                 Valve.VR.OpenVR.Shutdown();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                LastError = "OpenVR shutdown failed: " + ex;
             }
             finally
             {

@@ -48,18 +48,36 @@ public sealed class VrRunnerHost : MonoBehaviour
     {
         _plugin = plugin;
         _settings = settings;
+        _runtimeLogger = new BepInExVrRuntimeLogger(Plugin.Logger);
         Instance = this;
-        Quest3InputSystem.Configure(settings);
+        _runtimeLogger.Info("VrRunnerHost initialized.");
+        _runtimeLogger.Info(
+            "Initial runtime settings: " +
+            $"EnableVR={settings.EnableVR.Value}, " +
+            $"AutoStartSteamVR={settings.AutoStartSteamVR.Value}, " +
+            $"Quest3Input={settings.EnableQuest3InputMapping.Value}.");
+
+        try
+        {
+            Quest3InputSystem.Configure(settings);
+            _runtimeLogger.Info("Quest 3 input system configured.");
+        }
+        catch (Exception ex)
+        {
+            _runtimeLogger.Error("Quest 3 input system configuration failed.", ex);
+        }
     }
 
     private void Awake()
     {
         Instance = this;
         UnityEngine.Object.DontDestroyOnLoad(gameObject);
+        _runtimeLogger?.Info("VrRunnerHost Awake completed.");
     }
 
     private void Start()
     {
+        _runtimeLogger?.Info("VrRunnerHost Start: attempting runtime startup.");
         TryStartRuntime();
     }
 
@@ -99,6 +117,7 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     private void OnDestroy()
     {
+        _runtimeLogger?.Info("VrRunnerHost OnDestroy: shutting down runtime.");
         ShutdownRuntime("VR runner host destroyed.");
         Quest3InputSystem.Shutdown();
         if (ReferenceEquals(Instance, this))
@@ -109,6 +128,15 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     public void DisableRuntime(string reason, Exception? exception = null)
     {
+        if (exception is null)
+        {
+            _runtimeLogger?.Warning(reason);
+        }
+        else
+        {
+            _runtimeLogger?.Error(reason, exception);
+        }
+
         _runtimeDisabled = true;
 
         ShutdownRuntime("VR runtime disabled.");
@@ -120,33 +148,48 @@ public sealed class VrRunnerHost : MonoBehaviour
 
         if (_runtimeDisabled || _settings is null)
         {
+            if (_settings is null)
+            {
+                _runtimeLogger?.Warning("Runtime startup skipped because settings are not available.");
+            }
+
             return;
         }
 
         if (!_settings.EnableVR.Value)
         {
+            _runtimeLogger?.Info("Runtime startup skipped because EnableVR is false.");
             _runtimeDisabled = true;
             return;
         }
 
         try
         {
+            _runtimeLogger?.Info("Searching for VR runtime type.");
             var runtimeType = FindRuntimeType();
             if (runtimeType is null)
             {
                 if (!_missingRuntimeReported)
                 {
                     _missingRuntimeReported = true;
+                    _runtimeLogger?.Error(
+                        "VR runtime type was not found in loaded assemblies. " +
+                        "Expected SecretFlasherManakaVR.Runtime.VrRuntimeManager.");
                 }
 
                 return;
             }
 
-            _runtimeLogger = NullVrRuntimeLogger.Instance;
+            _runtimeLogger ??= new BepInExVrRuntimeLogger(Plugin.Logger);
+            _runtimeLogger.Info($"Found VR runtime type: {runtimeType.FullName} in {runtimeType.Assembly.GetName().Name}.");
+            _runtimeLogger.Info("Creating OpenVR bridge.");
             _openVrBridge = new OpenVRBridge();
+            _runtimeLogger.Info("Creating VR runtime instance.");
             _runtime = CreateRuntime(runtimeType, _runtimeLogger);
             CacheLifecycleMethods(runtimeType);
+            LogLifecycleMethods(runtimeType);
             InvokeBestInitializeMethod(_runtime);
+            _runtimeLogger.Info("VR runtime startup invocation completed.");
         }
         catch (Exception ex)
         {
@@ -195,11 +238,13 @@ public sealed class VrRunnerHost : MonoBehaviour
         {
             if (TryBuildArguments(method, out var arguments))
             {
+                _runtimeLogger?.Info($"Invoking runtime initialization method: {runtimeType.FullName}.{method.Name}({arguments.Length} args).");
                 method.Invoke(runtime, arguments);
                 return;
             }
         }
 
+        _runtimeLogger?.Warning($"No compatible initialization method was found on {runtimeType.FullName}.");
     }
 
     private bool TryBuildArguments(MethodInfo method, out object?[] arguments)
@@ -339,6 +384,20 @@ public sealed class VrRunnerHost : MonoBehaviour
         _shutdownMethod = FindLifecycleMethod(runtimeType, "Shutdown", "Dispose", "OnShutdown");
     }
 
+    private void LogLifecycleMethods(Type runtimeType)
+    {
+        _runtimeLogger?.Info(
+            "Runtime lifecycle methods: " +
+            $"update={DescribeMethod(runtimeType, _updateMethod)}, " +
+            $"lateUpdate={DescribeMethod(runtimeType, _lateUpdateMethod)}, " +
+            $"shutdown={DescribeMethod(runtimeType, _shutdownMethod)}.");
+    }
+
+    private static string DescribeMethod(Type runtimeType, MethodInfo? method)
+    {
+        return method is null ? "not found" : $"{runtimeType.Name}.{method.Name}";
+    }
+
     private static MethodInfo? FindLifecycleMethod(Type runtimeType, params string[] names)
     {
         return names
@@ -359,7 +418,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         }
         catch (Exception ex)
         {
-            DisableRuntime("VR runtime lifecycle failed.", ex);
+            DisableRuntime($"VR runtime lifecycle failed during {phase}.", ex);
         }
     }
 
@@ -386,6 +445,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         _runtimeShutdownInProgress = true;
         try
         {
+            _runtimeLogger?.Info($"Shutting down VR runtime. Reason: {reason}");
             var openVrBridge = _openVrBridge;
             InvokeShutdown(_runtime, _shutdownMethod, reason, "runtime");
             InvokeShutdown(
@@ -397,6 +457,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         finally
         {
             _runtimeShutdownInProgress = false;
+            _runtimeLogger?.Info("Clearing VR runtime references.");
             ClearRuntimeReferences();
         }
     }
@@ -411,9 +472,11 @@ public sealed class VrRunnerHost : MonoBehaviour
         try
         {
             shutdownMethod.Invoke(target, null);
+            _runtimeLogger?.Info($"{targetName} shutdown completed. Reason: {reason}");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _runtimeLogger?.Error($"{targetName} shutdown failed. Reason: {reason}", ex);
         }
     }
 
@@ -421,7 +484,6 @@ public sealed class VrRunnerHost : MonoBehaviour
     {
         _runtime = null;
         _openVrBridge = null;
-        _runtimeLogger = null;
         _updateMethod = null;
         _lateUpdateMethod = null;
         _shutdownMethod = null;

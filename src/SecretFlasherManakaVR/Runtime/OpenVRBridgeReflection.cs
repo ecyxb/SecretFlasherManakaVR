@@ -74,18 +74,21 @@ namespace SecretFlasherManakaVR.Runtime
             MethodInfo method = FindMethod("Initialize", "Init", "Start");
             if (method == null)
             {
+                logger.Warning("OpenVR bridge reflection did not find an Initialize/Init/Start method; checking readiness properties.");
                 return ReadBoolProperty("IsInitialized", "Initialized", "IsAvailable", "Available", true);
             }
 
             object result;
             try
             {
+                logger.Info($"Invoking reflected OpenVR bridge initialization method: {bridgeType.FullName}.{method.Name}.");
                 object[] args = BuildArguments(method, autoStartSteamVR);
                 result = method.Invoke(bridge, args);
             }
             catch (Exception ex)
             {
-                message = ex.GetBaseException().Message;
+                message = ex.ToString();
+                logger.Error("Reflected OpenVR bridge initialization failed.", ex);
                 return false;
             }
 

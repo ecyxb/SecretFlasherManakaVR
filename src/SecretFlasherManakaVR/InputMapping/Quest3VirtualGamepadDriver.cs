@@ -31,8 +31,9 @@ internal sealed class Quest3VirtualGamepadDriver
             {
                 InputSystem.RemoveDevice(gamepad);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Plugin.Logger.LogError($"Quest 3 virtual gamepad removal failed. {ex}");
             }
 
             gamepad = null;
@@ -55,11 +56,13 @@ internal sealed class Quest3VirtualGamepadDriver
         {
             gamepad = InputSystem.AddDevice<Gamepad>("SecretFlasherManakaVR Gamepad");
             gamepad.MakeCurrent();
+            Plugin.Logger.LogInfo("Quest 3 virtual gamepad device created.");
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             creationFailed = true;
+            Plugin.Logger.LogError($"Quest 3 virtual gamepad device creation failed. {ex}");
             return false;
         }
     }

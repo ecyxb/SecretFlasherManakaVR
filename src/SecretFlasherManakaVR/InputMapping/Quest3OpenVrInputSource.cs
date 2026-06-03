@@ -17,6 +17,7 @@ internal sealed class Quest3OpenVrInputSource
     private readonly ModConfig settings;
     private bool triedActionInit;
     private bool actionInputReady;
+    private bool actionReadExceptionReported;
     private string manifestPath = string.Empty;
     private ulong actionSet;
     private ulong leftHand;
@@ -114,8 +115,14 @@ internal sealed class Quest3OpenVrInputSource
             snapshot = new Quest3InputSnapshot(left, right, true, "steamvr-actions");
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            if (!actionReadExceptionReported)
+            {
+                actionReadExceptionReported = true;
+                Plugin.Logger.LogError($"Quest 3 SteamVR action read failed. Falling back to legacy controller state. {ex}");
+            }
+
             return false;
         }
     }
@@ -134,8 +141,10 @@ internal sealed class Quest3OpenVrInputSource
 
         triedActionInit = true;
         manifestPath = ResolveManifestPath();
+        Plugin.Logger.LogInfo($"Quest 3 SteamVR input action manifest path: {manifestPath}");
         if (string.IsNullOrEmpty(manifestPath) || !File.Exists(manifestPath))
         {
+            Plugin.Logger.LogWarning("Quest 3 SteamVR input action manifest was not found. Falling back to legacy controller state.");
             return false;
         }
 
@@ -145,6 +154,7 @@ internal sealed class Quest3OpenVrInputSource
             var manifestError = input.SetActionManifestPath(manifestPath);
             if (manifestError != EVRInputError.None)
             {
+                Plugin.Logger.LogWarning($"Quest 3 SetActionManifestPath failed: {manifestError}. Falling back to legacy controller state.");
                 return false;
             }
 
@@ -153,14 +163,17 @@ internal sealed class Quest3OpenVrInputSource
                 !GetHandle(input.GetInputSourceHandle, RightHandPath, out rightHand) ||
                 !TryResolveActionHandles(input, out actions))
             {
+                Plugin.Logger.LogWarning("Quest 3 SteamVR input action handles could not be resolved. Falling back to legacy controller state.");
                 return false;
             }
 
             actionInputReady = true;
+            Plugin.Logger.LogInfo("Quest 3 SteamVR input actions initialized.");
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Plugin.Logger.LogError($"Quest 3 SteamVR input action initialization failed. Falling back to legacy controller state. {ex}");
             return false;
         }
     }
