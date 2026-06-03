@@ -145,6 +145,8 @@ Copy-RequiredFile -Source (Join-Path $packageRoot "config\com.codex.secretflashe
 
 Copy-RequiredFile -Source (Join-Path $packageRoot "LICENSE") -Destination (Join-Path $stagingRoot "LICENSE")
 Copy-RequiredFile -Source (Join-Path $packageRoot "THIRD_PARTY_NOTICES.md") -Destination (Join-Path $stagingRoot "THIRD_PARTY_NOTICES.md")
+Copy-RequiredFile -Source (Join-Path $packageRoot "README.md") -Destination (Join-Path $stagingRoot "README.md")
+Copy-RequiredFile -Source (Join-Path $packageRoot "README.zh-CN.md") -Destination (Join-Path $stagingRoot "README.zh-CN.md")
 
 if ($IncludeDebugSymbols) {
     $symbolsDir = Join-Path $stagingRoot "debug_symbols"

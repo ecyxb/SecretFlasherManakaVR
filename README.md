@@ -9,6 +9,23 @@ This repository packages two separate BepInEx IL2CPP plugins for SecretFlasherMa
 
 The package does not include game files, BepInEx, or `SecretFlasherManakaMod.dll`. It is meant to be copied into an existing game install that already has BepInEx IL2CPP set up.
 
+## Known Issues
+
+- Use the latest BepInEx 6 IL2CPP release for this game before installing this mod package. Older BepInEx builds can cause plugin loading, interop, or initialization failures.
+- The VR cursor may not line up with the hand pose. Resetting the in-game view to first person usually fixes it.
+- There are unknown causes that may lead to game freezes or crashes. If this happens, try disabling post-processing or other rendering-related options in `com.codex.secretflashermanaka.vr.cfg`.
+- Mirrors and reflections are disabled. There is no current plan to fix or restore them.
+
+## Risk Warning
+
+This package has not been adapted for or tested with any other mods. It also uses many hooks and special-case runtime handling functions, so compatibility with other mods is not guaranteed.
+
+This package has not gone through a full end-to-end playthrough test.
+
+Input mapping is mainly tested for Quest 3 / Oculus Touch controllers. Other SteamVR controllers may require custom bindings and are not guaranteed to work fully.
+
+During scene transitions, special cutscene cameras, or GameOver cameras, the VR view may briefly black out, misalign, or jitter. Waiting for the transition to finish or recentering the view usually restores it.
+
 ## Features
 
 - SteamVR/OpenVR stereo output using injected left/right eye cameras.
@@ -286,22 +303,6 @@ OpenVR texture submit succeeded for both eyes.
 ```
 
 5. In game, check view stability, recentering, UI panels, NPC markers, Quest input, and scene transitions.
-
-## Known Issues
-
-- The VR cursor may not line up with the hand pose. Resetting the in-game view to first person usually fixes it.
-- The game may freeze or crash in unknown rendering edge cases. If this happens, try disabling post-processing or other rendering-related options in `com.codex.secretflashermanaka.vr.cfg`.
-- Mirrors and reflections are disabled. There is no current plan to fix or restore them.
-
-## Risk Warning
-
-This package has not been adapted for or tested with any other mods. It also uses many hooks and special-case runtime handling functions, so compatibility with other mods is not guaranteed.
-
-This package has not gone through a full end-to-end playthrough test.
-
-Input mapping is mainly tested for Quest 3 / Oculus Touch controllers. Other SteamVR controllers may require custom bindings and are not guaranteed to work fully.
-
-During scene transitions, special cutscene cameras, or GameOver cameras, the VR view may briefly black out, misalign, or jitter. Waiting for the transition to finish or recentering the view usually restores it.
 
 ## License And Distribution
 
