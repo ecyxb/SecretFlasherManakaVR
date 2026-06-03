@@ -2,6 +2,8 @@ using System;
 using Common.Scripts.UI;
 using ExposureUnnoticed2.Object3D.IngameManager;
 using ExposureUnnoticed2.ObjectUI.ChooseDildoPanelView;
+using ExposureUnnoticed2.ObjectUI.ChooseHandcuffTimer;
+using ExposureUnnoticed2.ObjectUI.ChooseHandcuffsPanel;
 using ExposureUnnoticed2.ObjectUI.InteractMenuPanel;
 using ExposureUnnoticed2.ObjectUI.InGame.RingMenu;
 using Il2CppInterop.Runtime.InteropTypes;
@@ -55,9 +57,44 @@ internal sealed class Quest3UiContextProbe
             return true;
         }
 
+        if (TryDetectChooseHandcuffsPanel())
+        {
+            return true;
+        }
+
         if (TryDetectInteractMenuPanel())
         {
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryDetectChooseHandcuffsPanel()
+    {
+        InGameUiManager manager = InGameUiManager.Instance;
+        if (manager == null)
+        {
+            return false;
+        }
+
+        if (IsChooseHandcuffsPanelActive(manager.GetCurrentBasePanelView()))
+        {
+            return true;
+        }
+
+        var panelStack = manager.basePanelStack;
+        if (panelStack == null)
+        {
+            return false;
+        }
+
+        for (int i = panelStack.Count - 1; i >= 0; i--)
+        {
+            if (IsChooseHandcuffsPanelActive(panelStack[i]))
+            {
+                return true;
+            }
         }
 
         return false;
@@ -133,6 +170,34 @@ internal sealed class Quest3UiContextProbe
         try
         {
             return panel.Cast<ChooseDildoPanelView>() != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsChooseHandcuffsPanelActive(BasePanelView panel)
+    {
+        if (!IsPanelActive(panel))
+        {
+            return false;
+        }
+
+        if (TryCastPanel<ChooseHandcuffsPanelView>(panel))
+        {
+            return true;
+        }
+
+        return TryCastPanel<ChooseHandcuffsTimerPanelView>(panel);
+    }
+
+    private static bool TryCastPanel<TPanel>(BasePanelView panel)
+        where TPanel : Il2CppObjectBase
+    {
+        try
+        {
+            return panel.Cast<TPanel>() != null;
         }
         catch
         {
