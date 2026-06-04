@@ -33,6 +33,7 @@
 - 通过 SteamVR Input 支持 Quest 3 手柄映射，并保留 OpenVR legacy controller state 兜底。
 - 支持 HMD 驱动相机姿态、玩家头/颈/胸骨骼姿态，以及移动时由 HMD 朝向带动身体转向。
 - 支持把部分屏幕空间 UI 捕获到 VR 面板，包括 HUD 位置、全屏特效覆盖层和 NPC 头顶标记重投影。
+- 支持 CustomMissions2 的部分功能；其他插件依旧未经测试。
 - 保留镜子模型，但阻止镜子/反射相机递归渲染，降低卡死和闪烁风险。
 - 环形菜单长按阈值作为单独 BepInEx 插件提供。
 

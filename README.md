@@ -33,6 +33,7 @@ During scene transitions, special cutscene cameras, or GameOver cameras, the VR 
 - Quest 3 controller mapping through SteamVR Input, with a legacy OpenVR controller-state fallback.
 - HMD-driven camera pose, optional player head/neck/chest pose adjustment, and optional body yaw turning while moving.
 - VR UI capture for supported screen-space canvases, including HUD positioning, fullscreen-effect overlay separation, and NPC marker reprojection.
+- Supports some CustomMissions2 features; other plugins remain untested.
 - Reflection and mirror stability guards that keep mirror models visible while blocking recursive reflection rendering paths.
 - Ring-menu long-press threshold helper as a separate BepInEx plugin.
 

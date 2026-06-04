@@ -14,6 +14,14 @@ namespace SecretFlasherManakaVR.Runtime
         private const int FallbackTextureWidth = 1920;
         private const int FallbackTextureHeight = 1080;
         private const string DefaultCapturedCanvasName = "InGameCanvas";
+        private const float CustomMissionLayerTargetScanInterval = 0.25f;
+        private static readonly string[] CustomMissionNestedUiObjectNames =
+        {
+            "MyPhoneGUI",
+            "MessengerNotify",
+            "MissionManagerGUI",
+            "BlackscreenRoot"
+        };
 
         private readonly List<Canvas> activeCanvases = new List<Canvas>();
         private readonly List<CanvasCaptureState> capturedCanvasStates = new List<CanvasCaptureState>();
@@ -352,15 +360,14 @@ namespace SecretFlasherManakaVR.Runtime
 
             string[] whitelist = SplitKeywords(settings.VrUiCanvasNameWhitelist);
             string[] blacklist = SplitKeywords(settings.VrUiCanvasNameBlacklist);
+            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
+            bool hasDefaultCanvas = whitelist.Length == 0 && HasDefaultCapturedCanvas(canvases, blacklist);
             if (whitelist.Length == 0 && TryAddDefaultCapturedCanvas(blacklist))
             {
                 SyncCapturedCanvasStates();
                 ClearFullscreenEffectCacheIfInactive();
                 return;
             }
-
-            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
-            bool hasDefaultCanvas = whitelist.Length == 0 && HasDefaultCapturedCanvas(canvases, blacklist);
 
             for (int i = 0; i < canvases.Length; i++)
             {
@@ -2382,6 +2389,8 @@ namespace SecretFlasherManakaVR.Runtime
             private readonly RenderMode renderMode;
             private readonly Camera worldCamera;
             private readonly float planeDistance;
+            private readonly CustomMissionLayerTargetCache[] customMissionLayerTargets;
+            private float nextCustomMissionLayerTargetScanTime;
             private bool applied;
 
             public CanvasCaptureState(Canvas canvas)
@@ -2390,6 +2399,7 @@ namespace SecretFlasherManakaVR.Runtime
                 renderMode = canvas.renderMode;
                 worldCamera = canvas.worldCamera;
                 planeDistance = canvas.planeDistance;
+                customMissionLayerTargets = CreateCustomMissionLayerTargetCaches();
             }
 
             public Canvas Canvas
@@ -2419,7 +2429,304 @@ namespace SecretFlasherManakaVR.Runtime
                     canvas.planeDistance = 10.0f;
                 }
 
+                if (string.Equals(canvas.name ?? string.Empty, DefaultCapturedCanvasName, StringComparison.Ordinal))
+                {
+                    ApplyCustomMissionUiCompatibility();
+                }
+
                 applied = true;
+            }
+
+            private void ApplyCustomMissionUiCompatibility()
+            {
+                bool shouldForceLayer = RefreshCustomMissionLayerTargets();
+                NormalizeCachedCustomMissionPhoneSubtree();
+                if (!shouldForceLayer)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < customMissionLayerTargets.Length; i++)
+                {
+                    CustomMissionLayerTargetCache cache = customMissionLayerTargets[i];
+                    if (!cache.NeedsLayerApply)
+                    {
+                        continue;
+                    }
+
+                    cache.NeedsLayerApply = false;
+                    Transform? target = cache.Target;
+                    if (target == null || canvas == null || canvas.transform == null || !target.IsChildOf(canvas.transform))
+                    {
+                        cache.Target = null;
+                        nextCustomMissionLayerTargetScanTime = 0.0f;
+                        continue;
+                    }
+
+                    ApplyCustomMissionLayoutCompatibility(cache.Name, target);
+
+                    int subtreeTotal;
+                    ForceUiLayer(target, out subtreeTotal);
+                }
+            }
+
+            private bool RefreshCustomMissionLayerTargets()
+            {
+                if (canvas == null || canvas.transform == null)
+                {
+                    ClearCustomMissionLayerTargets();
+                    return false;
+                }
+
+                bool hasMissingTarget = false;
+                for (int i = 0; i < customMissionLayerTargets.Length; i++)
+                {
+                    CustomMissionLayerTargetCache cache = customMissionLayerTargets[i];
+                    Transform? target = cache.Target;
+                    if (target == null)
+                    {
+                        hasMissingTarget = true;
+                        continue;
+                    }
+
+                    if (!target.IsChildOf(canvas.transform))
+                    {
+                        cache.Target = null;
+                        cache.NeedsLayerApply = false;
+                        hasMissingTarget = true;
+                    }
+                }
+
+                if (!hasMissingTarget)
+                {
+                    return false;
+                }
+
+                if (Time.unscaledTime < nextCustomMissionLayerTargetScanTime)
+                {
+                    return false;
+                }
+
+                nextCustomMissionLayerTargetScanTime = Time.unscaledTime + CustomMissionLayerTargetScanInterval;
+                CollectCustomMissionLayerTargets(canvas.transform);
+                return HasCustomMissionLayerTargetPendingApply();
+            }
+
+            private void ClearCustomMissionLayerTargets()
+            {
+                for (int i = 0; i < customMissionLayerTargets.Length; i++)
+                {
+                    customMissionLayerTargets[i].Target = null;
+                    customMissionLayerTargets[i].NeedsLayerApply = false;
+                }
+            }
+
+            private bool HasCustomMissionLayerTargetPendingApply()
+            {
+                for (int i = 0; i < customMissionLayerTargets.Length; i++)
+                {
+                    if (customMissionLayerTargets[i].NeedsLayerApply)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            private void NormalizeCachedCustomMissionPhoneSubtree()
+            {
+                Transform? phoneRoot = GetCachedCustomMissionLayerTarget("MyPhoneGUI");
+                if (phoneRoot == null)
+                {
+                    return;
+                }
+
+                NormalizeCustomMissionPhoneSubtree(phoneRoot);
+            }
+
+            private void CollectCustomMissionLayerTargets(Transform transform)
+            {
+                if (transform == null)
+                {
+                    return;
+                }
+
+                GameObject obj = transform.gameObject;
+                if (obj != null && TryCacheCustomMissionLayerTarget(obj.name, transform))
+                {
+                    return;
+                }
+
+                for (int i = 0; i < transform.childCount; i++)
+                {
+                    CollectCustomMissionLayerTargets(transform.GetChild(i));
+                }
+            }
+
+            private bool TryCacheCustomMissionLayerTarget(string name, Transform transform)
+            {
+                for (int i = 0; i < customMissionLayerTargets.Length; i++)
+                {
+                    CustomMissionLayerTargetCache cache = customMissionLayerTargets[i];
+                    if (!string.Equals(name, cache.Name, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (cache.Target == null)
+                    {
+                        cache.Target = transform;
+                        cache.NeedsLayerApply = true;
+                    }
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            private static void ApplyCustomMissionLayoutCompatibility(string name, Transform target)
+            {
+                if (target == null)
+                {
+                    return;
+                }
+
+                if (string.Equals(name, "MyPhoneGUI", StringComparison.Ordinal) ||
+                    string.Equals(name, "BlackscreenRoot", StringComparison.Ordinal))
+                {
+                    StretchRectTransformToParent(target);
+                    return;
+                }
+
+                if (string.Equals(name, "MissionManagerGUI", StringComparison.Ordinal) ||
+                    string.Equals(name, "MessengerNotify", StringComparison.Ordinal))
+                {
+                    ResetUiTransformScaleAndRotation(target);
+                }
+            }
+
+            private static void StretchRectTransformToParent(Transform target)
+            {
+                RectTransform rect = target.GetComponent<RectTransform>();
+                if (rect == null)
+                {
+                    return;
+                }
+
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = Vector2.zero;
+                rect.localRotation = Quaternion.identity;
+                rect.localScale = Vector3.one;
+            }
+
+            private static void ResetUiTransformScaleAndRotation(Transform target)
+            {
+                target.localRotation = Quaternion.identity;
+                target.localScale = Vector3.one;
+            }
+
+            private Transform? GetCachedCustomMissionLayerTarget(string name)
+            {
+                for (int i = 0; i < customMissionLayerTargets.Length; i++)
+                {
+                    CustomMissionLayerTargetCache cache = customMissionLayerTargets[i];
+                    if (string.Equals(cache.Name, name, StringComparison.Ordinal))
+                    {
+                        return cache.Target;
+                    }
+                }
+
+                return null;
+            }
+
+            private static void NormalizeCustomMissionPhoneSubtree(Transform transform)
+            {
+                if (transform == null)
+                {
+                    return;
+                }
+
+                NormalizeCustomMissionPhoneTransform(transform);
+
+                for (int i = 0; i < transform.childCount; i++)
+                {
+                    NormalizeCustomMissionPhoneSubtree(transform.GetChild(i));
+                }
+            }
+
+            private static void NormalizeCustomMissionPhoneTransform(Transform transform)
+            {
+                if (transform == null || transform.GetComponent<RectTransform>() == null)
+                {
+                    return;
+                }
+
+                transform.localRotation = Quaternion.identity;
+                transform.localScale = Vector3.one;
+            }
+
+            private static CustomMissionLayerTargetCache[] CreateCustomMissionLayerTargetCaches()
+            {
+                var caches = new CustomMissionLayerTargetCache[CustomMissionNestedUiObjectNames.Length];
+                for (int i = 0; i < CustomMissionNestedUiObjectNames.Length; i++)
+                {
+                    caches[i] = new CustomMissionLayerTargetCache(CustomMissionNestedUiObjectNames[i]);
+                }
+
+                return caches;
+            }
+
+            private sealed class CustomMissionLayerTargetCache
+            {
+                public CustomMissionLayerTargetCache(string name)
+                {
+                    Name = name;
+                }
+
+                public string Name { get; }
+
+                public Transform? Target { get; set; }
+
+                public bool NeedsLayerApply { get; set; }
+            }
+
+            private static int ForceUiLayer(Transform transform, out int total)
+            {
+                total = 0;
+                return ForceUiLayerRecursive(transform, ref total);
+            }
+
+            private static int ForceUiLayerRecursive(Transform transform, ref int total)
+            {
+                if (transform == null)
+                {
+                    return 0;
+                }
+
+                int changed = 0;
+                GameObject obj = transform.gameObject;
+                if (obj != null)
+                {
+                    total++;
+                    if (obj.layer != UnityUiLayer)
+                    {
+                        obj.layer = UnityUiLayer;
+                        changed++;
+                    }
+                }
+
+                for (int i = 0; i < transform.childCount; i++)
+                {
+                    changed += ForceUiLayerRecursive(transform.GetChild(i), ref total);
+                }
+
+                return changed;
             }
 
             public void Restore()
