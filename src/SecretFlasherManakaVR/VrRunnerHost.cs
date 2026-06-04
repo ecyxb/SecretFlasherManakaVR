@@ -338,6 +338,7 @@ public sealed class VrRunnerHost : MonoBehaviour
             EnableVrUiBridge = settings.EnableVrUiBridge.Value,
             ConvertOverlayCanvasToWorldSpace = settings.ConvertOverlayCanvasToWorldSpace.Value,
             VrUiFollowMode = settings.VrUiFollowMode.Value,
+            IgnoreHeadRollForVrUi = settings.IgnoreHeadRollForVrUi.Value,
             VrUiDistance = settings.VrUiDistance.Value,
             VrUiVerticalOffset = settings.VrUiVerticalOffset.Value,
             VrUiPanelScale = settings.VrUiPanelScale.Value,

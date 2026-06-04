@@ -17,6 +17,9 @@ internal enum Quest3SemanticInput
 
 internal sealed class Quest3InputMapper
 {
+    private const float VirtualMouseScrollStep = 60.0f;
+    private const float ModeButtonShortPressSeconds = 1.5f;
+
     private bool l3PressOverlappedR3;
     private bool r3PressOverlappedL3;
     private bool stickClickComboConsumed;
@@ -52,6 +55,7 @@ internal sealed class Quest3InputMapper
         bool suppressRightStickClick = UpdateModes(
             snapshot,
             buttons,
+            uiContext,
             settings.Quest3RightStickDeadzone.Value,
             state);
         state.ControllerMode = ControllerMode;
@@ -65,7 +69,7 @@ internal sealed class Quest3InputMapper
 
         if (IsCursorMode)
         {
-            MapCursorMode(snapshot, settings, suppressRightStickClick, state);
+            MapCursorMode(snapshot, uiContext, settings, suppressRightStickClick, state);
             return state;
         }
 
@@ -76,6 +80,7 @@ internal sealed class Quest3InputMapper
     private bool UpdateModes(
         Quest3InputSnapshot snapshot,
         Quest3ButtonTrackerSet buttons,
+        Quest3UiContext uiContext,
         float rightStickDeadzone,
         Quest3VirtualInputState state)
     {
@@ -135,16 +140,17 @@ internal sealed class Quest3InputMapper
         var l1 = buttons[Quest3Button.LeftGrip];
         var l2 = buttons[Quest3Button.LeftTrigger];
         var r2 = buttons[Quest3Button.RightTrigger];
+        bool isMenuContext = uiContext.Kind == Quest3UiContextKind.Menu;
         bool chordInputDownFrame = IsAnyFaceButtonDownFrame(buttons) || r2.IsDownFrame;
         bool chordInputDown = snapshot.PressedAbxyCount > 0 || r2.IsDown;
 
         if (ControllerMode == Quest3ControllerMode.Mode0)
         {
-            if (l2.IsDown && (chordInputDownFrame || (l2.IsDownFrame && chordInputDown)))
+            if (!isMenuContext && l2.IsDown && (chordInputDownFrame || (l2.IsDownFrame && chordInputDown)))
             {
                 BeginMomentaryMode(Quest3Button.LeftTrigger, Quest3ControllerMode.Mode1);
             }
-            else if (l1.IsDown && (chordInputDownFrame || (l1.IsDownFrame && chordInputDown)))
+            else if (!isMenuContext && l1.IsDown && (chordInputDownFrame || (l1.IsDownFrame && chordInputDown)))
             {
                 BeginMomentaryMode(Quest3Button.LeftGrip, Quest3ControllerMode.Mode2);
             }
@@ -156,7 +162,7 @@ internal sealed class Quest3InputMapper
             {
                 EndMomentaryMode(snapshot, rightStickDeadzone);
             }
-            else
+            else if (!isMenuContext && l2.WasShortPress(ModeButtonShortPressSeconds))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
             }
@@ -168,7 +174,7 @@ internal sealed class Quest3InputMapper
             {
                 EndMomentaryMode(snapshot, rightStickDeadzone);
             }
-            else
+            else if (!isMenuContext && l1.WasShortPress(ModeButtonShortPressSeconds))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.Select);
             }
@@ -229,29 +235,10 @@ internal sealed class Quest3InputMapper
         ModConfig settings,
         Quest3VirtualInputState state)
     {
-        if (uiContext.Kind == Quest3UiContextKind.Pop)
+        if (uiContext.Kind == Quest3UiContextKind.Menu)
         {
-            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.Y))
-            {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.DPadUp);
-            }
-
-            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.X))
-            {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.DPadDown);
-            }
-
-            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.B))
-            {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.Circle);
-            }
-
-            if (IsMappedFaceButtonPressed(snapshot, Quest3Button.A))
-            {
-                state.Gamepad.Press(Quest3VirtualGamepadButton.Cross);
-            }
-
-            return;
+            MapMenuPanelSticks(snapshot, uiContext, settings, state);
+            MapMenuPanelButtons(snapshot, state.Gamepad);
         }
 
         if (ControllerMode == Quest3ControllerMode.Mode1)
@@ -285,6 +272,88 @@ internal sealed class Quest3InputMapper
             (IsMappedFaceButtonPressed(snapshot, Quest3Button.A) || IsMappedFaceButtonPressed(snapshot, Quest3Button.B)))
         {
             state.SwapMoveAndCameraSticks = true;
+        }
+    }
+
+    private static void MapMenuPanelSticks(
+        Quest3InputSnapshot snapshot,
+        Quest3UiContext uiContext,
+        ModConfig settings,
+        Quest3VirtualInputState state)
+    {
+        state.LeftStick = Vector2.zero;
+        state.RightStick = Vector2.zero;
+
+        Quest3StickDirection leftDirection = ResolveStickDirection(
+            snapshot.Left.Stick,
+            settings.Quest3RightStickDeadzone.Value,
+            settings.Quest3RightStickDiagonalGuardDegrees.Value);
+        if (uiContext.ShouldScrollChildScrollRect)
+        {
+            AddScrollDirection(state, leftDirection);
+        }
+
+        if (!uiContext.ShouldScrollChildScrollRect || (leftDirection != Quest3StickDirection.Up && leftDirection != Quest3StickDirection.Down))
+        {
+            PressDPadDirection(state.Gamepad, leftDirection);
+        }
+    }
+
+    private static void MapMenuPanelButtons(Quest3InputSnapshot snapshot, Quest3VirtualGamepadState gamepad)
+    {
+        if (snapshot.IsPressed(Quest3Button.LeftGrip))
+        {
+            gamepad.Press(Quest3VirtualGamepadButton.L1);
+        }
+
+        if (snapshot.IsPressed(Quest3Button.LeftTrigger))
+        {
+            gamepad.Press(Quest3VirtualGamepadButton.L2);
+        }
+    }
+
+    private static void PressDPadDirection(Quest3VirtualGamepadState gamepad, Quest3StickDirection direction)
+    {
+        switch (direction)
+        {
+            case Quest3StickDirection.Up:
+                gamepad.Press(Quest3VirtualGamepadButton.DPadUp);
+                break;
+            case Quest3StickDirection.Down:
+                gamepad.Press(Quest3VirtualGamepadButton.DPadDown);
+                break;
+            case Quest3StickDirection.Left:
+                gamepad.Press(Quest3VirtualGamepadButton.DPadLeft);
+                break;
+            case Quest3StickDirection.Right:
+                gamepad.Press(Quest3VirtualGamepadButton.DPadRight);
+                break;
+        }
+    }
+
+    private static void AddScrollDirection(Quest3VirtualInputState state, Quest3StickDirection direction)
+    {
+        switch (direction)
+        {
+            case Quest3StickDirection.Up:
+                state.AddMouseScroll(VirtualMouseScrollStep);
+                break;
+            case Quest3StickDirection.Down:
+                state.AddMouseScroll(-VirtualMouseScrollStep);
+                break;
+        }
+    }
+
+    private static void AddChildSliderDirection(Quest3VirtualInputState state, Quest3StickDirection direction)
+    {
+        switch (direction)
+        {
+            case Quest3StickDirection.Left:
+                state.ChildSliderDelta = -1.0f;
+                break;
+            case Quest3StickDirection.Right:
+                state.ChildSliderDelta = 1.0f;
+                break;
         }
     }
 
@@ -412,6 +481,7 @@ internal sealed class Quest3InputMapper
 
     private void MapCursorMode(
         Quest3InputSnapshot snapshot,
+        Quest3UiContext uiContext,
         ModConfig settings,
         bool suppressRightStickClick,
         Quest3VirtualInputState state)
@@ -424,7 +494,9 @@ internal sealed class Quest3InputMapper
 
         if (snapshot.IsPressed(Quest3Button.LeftTrigger))
         {
-            state.Gamepad.Press(Quest3VirtualGamepadButton.Start);
+            state.Gamepad.Press(uiContext.Kind == Quest3UiContextKind.Menu
+                ? Quest3VirtualGamepadButton.L2
+                : Quest3VirtualGamepadButton.Start);
         }
 
         if (snapshot.IsPressed(Quest3Button.LeftGrip))
@@ -462,21 +534,18 @@ internal sealed class Quest3InputMapper
             state.Gamepad.Press(Quest3VirtualGamepadButton.Triangle);
         }
 
-        state.CursorStickDirection = ResolveStickDirection(
-            snapshot.Right.Stick,
-            settings.Quest3RightStickDeadzone.Value,
-            settings.Quest3RightStickDiagonalGuardDegrees.Value);
-
-        switch (state.CursorStickDirection)
+        if (uiContext.ShouldScrollChildScrollRect)
         {
-            case Quest3StickDirection.Up:
-                state.AddMouseScroll(1.0f);
-                PressSemanticInput(state, Quest3SemanticInput.Up);
-                break;
-            case Quest3StickDirection.Down:
-                state.AddMouseScroll(-1.0f);
-                PressSemanticInput(state, Quest3SemanticInput.Down);
-                break;
+            state.LeftStick = Vector2.zero;
+            state.CursorStickDirection = ResolveStickDirection(
+                snapshot.Left.Stick,
+                settings.Quest3RightStickDeadzone.Value,
+                settings.Quest3RightStickDiagonalGuardDegrees.Value);
+            AddScrollDirection(state, state.CursorStickDirection);
+            if (uiContext.ShouldDriveChildSlider)
+            {
+                AddChildSliderDirection(state, state.CursorStickDirection);
+            }
         }
     }
 
@@ -522,16 +591,8 @@ internal sealed class Quest3InputMapper
                     InputManager.InputType.Tab2Right);
                 break;
             case Quest3SemanticInput.Up:
-                PressAll(
-                    state,
-                    InputManager.InputType.UIUp,
-                    InputManager.InputType.UIScrollA);
                 break;
             case Quest3SemanticInput.Down:
-                PressAll(
-                    state,
-                    InputManager.InputType.UIDown,
-                    InputManager.InputType.UIScrollB);
                 break;
             case Quest3SemanticInput.Confirm:
                 PressAll(

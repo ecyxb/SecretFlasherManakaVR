@@ -115,6 +115,30 @@ internal static class Quest3InputSystem
         return true;
     }
 
+    public static bool TryApplyInputDownLongRepeat(InputManager.InputType type, int overCount, int interval, ref bool result)
+    {
+        Tick();
+        if (!State.IsInputDownLongRepeat(type, overCount, interval))
+        {
+            return false;
+        }
+
+        result = true;
+        return true;
+    }
+
+    public static bool TryApplyInputLongDown(InputManager.InputType type, int longCount, ref bool result)
+    {
+        Tick();
+        if (!State.IsInputLongDown(type, longCount))
+        {
+            return false;
+        }
+
+        result = true;
+        return true;
+    }
+
     public static bool TryApplyVector2(InputManager.InputType type, ref Vector2 result)
     {
         Tick();

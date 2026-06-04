@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ExposureUnnoticed2.Object3D.IngameManager;
+using ExposureUnnoticed2.Scripts.InGame;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,8 +22,11 @@ namespace SecretFlasherManakaVR.Runtime
         private bool worldFixedPoseSet;
         private Vector3 worldFixedPosition;
         private Quaternion worldFixedRotation = Quaternion.identity;
+        private Quaternion worldFixedFullscreenEffectRotation = Quaternion.identity;
         private Vector3 uiPosition;
         private Quaternion uiRotation = Quaternion.identity;
+        private Vector3 fullscreenEffectPosition;
+        private Quaternion fullscreenEffectRotation = Quaternion.identity;
         private GameObject root;
         private Camera captureCamera;
         private RenderTexture uiTexture;
@@ -283,30 +287,56 @@ namespace SecretFlasherManakaVR.Runtime
         private void UpdateAnchor(VrRuntimeSettings settings, Camera sourceCamera, Vector3 headPosition, Quaternion headRotation)
         {
             Vector3 basePosition = headPosition;
-            Quaternion baseRotation = headRotation;
+            Quaternion hudBaseRotation = settings.IgnoreHeadRollForVrUi ? RemoveRoll(headRotation) : headRotation;
+            Quaternion effectBaseRotation = headRotation;
 
             if (settings.VrUiFollowMode == VrUiFollowMode.SourceCameraLocked && sourceCamera != null)
             {
                 basePosition = sourceCamera.transform.position;
-                baseRotation = sourceCamera.transform.rotation;
+                hudBaseRotation = sourceCamera.transform.rotation;
+                effectBaseRotation = sourceCamera.transform.rotation;
             }
             else if (settings.VrUiFollowMode == VrUiFollowMode.WorldFixed)
             {
                 if (!worldFixedPoseSet)
                 {
                     worldFixedPosition = basePosition;
-                    worldFixedRotation = baseRotation;
+                    worldFixedRotation = hudBaseRotation;
+                    worldFixedFullscreenEffectRotation = effectBaseRotation;
                     worldFixedPoseSet = true;
                 }
 
                 basePosition = worldFixedPosition;
-                baseRotation = worldFixedRotation;
+                hudBaseRotation = worldFixedRotation;
+                effectBaseRotation = worldFixedFullscreenEffectRotation;
             }
 
             Vector3 offset = (Vector3.forward * settings.VrUiDistance) + (Vector3.up * settings.VrUiVerticalOffset);
-            uiPosition = basePosition + baseRotation * offset;
-            uiRotation = baseRotation;
+            uiPosition = basePosition + hudBaseRotation * offset;
+            uiRotation = hudBaseRotation;
+            fullscreenEffectPosition = basePosition + effectBaseRotation * offset;
+            fullscreenEffectRotation = effectBaseRotation;
 
+        }
+
+        private static Quaternion RemoveRoll(Quaternion rotation)
+        {
+            Vector3 forward = rotation * Vector3.forward;
+            if (forward.sqrMagnitude <= 0.000001f)
+            {
+                return Quaternion.identity;
+            }
+
+            forward.Normalize();
+            Vector3 up = Vector3.ProjectOnPlane(Vector3.up, forward);
+            if (up.sqrMagnitude <= 0.000001f)
+            {
+                up = Vector3.ProjectOnPlane(Vector3.forward, forward);
+            }
+
+            return up.sqrMagnitude <= 0.000001f
+                ? Quaternion.LookRotation(forward)
+                : Quaternion.LookRotation(forward, up.normalized);
         }
 
         private void ScanCanvasesIfNeeded(VrRuntimeSettings settings)
@@ -939,10 +969,10 @@ namespace SecretFlasherManakaVR.Runtime
             currentTextureWidth = textureWidth;
             currentTextureHeight = textureHeight;
 
-            ApplyFullscreenEffectPanelTransform(settings, width, height, panelPosition);
+            ApplyFullscreenEffectPanelTransform(settings, width, height, pixelOffsetY);
         }
 
-        private void ApplyFullscreenEffectPanelTransform(VrRuntimeSettings settings, float baseWidth, float baseHeight, Vector3 basePosition)
+        private void ApplyFullscreenEffectPanelTransform(VrRuntimeSettings settings, float baseWidth, float baseHeight, float pixelOffsetY)
         {
             if (fullscreenEffectPanelObject == null || fullscreenEffectTexture == null || settings == null)
             {
@@ -953,8 +983,9 @@ namespace SecretFlasherManakaVR.Runtime
             float width = baseWidth * scale;
             float height = baseHeight * scale;
             float depthOffset = settings.VrFullscreenEffectDepthOffset;
-            Vector3 position = basePosition + uiRotation * (Vector3.back * depthOffset);
-            fullscreenEffectPanelObject.transform.SetPositionAndRotation(position, uiRotation);
+            Vector3 basePosition = fullscreenEffectPosition + fullscreenEffectRotation * (Vector3.up * pixelOffsetY);
+            Vector3 position = basePosition + fullscreenEffectRotation * (Vector3.back * depthOffset);
+            fullscreenEffectPanelObject.transform.SetPositionAndRotation(position, fullscreenEffectRotation);
             fullscreenEffectPanelObject.transform.localScale = new Vector3(width, height, 1.0f);
             fullscreenEffectPanelObject.layer = VrUiOverlayLayer;
             UpdateFullscreenEffectMesh(settings.VrFullscreenEffectCurveDegrees);
@@ -1724,9 +1755,13 @@ namespace SecretFlasherManakaVR.Runtime
             private readonly List<RectState> rectStates = new List<RectState>();
             private readonly List<ActiveState> activeStates = new List<ActiveState>();
             private readonly List<ParentState> parentStates = new List<ParentState>();
+            private readonly List<CanvasGroupState> canvasGroupStates = new List<CanvasGroupState>();
+            private readonly List<GraphicEnabledState> graphicEnabledStates = new List<GraphicEnabledState>();
             private readonly HashSet<int> savedRects = new HashSet<int>();
             private readonly HashSet<int> savedObjects = new HashSet<int>();
             private readonly HashSet<int> savedParents = new HashSet<int>();
+            private readonly HashSet<int> savedCanvasGroups = new HashSet<int>();
+            private readonly HashSet<int> savedGraphics = new HashSet<int>();
 
             public HudLayoutScope(VrRuntimeSettings settings)
             {
@@ -1749,6 +1784,13 @@ namespace SecretFlasherManakaVR.Runtime
                 InGameUiManager manager = canvas.GetComponentInParent<InGameUiManager>();
                 if (manager != null)
                 {
+                    UiOptionApplyer optionApplyer = canvas.GetComponentInParent<UiOptionApplyer>();
+                    bool? playerInfoVisible = GetActiveInHierarchy(optionApplyer == null ? null : optionApplyer.playerInfoPanel);
+                    bool? heartRateVisible = GetRenderableInHierarchy(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel")
+                        ?? GetActiveInHierarchy(optionApplyer == null ? null : optionApplyer.heartRatePanel)
+                        ?? playerInfoVisible;
+                    bool? ecstasyGaugeVisible = GetActiveInHierarchy(optionApplyer == null ? null : optionApplyer.ecstasyGauge);
+
                     HideObject(manager.shortcutSlotParent);
                     HideObject(manager.shortcutSlotParent2);
                     HideObject(manager.sexManualParent);
@@ -1756,10 +1798,14 @@ namespace SecretFlasherManakaVR.Runtime
                     HideComponent(manager.ingameUiManualView);
                     HideComponent(manager.ecstasyHeartIcon);
 
-                    MovePathToRoot(root, "MiddleLayer/PlayerInfo/StaminaGauge", ReferencePointToRoot(root, 1135.0f, 1315.0f), null, 1.0f, 0.0f, true);
-                    MovePathToRoot(root, "MiddleLayer/PlayerInfo/MoistureIcon", ReferencePointToRoot(root, 980.0f, 1327.0f), null, 0.72f, 0.0f, true);
-                    MoveComponentToRoot(root, manager.ecstasyGauge, ReferencePointToRoot(root, 700.0f, 1300.0f), null, 1.65f, 0.0f);
-                    MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1495.0f, 1326.0f), null, 0.46f, 0.0f, true);
+                    RectTransform? staminaGauge = MovePathToRoot(root, "MiddleLayer/PlayerInfo/StaminaGauge", ReferencePointToRoot(root, 1135.0f, 1315.0f), null, 1.0f, 0.0f, true);
+                    RectTransform? moistureIcon = MovePathToRoot(root, "MiddleLayer/PlayerInfo/MoistureIcon", ReferencePointToRoot(root, 980.0f, 1327.0f), null, 0.72f, 0.0f, true);
+                    RectTransform? ecstasyGauge = MoveComponentToRoot(root, manager.ecstasyGauge, ReferencePointToRoot(root, 700.0f, 1300.0f), null, 1.65f, 0.0f);
+                    RectTransform? heartRateInfoPanel = MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1495.0f, 1326.0f), null, 0.46f, 0.0f, true);
+                    SetTemporaryRenderable(staminaGauge, heartRateVisible);
+                    SetTemporaryRenderable(moistureIcon, heartRateVisible);
+                    SetTemporaryRenderable(heartRateInfoPanel, heartRateVisible);
+                    SetTemporaryRenderable(ecstasyGauge, ecstasyGaugeVisible);
                     ApplySelfCameraRt(manager.faceCameraImage, HudRtKind.Face);
                     ApplySelfCameraRt(manager.bodyCameraImage, HudRtKind.Body);
                     ShiftPath(root, "MiddleLayer/Right/StatusInfo", GetStatusInfoOffset());
@@ -1857,6 +1903,16 @@ namespace SecretFlasherManakaVR.Runtime
 
             public void Restore()
             {
+                for (int i = graphicEnabledStates.Count - 1; i >= 0; i--)
+                {
+                    graphicEnabledStates[i].Restore();
+                }
+
+                for (int i = canvasGroupStates.Count - 1; i >= 0; i--)
+                {
+                    canvasGroupStates[i].Restore();
+                }
+
                 for (int i = parentStates.Count - 1; i >= 0; i--)
                 {
                     parentStates[i].Restore();
@@ -1875,9 +1931,13 @@ namespace SecretFlasherManakaVR.Runtime
                 rectStates.Clear();
                 activeStates.Clear();
                 parentStates.Clear();
+                canvasGroupStates.Clear();
+                graphicEnabledStates.Clear();
                 savedRects.Clear();
                 savedObjects.Clear();
                 savedParents.Clear();
+                savedCanvasGroups.Clear();
+                savedGraphics.Clear();
             }
 
             private void HidePath(RectTransform root, string path)
@@ -1908,11 +1968,135 @@ namespace SecretFlasherManakaVR.Runtime
                 gameObject.SetActive(false);
             }
 
-            private void MoveComponentToRoot(RectTransform root, Component component, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
+            private static bool? GetActiveInHierarchy(GameObject? gameObject)
+            {
+                return gameObject == null ? (bool?)null : gameObject.activeInHierarchy;
+            }
+
+            private static bool? GetRenderableInHierarchy(RectTransform root, string path)
+            {
+                if (root == null)
+                {
+                    return null;
+                }
+
+                Transform target = root.Find(path);
+                if (target == null || target.gameObject == null)
+                {
+                    return null;
+                }
+
+                return target.gameObject.activeInHierarchy && !IsCanvasGroupChainTransparent(target);
+            }
+
+            private static bool IsCanvasGroupChainTransparent(Transform transform)
+            {
+                Transform current = transform;
+                while (current != null)
+                {
+                    CanvasGroup group = current.GetComponent<CanvasGroup>();
+                    if (group != null && group.alpha <= 0.001f)
+                    {
+                        return true;
+                    }
+
+                    current = current.parent;
+                }
+
+                return false;
+            }
+
+            private void SetTemporaryRenderable(Component? component, bool? visible)
+            {
+                if (component == null || !visible.HasValue)
+                {
+                    return;
+                }
+
+                SetTemporaryActive(component.gameObject, visible.Value);
+                if (!visible.Value)
+                {
+                    SetTemporaryAlpha(component.gameObject, 0.0f);
+                    SetTemporaryGraphicsEnabled(component.gameObject, false);
+                }
+            }
+
+            private void SetTemporaryActive(Component? component, bool? active)
+            {
+                if (component == null || !active.HasValue)
+                {
+                    return;
+                }
+
+                SetTemporaryActive(component.gameObject, active.Value);
+            }
+
+            private void SetTemporaryActive(GameObject? gameObject, bool active)
+            {
+                if (gameObject == null || gameObject.activeSelf == active)
+                {
+                    return;
+                }
+
+                SaveActive(gameObject);
+                gameObject.SetActive(active);
+            }
+
+            private void SetTemporaryAlpha(GameObject? gameObject, float alpha)
+            {
+                if (gameObject == null)
+                {
+                    return;
+                }
+
+                CanvasGroup group = CanvasGroupAlphaScope.GetOrAddCanvasGroup(gameObject);
+                if (group == null)
+                {
+                    return;
+                }
+
+                int id = group.GetInstanceID();
+                if (!savedCanvasGroups.Contains(id))
+                {
+                    savedCanvasGroups.Add(id);
+                    canvasGroupStates.Add(new CanvasGroupState(group));
+                }
+
+                group.alpha = alpha;
+            }
+
+            private void SetTemporaryGraphicsEnabled(GameObject? gameObject, bool enabled)
+            {
+                if (gameObject == null)
+                {
+                    return;
+                }
+
+                Graphic[] graphics = gameObject.GetComponentsInChildren<Graphic>(true);
+                for (int i = 0; i < graphics.Length; i++)
+                {
+                    Graphic graphic = graphics[i];
+                    if (graphic == null)
+                    {
+                        continue;
+                    }
+
+                    int id = graphic.GetInstanceID();
+                    if (!savedGraphics.Contains(id))
+                    {
+                        savedGraphics.Add(id);
+                        graphicEnabledStates.Add(new GraphicEnabledState(graphic));
+                    }
+
+                    graphic.enabled = enabled;
+                }
+            }
+
+            private RectTransform? MoveComponentToRoot(RectTransform root, Component component, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
             {
                 if (root == null || component == null)
                 {
-                    return;
+                    return null;
                 }
 
                 RectTransform rect = component.GetComponent<RectTransform>();
@@ -1923,38 +2107,40 @@ namespace SecretFlasherManakaVR.Runtime
 
                 if (rect == null)
                 {
-                    return;
+                    return null;
                 }
 
                 SaveRect(rect);
                 SaveParent(rect);
                 rect.SetParent(root, false);
                 MoveRect(rect, anchoredPosition, sizeDelta, scale, zRotation);
+                return rect;
             }
 
-            private void MovePathToRoot(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
+            private RectTransform? MovePathToRoot(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation)
             {
-                MovePathToRoot(root, path, anchoredPosition, sizeDelta, scale, zRotation, false);
+                return MovePathToRoot(root, path, anchoredPosition, sizeDelta, scale, zRotation, false);
             }
 
-            private void MovePathToRoot(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation, bool preservePivot)
+            private RectTransform? MovePathToRoot(RectTransform root, string path, Vector2 anchoredPosition, Vector2? sizeDelta, float scale, float zRotation, bool preservePivot)
             {
                 if (root == null)
                 {
-                    return;
+                    return null;
                 }
 
                 Transform target = root.Find(path);
                 RectTransform rect = target == null ? null : target.GetComponent<RectTransform>();
                 if (rect == null)
                 {
-                    return;
+                    return null;
                 }
 
                 SaveRect(rect);
                 SaveParent(rect);
                 rect.SetParent(root, false);
                 MoveRect(rect, anchoredPosition, sizeDelta, scale, zRotation, preservePivot);
+                return rect;
             }
 
             private void HideIfNameContains(RectTransform root, string keyword)
@@ -2145,6 +2331,46 @@ namespace SecretFlasherManakaVR.Runtime
                     if (gameObject != null)
                     {
                         gameObject.SetActive(activeSelf);
+                    }
+                }
+            }
+
+            private readonly struct CanvasGroupState
+            {
+                private readonly CanvasGroup group;
+                private readonly float alpha;
+
+                public CanvasGroupState(CanvasGroup group)
+                {
+                    this.group = group;
+                    alpha = group.alpha;
+                }
+
+                public void Restore()
+                {
+                    if (group != null)
+                    {
+                        group.alpha = alpha;
+                    }
+                }
+            }
+
+            private readonly struct GraphicEnabledState
+            {
+                private readonly Graphic graphic;
+                private readonly bool enabled;
+
+                public GraphicEnabledState(Graphic graphic)
+                {
+                    this.graphic = graphic;
+                    enabled = graphic.enabled;
+                }
+
+                public void Restore()
+                {
+                    if (graphic != null)
+                    {
+                        graphic.enabled = enabled;
                     }
                 }
             }

@@ -32,6 +32,24 @@ internal static class Quest3InputManagerIsUpFramePatch
     }
 }
 
+[HarmonyPatch(typeof(InputManager), nameof(InputManager.IsDownLongRepeat), typeof(InputManager.InputType), typeof(int), typeof(int))]
+internal static class Quest3InputManagerIsDownLongRepeatPatch
+{
+    private static void Postfix(InputManager.InputType type, int overCount, int interval, ref bool __result)
+    {
+        Quest3InputSystem.TryApplyInputDownLongRepeat(type, overCount, interval, ref __result);
+    }
+}
+
+[HarmonyPatch(typeof(InputManager), nameof(InputManager.GetLongDown), typeof(InputManager.InputType), typeof(int))]
+internal static class Quest3InputManagerGetLongDownPatch
+{
+    private static void Postfix(InputManager.InputType type, int longCount, ref bool __result)
+    {
+        Quest3InputSystem.TryApplyInputLongDown(type, longCount, ref __result);
+    }
+}
+
 [HarmonyPatch(typeof(InputManager), nameof(InputManager.GetShortUp), typeof(InputManager.InputType), typeof(int))]
 internal static class Quest3InputManagerGetShortUpPatch
 {

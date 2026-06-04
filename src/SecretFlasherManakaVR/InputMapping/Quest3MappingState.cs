@@ -14,24 +14,55 @@ internal enum Quest3ControllerMode
 internal enum Quest3UiContextKind
 {
     None,
-    Pop,
+    Menu,
     Circle
 }
 
 internal sealed class Quest3UiContext
 {
-    private Quest3UiContext(Quest3UiContextKind kind)
+    private Quest3UiContext(
+        Quest3UiContextKind kind,
+        string menuPanelTypeName = "",
+        GameObject? menuPanelObject = null,
+        bool shouldScrollChildScrollRect = false,
+        bool shouldDriveChildSlider = false)
     {
         Kind = kind;
+        MenuPanelTypeName = menuPanelTypeName;
+        MenuPanelObject = menuPanelObject;
+        ShouldScrollChildScrollRect = shouldScrollChildScrollRect;
+        ShouldDriveChildSlider = shouldDriveChildSlider;
     }
 
     public Quest3UiContextKind Kind { get; }
 
+    public string MenuPanelTypeName { get; }
+
+    public GameObject? MenuPanelObject { get; }
+
+    public bool ShouldScrollChildScrollRect { get; }
+
+    public bool ShouldDriveChildSlider { get; }
+
     public static Quest3UiContext None { get; } = new Quest3UiContext(Quest3UiContextKind.None);
 
-    public static Quest3UiContext Pop { get; } = new Quest3UiContext(Quest3UiContextKind.Pop);
+    public static Quest3UiContext Menu { get; } = new Quest3UiContext(Quest3UiContextKind.Menu);
 
     public static Quest3UiContext Circle { get; } = new Quest3UiContext(Quest3UiContextKind.Circle);
+
+    public static Quest3UiContext ForMenu(
+        string menuPanelTypeName,
+        GameObject? menuPanelObject,
+        bool shouldScrollChildScrollRect,
+        bool shouldDriveChildSlider)
+    {
+        return new Quest3UiContext(
+            Quest3UiContextKind.Menu,
+            menuPanelTypeName,
+            menuPanelObject,
+            shouldScrollChildScrollRect,
+            shouldDriveChildSlider);
+    }
 }
 
 internal sealed class Quest3ButtonTracker
@@ -97,6 +128,7 @@ internal sealed class Quest3VirtualInputState
 {
     private readonly HashSet<InputManager.InputType> previousInputButtons = new HashSet<InputManager.InputType>();
     private readonly HashSet<InputManager.InputType> currentInputButtons = new HashSet<InputManager.InputType>();
+    private readonly Dictionary<InputManager.InputType, int> inputHeldFrames = new Dictionary<InputManager.InputType, int>();
     private readonly HashSet<int> previousMouseButtons = new HashSet<int>();
     private readonly HashSet<int> currentMouseButtons = new HashSet<int>();
 
@@ -124,6 +156,8 @@ internal sealed class Quest3VirtualInputState
 
     public Vector2 MouseScrollDelta { get; set; }
 
+    public float ChildSliderDelta { get; set; }
+
     public void BeginFrame()
     {
         CopySet(currentInputButtons, previousInputButtons);
@@ -139,6 +173,7 @@ internal sealed class Quest3VirtualInputState
         HasVirtualMousePosition = false;
         VirtualMousePosition = Vector3.zero;
         MouseScrollDelta = Vector2.zero;
+        ChildSliderDelta = 0.0f;
     }
 
     public void Press(InputManager.InputType type)
@@ -148,7 +183,12 @@ internal sealed class Quest3VirtualInputState
             return;
         }
 
-        currentInputButtons.Add(type);
+        if (currentInputButtons.Add(type))
+        {
+            inputHeldFrames[type] = previousInputButtons.Contains(type) && inputHeldFrames.TryGetValue(type, out int heldFrames)
+                ? heldFrames + 1
+                : 1;
+        }
     }
 
     public void PressMouseButton(int button)
@@ -174,6 +214,33 @@ internal sealed class Quest3VirtualInputState
     public bool IsInputUpFrame(InputManager.InputType type)
     {
         return !currentInputButtons.Contains(type) && previousInputButtons.Contains(type);
+    }
+
+    public bool IsInputDownLongRepeat(InputManager.InputType type, int overCount, int interval)
+    {
+        if (!currentInputButtons.Contains(type))
+        {
+            return false;
+        }
+
+        if (!inputHeldFrames.TryGetValue(type, out int heldFrames))
+        {
+            return false;
+        }
+
+        if (heldFrames == 1)
+        {
+            return true;
+        }
+
+        return heldFrames >= overCount && interval > 0 && (heldFrames - overCount) % interval == 0;
+    }
+
+    public bool IsInputLongDown(InputManager.InputType type, int longCount)
+    {
+        return currentInputButtons.Contains(type) &&
+            inputHeldFrames.TryGetValue(type, out int heldFrames) &&
+            heldFrames >= longCount;
     }
 
     public bool IsMouseButtonDown(int button)

@@ -239,7 +239,7 @@ If `actions.json` is missing, SteamVR action input cannot initialize. If `bindin
 
 ### Quest 3 Input Mapping
 
-`mode1` and `mode2` are temporary modifier modes. Hold `L2` and press `ABXY` or `R2` to enter `mode1`; hold `L1` and press `ABXY` or `R2` to enter `mode2`. If `L2` / `L1` is released without forming an `ABXY` / `R2` chord, it outputs `Start` / `Select`. Entering a mode does not suppress input. Exiting a mode suppresses currently held `ABXY` until release, `R2` until release, and the right stick until it returns to neutral.
+`mode1` and `mode2` are temporary modifier modes. Outside menu UI, hold `L2` and press `ABXY` or `R2` to enter `mode1`; hold `L1` and press `ABXY` or `R2` to enter `mode2`. If `L2` / `L1` is released without forming an `ABXY` / `R2` chord and the hold lasted less than `1.5s`, it outputs `Start` / `Select`; releases after a hold longer than `1.5s` do not output `Start` / `Select`. Entering a mode does not suppress input. Exiting a mode suppresses currently held `ABXY` until release, `R2` until release, and the right stick until it returns to neutral.
 
 | Quest 3 input | mode0 / normal | mode1 / L2 temporary mode | mode2 / L1 temporary mode | Cursor mode |
 | --- | --- | --- | --- | --- |
@@ -247,17 +247,23 @@ If `actions.json` is missing, SteamVR action input cannot initialize. If `bindin
 | B | Circle; with L2 held enters mode1, with L1 held enters mode2 | DPadRight | Circle | `Cancel` + `SystemMenu` |
 | X | Triangle; with L2 held enters mode1, with L1 held enters mode2 | DPadUp | Triangle | Triangle |
 | Y | Square; with L2 held enters mode1, with L1 held enters mode2 | DPadLeft | Square | Square |
-| L2 / Left Trigger | Start on release; hold with ABXY/R2 to enter mode1 | Release L2 to return to mode0 | Start on release | Start |
-| L1 / Left Grip | Select on release; hold with ABXY/R2 to enter mode2 | Select on release | Release L1 to return to mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
+| L2 / Left Trigger | Outside menus: short release = Start; holds over 1.5s output nothing; chord with ABXY/R2 enters mode1 | Release L2 to return to mode0 | Short release = Start | Outside menus = Start; menus = L2 |
+| L1 / Left Grip | Outside menus: short release = Select; holds over 1.5s output nothing; chord with ABXY/R2 enters mode2 | Short release = Select | Release L1 to return to mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | R2 / Right Trigger | R2; enters mode1 with L2 held, or mode2 with L1 held | `DrinkWater` | `EyeMask` | Left mouse button + `LeftClick` |
 | Right Grip | R1 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
-| Left Stick | Virtual left stick | Virtual left stick | Virtual left stick | Virtual left stick |
-| Right Stick | Virtual right stick; Y may be suppressed in some HMD-driven view states | Virtual right stick | Virtual right stick | Up/down = mouse wheel + `UIUp` / `UIDown` + `UIScrollA/B`; no right-stick gamepad output |
+| Left Stick | Virtual left stick; maps to DPad in menu panels | Virtual left stick; maps to DPad in menu panels | Virtual left stick; maps to DPad in menu panels | Virtual left stick; drives child scrolling and Closet sliders in supported panels |
+| Right Stick | Virtual right stick; Y may be suppressed in some HMD-driven view states | Virtual right stick | Virtual right stick | Virtual right stick; no mouse-wheel or `UIScrollA/B` special mapping |
 | L3 / Left Stick Click | Press and release alone = recenter view; with R3 = toggle cursor mode | Same as mode0 | Same as mode0 | With R3 = exit cursor mode and return to mode0 |
 | R3 / Right Stick Click | L1; with L3, only toggles cursor mode | L1 | L1 | L1; with L3, exits cursor mode |
 | Left Menu | Read by the input source, but not currently mapped to output | Read but unmapped | Read but unmapped | Read but unmapped |
 
 When POP UI is open, `ABXY` is overridden before normal mode mapping: `Y = DPadUp`, `X = DPadDown`, `A = Cross`, and `B = Circle`. When Circle UI / the ring menu is open, holding exactly one of `A` or `B` in `mode1` / `mode2` temporarily swaps the movement and camera sticks.
+
+When a menu panel is open outside cursor mode, the mapper uses separate UI handling: `L1` / `L2` output the original `L1` / `L2`, do not trigger `Select` / `Start`, and do not enter `mode1` / `mode2`. The left stick no longer outputs a normal analog stick and is mapped to DPad directions instead. If the panel uses child `ScrollRect` scrolling, left-stick up/down only sends mouse-wheel scroll with a delta of `60`, without extra DPad up/down.
+
+The current child-scroll panel set is `ClosetMenuView` and `MissionMenuPanelView`. In these panels, in both cursor and non-cursor mode, left-stick up/down searches the panel children for a usable `ScrollRect` and sends mouse-wheel events; the right stick is not used for scroll mapping.
+
+The current child-slider panel set is only `ClosetMenuView`. In cursor mode with the closet open, left-stick left/right drives a child `Slider`: the mapper searches and locks a Slider only once when the left stick moves from neutral to horizontal input, then keeps using that Slider until the stick returns to neutral, the closet closes, cursor mode exits, or the Slider becomes unusable. If the locked Slider becomes unusable, the lock is cleared and no new Slider is searched until the stick returns to neutral. Slider step is `0.005`; repeat starts at `0.33s`, accelerates while held, and bottoms out at `0.06s`.
 
 ## Implementation Overview
 

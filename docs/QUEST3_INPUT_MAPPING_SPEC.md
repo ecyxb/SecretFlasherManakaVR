@@ -45,11 +45,13 @@ Quest 3 肩键约定：
 | L3 单独按下并释放 | 重置视角 |
 | L3 + R3 | 切换光标模式 |
 | 退出光标模式 | 固定回到 `mode0` |
-| `mode0` 下 L2 短按 | 切到 `mode1` |
-| `mode0` 下 L2 长按 | 切到 `mode2` |
-| `mode1` / `mode2` 下 L2 短按或长按 | 回到 `mode0` |
+| 非菜单 `mode0` 下按住 L2，再按 `ABXY` 或 `R2` | 进入 `mode1` |
+| 非菜单 `mode0` 下按住 L1，再按 `ABXY` 或 `R2` | 进入 `mode2` |
+| 松开进入临时模式的 L2 / L1 | 回到 `mode0` |
+| 非菜单下 L2 / L1 未组成组合且按住小于 `1.5s` 后松开 | 分别输出 `Start` / `Select` |
+| 非菜单下 L2 / L1 未组成组合且按住超过 `1.5s` 后松开 | 不输出 `Start` / `Select` |
 
-长按阈值由 `Quest3LongPressSeconds` 配置控制。
+菜单面板打开时不进入 `mode1` / `mode2`，L1 / L2 使用菜单 UI 特殊处理。
 如果 L3 与 R3 在同一次按住期间发生重叠，则按组合键处理，只切换光标模式，不再触发 L3 单独重置视角或 R3 的 L1 输出。
 
 ### mode0: normal mode
@@ -60,8 +62,12 @@ Quest 3 肩键约定：
 | B | Circle |
 | Y | Square |
 | X | Triangle |
-| Left Grip 短按 | Select |
-| Left Grip 长按 | Start |
+| Left Trigger 短按松开 | Start |
+| Left Trigger 长按超过 `1.5s` 后松开 | 不输出 |
+| Left Trigger + `ABXY` / `R2` | 进入 `mode1` |
+| Left Grip 短按松开 | Select |
+| Left Grip 长按超过 `1.5s` 后松开 | 不输出 |
+| Left Grip + `ABXY` / `R2` | 进入 `mode2` |
 | Right Grip | R1 |
 | Right Trigger | R2 |
 | Right Stick Click | L1 |
@@ -81,11 +87,11 @@ ABXY 在该模式下映射为十字键，方向按当前 PS 图形位置决定�
 
 | Quest 3 输入 | 输出 |
 | --- | --- |
-| Left Grip | L1 |
+| Left Grip 短按松开 | Select |
 | Right Grip | R1 |
 | Right Stick Click | L1 |
-| Right Trigger 按下 | DrinkWater，并立刻回到 `mode0` |
-| Left Trigger 短按或长按 | 回到 `mode0` |
+| Right Trigger 按下 | DrinkWater |
+| 松开 Left Trigger | 回到 `mode0` |
 
 ### mode2: action58 mode
 
@@ -96,11 +102,10 @@ ABXY 在该模式下映射为十字键，方向按当前 PS 图形位置决定�
 | B | Circle |
 | Y | Square |
 | X | Triangle |
-| Left Grip | L1 |
 | Right Grip | R1 |
 | Right Stick Click | L1 |
-| Right Trigger 按下 | EyeMask，并立刻回到 `mode0` |
-| Left Trigger 短按或长按 | 回到 `mode0` |
+| Right Trigger 按下 | EyeMask |
+| 松开 Left Grip | 回到 `mode0` |
 
 ### POP UI 覆盖
 
@@ -145,7 +150,7 @@ L3 + R3 会进入或退出光标模式。退出时固定回到 `mode0`。
 | Quest 3 输入 | 输出 |
 | --- | --- |
 | Right Trigger | 鼠标左键 + `InputManager.InputType.LeftClick` |
-| Left Trigger | 鼠标右键 + `InputManager.InputType.RightClick` |
+| Left Trigger | 非菜单 = Start；菜单 = L2 |
 | Left Grip | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | Right Grip | `UiRingRight` / `TabRight` / `Tab2Right` |
 | Right Stick Click | L1 |
@@ -153,13 +158,17 @@ L3 + R3 会进入或退出光标模式。退出时固定回到 `mode0`。
 | B | `Cancel` / `SystemMenu` |
 | Y | Square |
 | X | Triangle |
-| Right Stick Up | 鼠标滚轮向上 + `UIUp` |
-| Right Stick Down | 鼠标滚轮向下 + `UIDown` |
+| Left Stick | 默认保留虚拟左摇杆；衣橱/任务清单下用于子级滚动和衣橱 Slider |
+| Right Stick | 保留虚拟右摇杆，不做滚轮或 `UIScrollA/B` 特殊映射 |
 
-右摇杆方向输入使用死区和斜向保护：
+左摇杆方向输入使用死区和斜向保护：
 
 - 死区由 `Quest3RightStickDeadzone` 控制。
 - 斜向保护角度由 `Quest3RightStickDiagonalGuardDegrees` 控制。
+
+### 菜单 UI 特殊处理
+
+非光标模式下，菜单面板打开时 `L1` / `L2` 直接输出原本的 `L1` / `L2`，不触发 `Select` / `Start`，也不进入 `mode1` / `mode2`。左摇杆映射为 DPad。子级滚动面板目前是 `ClosetMenuView` 和 `MissionMenuPanelView`，左摇杆上下会寻找子级 `ScrollRect` 并发送滚轮事件，滚轮值为 `60`，不额外发送 DPad 上下。子级 Slider 面板目前只有 `ClosetMenuView`；光标模式下左摇杆左右只在从回中变成左右输入时查找并锁定一次可用 `Slider`，步长为 `0.005`，重复间隔从 `0.33s` 加速到最低 `0.06s`，回中、关闭衣橱、退出光标模式或 Slider 不可用时重置锁定。
 
 ## English
 
@@ -206,11 +215,13 @@ Quest 3 shoulder/stick-click naming:
 | L3 press and release without R3 overlap | Recenter view |
 | L3 + R3 | Toggle cursor mode |
 | Exit cursor mode | Always return to `mode0` |
-| L2 short press in `mode0` | Switch to `mode1` |
-| L2 long press in `mode0` | Switch to `mode2` |
-| L2 short or long press in `mode1` / `mode2` | Return to `mode0` |
+| Outside menu UI, hold L2 in `mode0` and press `ABXY` or `R2` | Enter `mode1` |
+| Outside menu UI, hold L1 in `mode0` and press `ABXY` or `R2` | Enter `mode2` |
+| Release the L2 / L1 that entered the temporary mode | Return to `mode0` |
+| Outside menu UI, release L2 / L1 without a chord after a hold shorter than `1.5s` | Output `Start` / `Select` |
+| Outside menu UI, release L2 / L1 without a chord after a hold longer than `1.5s` | Output nothing |
 
-The long-press threshold is controlled by `Quest3LongPressSeconds`.
+Menu panels do not enter `mode1` / `mode2`; L1 / L2 use menu-specific UI handling.
 If L3 and R3 overlap during the same press, the mapper treats it as the combo only: it toggles cursor mode and suppresses L3-only recenter plus R3-as-L1 for that combo press.
 
 ### mode0: normal mode
@@ -221,8 +232,12 @@ If L3 and R3 overlap during the same press, the mapper treats it as the combo on
 | B | Circle |
 | Y | Square |
 | X | Triangle |
-| Left Grip short press | Select |
-| Left Grip long press | Start |
+| Left Trigger short release | Start |
+| Left Trigger release after a hold longer than `1.5s` | No output |
+| Left Trigger + `ABXY` / `R2` | Enter `mode1` |
+| Left Grip short release | Select |
+| Left Grip release after a hold longer than `1.5s` | No output |
+| Left Grip + `ABXY` / `R2` | Enter `mode2` |
 | Right Grip | R1 |
 | Right Trigger | R2 |
 | Right Stick Click | L1 |
@@ -242,11 +257,11 @@ Other inputs:
 
 | Quest 3 input | Output |
 | --- | --- |
-| Left Grip | L1 |
+| Left Grip short release | Select |
 | Right Grip | R1 |
 | Right Stick Click | L1 |
-| Right Trigger down | DrinkWater, then immediately return to `mode0` |
-| Left Trigger short or long press | Return to `mode0` |
+| Right Trigger down | DrinkWater |
+| Release Left Trigger | Return to `mode0` |
 
 ### mode2: action58 mode
 
@@ -257,11 +272,10 @@ Other inputs:
 | B | Circle |
 | Y | Square |
 | X | Triangle |
-| Left Grip | L1 |
 | Right Grip | R1 |
 | Right Stick Click | L1 |
-| Right Trigger down | EyeMask, then immediately return to `mode0` |
-| Left Trigger short or long press | Return to `mode0` |
+| Right Trigger down | EyeMask |
+| Release Left Grip | Return to `mode0` |
 
 ### POP UI Override
 
@@ -306,7 +320,7 @@ Cursor mode skips normal controller-mode button mapping and uses the right-hand 
 | Quest 3 input | Output |
 | --- | --- |
 | Right Trigger | Left mouse button + `InputManager.InputType.LeftClick` |
-| Left Trigger | Right mouse button + `InputManager.InputType.RightClick` |
+| Left Trigger | Outside menus = Start; menus = L2 |
 | Left Grip | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | Right Grip | `UiRingRight` / `TabRight` / `Tab2Right` |
 | Right Stick Click | L1 |
@@ -314,10 +328,14 @@ Cursor mode skips normal controller-mode button mapping and uses the right-hand 
 | B | `Cancel` / `SystemMenu` |
 | Y | Square |
 | X | Triangle |
-| Right Stick Up | Mouse wheel up + `UIUp` |
-| Right Stick Down | Mouse wheel down + `UIDown` |
+| Left Stick | Default virtual left stick; drives child scrolling and Closet sliders in supported panels |
+| Right Stick | Virtual right stick; no mouse-wheel or `UIScrollA/B` special mapping |
 
-Right-stick directional input uses a deadzone and diagonal guard:
+Left-stick directional input uses a deadzone and diagonal guard:
 
 - Deadzone is controlled by `Quest3RightStickDeadzone`.
 - Diagonal guard angle is controlled by `Quest3RightStickDiagonalGuardDegrees`.
+
+### Menu UI Special Handling
+
+When a menu panel is open outside cursor mode, `L1` / `L2` output the original `L1` / `L2`, do not trigger `Select` / `Start`, and do not enter `mode1` / `mode2`. The left stick maps to DPad directions. The current child-scroll panel set is `ClosetMenuView` and `MissionMenuPanelView`; left-stick up/down searches child objects for a usable `ScrollRect` and sends mouse-wheel events with a delta of `60`, without extra DPad up/down. The current child-slider panel set is only `ClosetMenuView`; in cursor mode, left-stick left/right searches and locks one usable `Slider` only when the stick moves from neutral to horizontal input. Slider step is `0.005`; repeat starts at `0.33s`, accelerates to a minimum of `0.06s`, and the lock resets when the stick returns to neutral, the closet closes, cursor mode exits, or the Slider becomes unusable.

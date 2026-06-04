@@ -336,6 +336,12 @@ public sealed class ModConfig
             SecretFlasherManakaVR.Runtime.VrUiFollowMode.HeadLocked,
             "Controls where converted UI appears. HeadLocked keeps it in front of the headset.");
 
+        IgnoreHeadRollForVrUi = config.Bind(
+            VrUiSection,
+            nameof(IgnoreHeadRollForVrUi),
+            false,
+            "When enabled, headset roll does not tilt the converted VR HUD panel.");
+
         VrUiDistance = config.Bind(
             VrUiSection,
             nameof(VrUiDistance),
@@ -593,6 +599,7 @@ public sealed class ModConfig
     public ConfigEntry<bool> EnableVrUiBridge { get; }
     public ConfigEntry<bool> ConvertOverlayCanvasToWorldSpace { get; }
     public ConfigEntry<VrUiFollowMode> VrUiFollowMode { get; }
+    public ConfigEntry<bool> IgnoreHeadRollForVrUi { get; }
     public ConfigEntry<float> VrUiDistance { get; }
     public ConfigEntry<float> VrUiVerticalOffset { get; }
     public ConfigEntry<float> VrUiPanelScale { get; }

@@ -239,7 +239,7 @@ BepInEx/plugins/SecretFlasherManakaVR_Input/
 
 ### Quest 3 输入映射
 
-`mode1` 和 `mode2` 是按住修饰键后的临时模式：按住 `L2` 时再按 `ABXY` 或 `R2` 进入 `mode1`；按住 `L1` 时再按 `ABXY` 或 `R2` 进入 `mode2`。如果 `L2` / `L1` 没有和 `ABXY` / `R2` 组成组合，松开时分别输出 `Start` / `Select`。进入模式时不吞输入；退出模式时，仍按住的 `ABXY` 会被忽略到松开，`R2` 会被忽略到松开，右摇杆会被忽略到回中。
+`mode1` 和 `mode2` 是按住修饰键后的临时模式：非菜单界面下，按住 `L2` 时再按 `ABXY` 或 `R2` 进入 `mode1`；按住 `L1` 时再按 `ABXY` 或 `R2` 进入 `mode2`。如果 `L2` / `L1` 没有和 `ABXY` / `R2` 组成组合，且按住时间小于 `1.5s`，松开时分别输出 `Start` / `Select`；长按超过 `1.5s` 后松开不输出 `Start` / `Select`。进入模式时不吞输入；退出模式时，仍按住的 `ABXY` 会被忽略到松开，`R2` 会被忽略到松开，右摇杆会被忽略到回中。
 
 | Quest 3 输入 | mode0 / normal | mode1 / L2 临时模式 | mode2 / L1 临时模式 | 光标模式 |
 | --- | --- | --- | --- | --- |
@@ -247,17 +247,23 @@ BepInEx/plugins/SecretFlasherManakaVR_Input/
 | B | Circle；按住 L2 再按进入 mode1，按住 L1 再按进入 mode2 | DPadRight | Circle | `Cancel` + `SystemMenu` |
 | X | Triangle；按住 L2 再按进入 mode1，按住 L1 再按进入 mode2 | DPadUp | Triangle | Triangle |
 | Y | Square；按住 L2 再按进入 mode1，按住 L1 再按进入 mode2 | DPadLeft | Square | Square |
-| L2 / Left Trigger | 松开时 Start；按住后配合 ABXY/R2 进入 mode1 | 松开 L2 回到 mode0 | 松开时 Start | Start |
-| L1 / Left Grip | 松开时 Select；按住后配合 ABXY/R2 进入 mode2 | 松开时 Select | 松开 L1 回到 mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
+| L2 / Left Trigger | 非菜单短按松开 = Start；长按超过 1.5s 不输出；配合 ABXY/R2 进入 mode1 | 松开 L2 回到 mode0 | 短按松开 = Start | 非菜单 = Start；菜单 = L2 |
+| L1 / Left Grip | 非菜单短按松开 = Select；长按超过 1.5s 不输出；配合 ABXY/R2 进入 mode2 | 短按松开 = Select | 松开 L1 回到 mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | R2 / Right Trigger | R2；按住 L2 会进入 mode1，按住 L1 会进入 mode2 | `DrinkWater` | `EyeMask` | 鼠标左键 + `LeftClick` |
 | Right Grip | R1 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
-| Left Stick | 虚拟左摇杆 | 虚拟左摇杆 | 虚拟左摇杆 | 虚拟左摇杆 |
-| Right Stick | 虚拟右摇杆；部分头控场景会屏蔽 Y 轴 | 虚拟右摇杆 | 虚拟右摇杆 | 上/下 = 鼠标滚轮 + `UIUp` / `UIDown` + `UIScrollA/B`，不输出右摇杆 |
+| Left Stick | 虚拟左摇杆；菜单面板下映射为 DPad | 虚拟左摇杆；菜单面板下映射为 DPad | 虚拟左摇杆；菜单面板下映射为 DPad | 虚拟左摇杆；衣橱/任务清单下用于子级滚动和衣橱 Slider |
+| Right Stick | 虚拟右摇杆；部分头控场景会屏蔽 Y 轴 | 虚拟右摇杆 | 虚拟右摇杆 | 虚拟右摇杆；不做滚轮或 `UIScrollA/B` 特殊映射 |
 | L3 / Left Stick Click | 单独按下再松开 = 重置视角；和 R3 同按 = 切换光标模式 | 同 mode0 | 同 mode0 | 和 R3 同按 = 退出光标模式并回 mode0 |
 | R3 / Right Stick Click | L1；和 L3 同按时只切换光标模式 | L1 | L1 | L1；和 L3 同按时退出光标模式 |
 | Left Menu | 源码读取，但当前未映射输出 | 源码读取，但当前未映射输出 | 源码读取，但当前未映射输出 | 源码读取，但当前未映射输出 |
 
 POP UI 打开时，`ABXY` 会优先覆盖为 `Y = DPadUp`、`X = DPadDown`、`A = Cross`、`B = Circle`。Circle UI / 环形菜单打开时，在 `mode1` / `mode2` 下只按住一个 `A` 或 `B` 会临时交换移动摇杆和镜头摇杆。
+
+非光标模式下，菜单面板打开时使用独立的 UI 特殊处理：`L1` / `L2` 直接输出原本的 `L1` / `L2`，不触发 `Select` / `Start`，也不进入 `mode1` / `mode2`。左摇杆不再输出普通摇杆，而是映射成 DPad；如果面板需要滚动子级 `ScrollRect`，左摇杆上下只发送鼠标滚轮，滚轮值为 `60`，不再额外发送 DPad 上下。
+
+子级滚动面板 set 目前是 `ClosetMenuView` 和 `MissionMenuPanelView`。这两个面板下，无论是否处于光标模式，左摇杆上下都会寻找面板子级里可用的 `ScrollRect` 并发送滚轮事件；右摇杆不参与滚轮映射。
+
+子级 Slider 面板 set 目前只有 `ClosetMenuView`。在光标模式打开衣橱时，左摇杆左右会控制子级 `Slider`：从回中变成左右输入的那一刻只查找并锁定一次 Slider，之后一直使用该 Slider，直到左摇杆回中、衣橱关闭、退出光标模式或 Slider 变得不可用。如果已锁定的 Slider 不可用，会清掉锁定对象，并且在左摇杆回中前不会重新查找。Slider 步长为 `0.005`，重复频率从 `0.33s` 开始，连续按住会逐步加快，最低间隔为 `0.06s`。
 
 ## 功能的大致实现方式
 

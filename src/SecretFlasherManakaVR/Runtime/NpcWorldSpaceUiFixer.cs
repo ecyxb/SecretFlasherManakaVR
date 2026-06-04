@@ -13,6 +13,8 @@ namespace SecretFlasherManakaVR.Runtime
         private const float FallbackHeadOffset = 1.75f;
         private const float SceneObjectScanMinIntervalSeconds = 0.5f;
         private const float SceneObjectScanMaxIntervalSeconds = 1.0f;
+        private const string NpcUiRootPath = "InGameManager/InGameCanvas/BackLayer";
+        private const string NpcDirectionArrowRootPath = "InGameManager/InGameCanvas/MiddleLayer/NpcDirectIconPanel";
 
         private static VrRuntimeSettings currentSettings = null!;
         private static Camera currentSourceCamera = null!;
@@ -94,11 +96,23 @@ namespace SecretFlasherManakaVR.Runtime
                 return;
             }
 
-            cachedViews = UnityEngine.Object.FindObjectsOfType<NpcUiView>();
-            cachedArrows = UnityEngine.Object.FindObjectsOfType<NpcDirectionArrowView>();
+            cachedViews = FindComponentsUnderPath<NpcUiView>(NpcUiRootPath);
+            cachedArrows = FindComponentsUnderPath<NpcDirectionArrowView>(NpcDirectionArrowRootPath);
             nextSceneObjectScanTime = Time.unscaledTime + UnityEngine.Random.Range(
                 SceneObjectScanMinIntervalSeconds,
                 SceneObjectScanMaxIntervalSeconds);
+        }
+
+        private static T[] FindComponentsUnderPath<T>(string rootPath)
+            where T : Component
+        {
+            GameObject root = GameObject.Find(rootPath);
+            if (root == null)
+            {
+                return Array.Empty<T>();
+            }
+
+            return root.GetComponentsInChildren<T>();
         }
 
         private bool HasInvalidCachedSceneObjects()
