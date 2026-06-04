@@ -161,6 +161,7 @@ PlayerHeadPoseChestWeight = 0.15
 PlayerHeadPoseNeckWeight = 0.3
 PlayerHeadPoseHeadWeight = 0.55
 PlayerHeadPoseSmoothFactor = 18
+HidePlayerNeckInVrFirstPerson = true
 ```
 
 `VrCameraBasePositionSmoothFactor` 和 `VrCameraBaseRotationSmoothFactor` 会在应用原始 HMD 姿态前平滑游戏源相机的基础位置和旋转。数值越高跟随越快；设为 `0` 可关闭平滑。
@@ -171,6 +172,7 @@ VR UI 面板：
 EnableVrUiBridge = true
 ConvertOverlayCanvasToWorldSpace = true
 VrUiFollowMode = HeadLocked
+IgnoreHeadRollForVrUi = true
 VrUiDistance = 1.4
 VrUiVerticalOffset = -0.1
 VrUiPanelScale = 1.08

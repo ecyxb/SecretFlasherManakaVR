@@ -2,6 +2,8 @@
 src/**/bin/
 src/**/obj/
 release
+dist/BepInEx/plugins/*.dll
+dist/debug_symbols/*.pdb
 
 # Local IDE/editor state
 .vs/

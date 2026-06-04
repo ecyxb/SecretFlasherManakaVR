@@ -36,7 +36,7 @@ function Resolve-GameRoot {
         $scriptDir = Split-Path -Parent $PSCommandPath
         $candidate = Resolve-Path -LiteralPath (Join-Path $scriptDir "..") -ErrorAction SilentlyContinue
         if (-not $candidate -or -not (Test-Path -LiteralPath (Join-Path $candidate.ProviderPath "SecretFlasherManaka.exe"))) {
-            throw "Game root could not be inferred. Run from VRModSrc or pass -GameRoot `"E:\erogame\SecretFlasherManaka v1.1.3`"."
+            throw "Game root could not be inferred. Run from the package root or pass -GameRoot `"<path to SecretFlasherManaka game root>`"."
         }
 
         $root = $candidate.ProviderPath

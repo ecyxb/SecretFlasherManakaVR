@@ -207,6 +207,7 @@ namespace SecretFlasherManakaVR.Runtime
             VrRuntimeState.BeginVrEyeRender(leftEye, rightEye, leftUiOverlay, rightUiOverlay);
             try
             {
+                PlayerNeckVisibilityController.BeginVrEyeRender();
                 if (leftEye != null && leftTexture != null)
                 {
                     if (!leftTexture.IsCreated())
@@ -231,6 +232,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
             finally
             {
+                PlayerNeckVisibilityController.EndVrEyeRender();
                 VrRuntimeState.EndVrEyeRender();
             }
 

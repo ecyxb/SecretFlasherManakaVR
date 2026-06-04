@@ -1,6 +1,6 @@
 # SecretFlasherManaka VR Mod Progress
 
-Workspace: `E:\erogame\SecretFlasherManaka v1.1.3`
+Workspace: local SecretFlasherManaka game root
 Date: 2026-05-24
 Coordinator: parent Codex agent
 
@@ -71,7 +71,7 @@ Build a separate BepInEx IL2CPP plugin named `SecretFlasherManakaVR.dll` that at
 - 2026-05-24: Fixed install location to `BepInEx\plugins\SecretFlasherManakaVR.dll`; this BepInEx build did not load the nested plugin directory.
 - 2026-05-24: Installed plugin with `-AllowMissingOpenVR` for fallback validation because no local `openvr_api.dll` was found.
 - 2026-05-24: Short launch validation passed: BepInEx loaded 2 plugins, `SecretFlasherManaka VR` soft-failed on missing `openvr_api.dll`, and the normal game continued.
-- 2026-05-24: Found official SteamVR x64 `openvr_api.dll` at `D:\software\steam\steamapps\common\SteamVR\bin\win64\openvr_api.dll`, copied it to `VRModSrc\Dependencies\openvr_api.dll` and `BepInEx\plugins\openvr_api.dll`, then reran install successfully.
+- 2026-05-24: Found official SteamVR x64 `openvr_api.dll` in the local SteamVR installation, copied it to `VRModSrc\Dependencies\openvr_api.dll` and `BepInEx\plugins\openvr_api.dll`, then reran install successfully.
 - 2026-05-24: User reported Quest/SteamVR showed only a normal big screen. Log showed `OpenVR init failed: Hmd Not Found (108)`, meaning SteamVR started but did not expose a PCVR HMD before plugin initialization.
 - 2026-05-24: Added OpenVR initialization retry in `VrRuntimeManager`: after HMD-not-ready failures it retries every 5 seconds instead of disabling VR permanently. Rebuilt and reinstalled successfully.
 - 2026-05-24: User reported Quest detects the game but SteamVR stays at preparing `SecretFlasherManaka`. Log shows OpenVR init, camera rig, and render textures succeed, but `OpenVR texture submit failed` repeats.

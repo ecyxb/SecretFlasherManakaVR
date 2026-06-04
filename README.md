@@ -161,6 +161,7 @@ PlayerHeadPoseChestWeight = 0.15
 PlayerHeadPoseNeckWeight = 0.3
 PlayerHeadPoseHeadWeight = 0.55
 PlayerHeadPoseSmoothFactor = 18
+HidePlayerNeckInVrFirstPerson = true
 ```
 
 `VrCameraBasePositionSmoothFactor` and `VrCameraBaseRotationSmoothFactor` smooth the source game camera before the raw HMD pose is applied. Higher values follow faster; `0` disables smoothing.
@@ -171,6 +172,7 @@ VR UI panel:
 EnableVrUiBridge = true
 ConvertOverlayCanvasToWorldSpace = true
 VrUiFollowMode = HeadLocked
+IgnoreHeadRollForVrUi = true
 VrUiDistance = 1.4
 VrUiVerticalOffset = -0.1
 VrUiPanelScale = 1.08

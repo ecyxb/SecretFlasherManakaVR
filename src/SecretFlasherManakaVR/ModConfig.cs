@@ -260,6 +260,12 @@ public sealed class ModConfig
                 "Smoothing speed for HMD-to-body head rotation. Higher values follow faster.",
                 new AcceptableValueRange<float>(0.0f, 60.0f)));
 
+        HidePlayerNeckInVrFirstPerson = config.Bind(
+            BodySection,
+            nameof(HidePlayerNeckInVrFirstPerson),
+            true,
+            "When enabled, hide neck-weighted triangles from the player body mesh while VR first-person head pose control is active.");
+
         SourceRotationMode = Fixed(VrSourceRotationMode.SourceYawOnly);
 
         MirrorMode = config.Bind(
@@ -339,7 +345,7 @@ public sealed class ModConfig
         IgnoreHeadRollForVrUi = config.Bind(
             VrUiSection,
             nameof(IgnoreHeadRollForVrUi),
-            false,
+            true,
             "When enabled, headset roll does not tilt the converted VR HUD panel.");
 
         VrUiDistance = config.Bind(
@@ -575,6 +581,7 @@ public sealed class ModConfig
     public ConfigEntry<float> PlayerHeadPoseNeckWeight { get; }
     public ConfigEntry<float> PlayerHeadPoseHeadWeight { get; }
     public ConfigEntry<float> PlayerHeadPoseSmoothFactor { get; }
+    public ConfigEntry<bool> HidePlayerNeckInVrFirstPerson { get; }
     public FixedConfigValue<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
     public FixedConfigValue<float> SceneTransitionVrPauseSeconds { get; }

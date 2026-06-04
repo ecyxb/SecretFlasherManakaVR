@@ -85,6 +85,7 @@ internal static class PlayerHeadPoseController
             cachedHead = referencer.Head;
             cachedFpCameraTarget = referencer.FPCameraTarget;
             cachedCameraTarget = referencer.CameraTarget;
+            PlayerNeckVisibilityController.CapturePlayer(referencer);
             hasReset = false;
             Plugin.Logger.LogInfo($"Player head pose controller captured player: {player.name}.");
         }
@@ -111,6 +112,7 @@ internal static class PlayerHeadPoseController
         if (!CanApply())
         {
             RestoreAppliedOffsets();
+            PlayerNeckVisibilityController.SetDesired(false);
             hasReset = false;
             return;
         }
@@ -144,6 +146,7 @@ internal static class PlayerHeadPoseController
         ApplyWeightedOffset(cachedChest, smoothedDelta, Plugin.Settings.PlayerHeadPoseChestWeight.Value, ref chestOffsetState);
         ApplyWeightedOffset(cachedNeck, smoothedDelta, Plugin.Settings.PlayerHeadPoseNeckWeight.Value, ref neckOffsetState);
         ApplyWeightedOffset(cachedHead, smoothedDelta, Plugin.Settings.PlayerHeadPoseHeadWeight.Value, ref headOffsetState);
+        PlayerNeckVisibilityController.SetDesired(true);
         lastActiveFrame = Time.frameCount;
     }
 

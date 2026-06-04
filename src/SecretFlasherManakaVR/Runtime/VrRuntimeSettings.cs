@@ -71,7 +71,7 @@ namespace SecretFlasherManakaVR.Runtime
         public bool EnableVrUiBridge = true;
         public bool ConvertOverlayCanvasToWorldSpace = true;
         public VrUiFollowMode VrUiFollowMode = VrUiFollowMode.HeadLocked;
-        public bool IgnoreHeadRollForVrUi = false;
+        public bool IgnoreHeadRollForVrUi = true;
         public float VrUiDistance = 1.4f;
         public float VrUiVerticalOffset = -0.1f;
         public float VrUiPanelScale = 1.05f;
