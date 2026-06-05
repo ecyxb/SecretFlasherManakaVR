@@ -60,6 +60,10 @@ namespace SecretFlasherManakaVR.Runtime
         public bool BlockNestedCameraRenderDuringVrRender = true;
         public bool DisableReflectionProbes = false;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
+        public bool EnableVrMirrorRenderer = true;
+        public int VrMirrorUpdateIntervalFrames = 2;
+        public int VrMirrorMaxUpdatesPerFrame = 1;
+        public float VrMirrorMaxDistance = 12.0f;
         public bool EnableVrCameraPostProcessing = true;
         public string VrCameraPostProcessingWhitelist =
             "UB.VignettesPE," +
@@ -115,6 +119,9 @@ namespace SecretFlasherManakaVR.Runtime
             FallbackRenderHeight = Mathf.Clamp(FallbackRenderHeight, 256, 8192);
             AntiAliasing = Mathf.Clamp(AntiAliasing, 1, 8);
             MissingCameraRetrySeconds = Mathf.Clamp(MissingCameraRetrySeconds, 0.1f, 10.0f);
+            VrMirrorUpdateIntervalFrames = Mathf.Clamp(VrMirrorUpdateIntervalFrames, 1, 30);
+            VrMirrorMaxUpdatesPerFrame = Mathf.Clamp(VrMirrorMaxUpdatesPerFrame, 1, 4);
+            VrMirrorMaxDistance = Mathf.Clamp(VrMirrorMaxDistance, 0.0f, 100.0f);
             SanitizeRange(ref HeadPositionCameraOffsetMinX, ref HeadPositionCameraOffsetMaxX);
             SanitizeRange(ref HeadPositionCameraOffsetMinY, ref HeadPositionCameraOffsetMaxY);
             SanitizeRange(ref HeadPositionCameraOffsetMinZ, ref HeadPositionCameraOffsetMaxZ);

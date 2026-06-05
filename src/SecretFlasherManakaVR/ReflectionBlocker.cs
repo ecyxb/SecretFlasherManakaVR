@@ -95,7 +95,8 @@ internal static class ReflectionBlocker
         string targetName = target == null
             ? "none"
             : (string.IsNullOrEmpty(target.name) ? "<unnamed>" : target.name);
-        return camera.gameObject.name + " targetTexture=" + targetName;
+        string targetSize = target == null ? string.Empty : " " + target.width + "x" + target.height;
+        return camera.gameObject.name + " targetTexture=" + targetName + targetSize;
     }
 
     public static string ProbeDescription(ReflectionProbe probe)

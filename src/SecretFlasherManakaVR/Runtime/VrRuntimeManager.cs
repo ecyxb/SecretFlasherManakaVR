@@ -23,6 +23,7 @@ namespace SecretFlasherManakaVR.Runtime
         private NpcWorldSpaceUiFixer npcWorldSpaceUiFixer;
         private PlayerSkinningPreRenderRefresher playerSkinningPreRenderRefresher;
         private VrCameraPostProcessingSynchronizer cameraPostProcessingSynchronizer;
+        private VrMirrorRenderer mirrorRenderer;
         private Camera sourceCamera;
         private readonly IVrRuntimeLogger logger;
         private RuntimePose lastPose;
@@ -224,6 +225,11 @@ namespace SecretFlasherManakaVR.Runtime
                 eyeMaskWeatherFogSuppressor.Tick();
             }
 
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.Tick(settings, sourceCamera, rig.HeadPosition);
+            }
+
             rig.Render(uiOverlayLayerMask);
             if (eyeMaskFinalComposite != null && uiBridge != null)
             {
@@ -257,6 +263,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 uiBridge.OnSceneChanged(settings);
             }
+
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.OnSceneChanged();
+            }
+
             ResetSourceBaseSmoothing();
 
             if (npcWorldSpaceUiFixer != null)
@@ -341,6 +353,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 cameraPostProcessingSynchronizer.Clear();
                 cameraPostProcessingSynchronizer = null;
+            }
+
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.Shutdown();
+                mirrorRenderer = null;
             }
 
             if (rig != null)
@@ -447,6 +465,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 cameraPostProcessingSynchronizer = new VrCameraPostProcessingSynchronizer();
                 logger.Info("VR camera post-processing synchronizer component created.");
+            }
+
+            if (mirrorRenderer == null)
+            {
+                mirrorRenderer = new VrMirrorRenderer(logger);
+                logger.Info("VR mirror renderer component created.");
             }
 
             vrReady = true;

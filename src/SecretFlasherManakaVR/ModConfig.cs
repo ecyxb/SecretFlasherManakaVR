@@ -274,6 +274,36 @@ public sealed class ModConfig
             SecretFlasherManakaVR.MirrorMode.MainCamera,
             "Controls what the normal desktop window shows while VR output is active.");
 
+        EnableVrMirrorRenderer = config.Bind(
+            StereoSection,
+            nameof(EnableVrMirrorRenderer),
+            true,
+            "Render scene mirrors by letting the original MirrorManager prepare cameras/materials, then rendering those cameras from VRMod's controlled loop.");
+
+        VrMirrorUpdateIntervalFrames = config.Bind(
+            StereoSection,
+            nameof(VrMirrorUpdateIntervalFrames),
+            2,
+            new ConfigDescription(
+                "Render each scene mirror once every N frames. Higher values reduce GPU work.",
+                new AcceptableValueRange<int>(1, 30)));
+
+        VrMirrorMaxUpdatesPerFrame = config.Bind(
+            StereoSection,
+            nameof(VrMirrorMaxUpdatesPerFrame),
+            1,
+            new ConfigDescription(
+                "Maximum number of scene mirrors rendered in a single VR frame.",
+                new AcceptableValueRange<int>(1, 4)));
+
+        VrMirrorMaxDistance = config.Bind(
+            StereoSection,
+            nameof(VrMirrorMaxDistance),
+            12.0f,
+            new ConfigDescription(
+                "Maximum distance from the HMD to a mirror before VRMod stops updating it. Set 0 to disable distance culling.",
+                new AcceptableValueRange<float>(0.0f, 100.0f)));
+
         SceneTransitionVrPauseSeconds = Fixed(1.5f);
 
         RenderScale = config.Bind(
@@ -584,6 +614,10 @@ public sealed class ModConfig
     public ConfigEntry<bool> HidePlayerNeckInVrFirstPerson { get; }
     public FixedConfigValue<VrSourceRotationMode> SourceRotationMode { get; }
     public ConfigEntry<MirrorMode> MirrorMode { get; }
+    public ConfigEntry<bool> EnableVrMirrorRenderer { get; }
+    public ConfigEntry<int> VrMirrorUpdateIntervalFrames { get; }
+    public ConfigEntry<int> VrMirrorMaxUpdatesPerFrame { get; }
+    public ConfigEntry<float> VrMirrorMaxDistance { get; }
     public FixedConfigValue<float> SceneTransitionVrPauseSeconds { get; }
     public ConfigEntry<float> RenderScale { get; }
     public ConfigEntry<bool> EnableVrCameraPostProcessing { get; }

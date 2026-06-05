@@ -35,6 +35,11 @@ internal static class CameraRenderPatch
             return false;
         }
 
+        if (VrRuntimeState.IsRenderingVrMirror)
+        {
+            return false;
+        }
+
         bool nestedNonVrCamera = VrRuntimeState.IsRenderingVrEyes &&
             Plugin.Settings.BlockNestedCameraRenderDuringVrRender.Value;
         bool reflectionCamera = Plugin.Settings.BlockReflectionCameraRenderWhileVrActive.Value &&
