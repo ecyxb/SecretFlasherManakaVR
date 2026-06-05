@@ -130,8 +130,7 @@ $projectRoots = if ($ProjectDir) {
 }
 else {
     @(
-        (Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaVR"),
-        (Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaRingMenuLongPress")
+        (Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaVR")
     )
 }
 $projectFiles = @($projectRoots | ForEach-Object { Resolve-ProjectFile -ProjectRoot $_ })

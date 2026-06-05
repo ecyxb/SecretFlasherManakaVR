@@ -229,14 +229,6 @@ if ($isVrPlugin) {
     }
 }
 
-$ringProjectRoot = Join-Path $packageRoot.ProviderPath "src\SecretFlasherManakaRingMenuLongPress"
-if (-not $ProjectDir -and (Test-Path -LiteralPath $ringProjectRoot -PathType Container)) {
-    $ringPlugin = Find-BuiltPlugin -ProjectRoot $ringProjectRoot -BuildConfiguration $Configuration
-    if ($ringPlugin.Name -ieq "SecretFlasherManakaRingMenuLongPress.dll") {
-        $installedPlugins += Copy-PluginIfChanged -Plugin $ringPlugin -PluginInstallDir $pluginInstallDir -Force:$Force
-    }
-}
-
 Write-Host ""
 Write-Host "Install complete:"
 Write-Host "  Plugins:"

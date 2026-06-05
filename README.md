@@ -2,10 +2,9 @@
 
 Language: English | [简体中文](README.zh-CN.md)
 
-This repository packages two separate BepInEx IL2CPP plugins for SecretFlasherManaka:
+This repository packages a BepInEx IL2CPP VR plugin for SecretFlasherManaka:
 
 - `SecretFlasherManakaVR.dll`: sends the game view to SteamVR/OpenVR for PCVR play.
-- `SecretFlasherManakaRingMenuLongPress.dll`: makes the ring-menu long-press threshold configurable.
 
 The package does not include game files, BepInEx, or `SecretFlasherManakaMod.dll`. It is meant to be copied into an existing game install that already has BepInEx IL2CPP set up.
 
@@ -35,7 +34,6 @@ During scene transitions, special cutscene cameras, or GameOver cameras, the VR 
 - VR UI capture for supported screen-space canvases, including HUD positioning, fullscreen-effect overlay separation, and NPC marker reprojection.
 - Supports some CustomMissions2 features; other plugins remain untested.
 - Reflection and mirror stability guards that keep mirror models visible while blocking recursive reflection rendering paths.
-- Ring-menu long-press threshold helper as a separate BepInEx plugin.
 
 ## Install
 
@@ -43,24 +41,20 @@ Copy or merge the files under `dist/BepInEx` into the game root:
 
 ```text
 dist/BepInEx/plugins/SecretFlasherManakaVR.dll
-dist/BepInEx/plugins/SecretFlasherManakaRingMenuLongPress.dll
 dist/BepInEx/plugins/openvr_api.dll
 dist/BepInEx/plugins/SecretFlasherManakaVR_Input/actions.json
 dist/BepInEx/plugins/SecretFlasherManakaVR_Input/bindings_oculus_touch.json
 dist/BepInEx/config/com.codex.secretflashermanaka.vr.cfg
-dist/BepInEx/config/com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 Expected final locations:
 
 ```text
 <GameRoot>/BepInEx/plugins/SecretFlasherManakaVR.dll
-<GameRoot>/BepInEx/plugins/SecretFlasherManakaRingMenuLongPress.dll
 <GameRoot>/BepInEx/plugins/openvr_api.dll
 <GameRoot>/BepInEx/plugins/SecretFlasherManakaVR_Input/actions.json
 <GameRoot>/BepInEx/plugins/SecretFlasherManakaVR_Input/bindings_oculus_touch.json
 <GameRoot>/BepInEx/config/com.codex.secretflashermanaka.vr.cfg
-<GameRoot>/BepInEx/config/com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 Do not remove or overwrite `SecretFlasherManakaMod.dll`.
@@ -89,12 +83,11 @@ scripts\build.ps1 -GameRoot "<GameRoot>" -Configuration Release
 scripts\install.ps1 -GameRoot "<GameRoot>" -Configuration Release
 ```
 
-By default, `build.ps1` builds both plugin projects:
+By default, `build.ps1` builds the VR plugin project:
 
 - `src/SecretFlasherManakaVR/SecretFlasherManakaVR.csproj`
-- `src/SecretFlasherManakaRingMenuLongPress/SecretFlasherManakaRingMenuLongPress.csproj`
 
-The two plugins remain separate DLLs. `install.ps1` copies both plugin DLLs, the VR plugin's OpenVR dependency, and the SteamVR Input JSON files.
+`install.ps1` copies the VR plugin DLL, the OpenVR dependency, and the SteamVR Input JSON files.
 
 ## Configuration
 
@@ -206,23 +199,6 @@ NpcWorldSpaceUiMinScaleDistance = 3
 NpcWorldSpaceUiMaxScaleDistance = 7
 ```
 
-### Ring Menu Long Press Config
-
-File:
-
-```text
-com.codex.secretflashermanaka.ringmenulongpress.cfg
-```
-
-Settings:
-
-```ini
-EnablePatch = true
-RingMenuLongPressCount = 20
-```
-
-The vanilla ring menu uses a shorter long-press count. Raising the value makes accidental ring-menu opens less likely.
-
 ## JSON Configuration And VR Input System
 
 The Quest 3 input path uses SteamVR Input JSON resources installed under:
@@ -293,11 +269,6 @@ Compatibility patches:
 - `InputMouseAxisPatch.cs` suppresses legacy mouse look while HMD pose owns the view.
 - `BlackCensorControllerPatch.cs` suppresses a repeated game-side null reference path.
 
-Ring menu plugin:
-
-- `SecretFlasherManakaRingMenuLongPress` is a separate BepInEx plugin.
-- It patches `RingMenuParentView.GetLongDown` and routes the long-press count through `RingMenuLongPressCount`.
-
 ## Test Checklist
 
 1. Start SteamVR and connect the headset PCVR stream.
@@ -330,8 +301,7 @@ SecretFlasherManakaVR_Package/
 ├─ README.md
 ├─ README.zh-CN.md
 ├─ src/
-│  ├─ SecretFlasherManakaVR/
-│  └─ SecretFlasherManakaRingMenuLongPress/
+│  └─ SecretFlasherManakaVR/
 ├─ scripts/
 │  ├─ build.ps1
 │  └─ install.ps1
@@ -341,13 +311,11 @@ SecretFlasherManakaVR_Package/
 │  ├─ actions.json
 │  └─ bindings_oculus_touch.json
 ├─ config/
-│  ├─ com.codex.secretflashermanaka.vr.cfg
-│  └─ com.codex.secretflashermanaka.ringmenulongpress.cfg
+│  └─ com.codex.secretflashermanaka.vr.cfg
 └─ dist/
    ├─ BepInEx/
    │  ├─ plugins/
    │  │  ├─ SecretFlasherManakaVR.dll
-   │  │  ├─ SecretFlasherManakaRingMenuLongPress.dll
    │  │  ├─ openvr_api.dll
    │  │  └─ SecretFlasherManakaVR_Input/
    │  └─ config/

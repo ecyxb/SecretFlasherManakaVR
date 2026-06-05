@@ -2,10 +2,9 @@
 
 语言：[English](README.md) | 简体中文
 
-这个仓库打包了两个独立的 SecretFlasherManaka BepInEx IL2CPP 插件：
+这个仓库打包了一个 SecretFlasherManaka BepInEx IL2CPP VR 插件：
 
 - `SecretFlasherManakaVR.dll`：把游戏画面输出到 SteamVR/OpenVR，用于 PCVR。
-- `SecretFlasherManakaRingMenuLongPress.dll`：把环形菜单长按阈值做成可配置项。
 
 这个包不包含游戏本体、BepInEx，也不会覆盖 `SecretFlasherManakaMod.dll`。它面向已经安装好 BepInEx IL2CPP 的游戏目录。
 
@@ -35,7 +34,6 @@
 - 支持把部分屏幕空间 UI 捕获到 VR 面板，包括 HUD 位置、全屏特效覆盖层和 NPC 头顶标记重投影。
 - 支持 CustomMissions2 的部分功能；其他插件依旧未经测试。
 - 保留镜子模型，但阻止镜子/反射相机递归渲染，降低卡死和闪烁风险。
-- 环形菜单长按阈值作为单独 BepInEx 插件提供。
 
 ## 安装方式
 
@@ -43,24 +41,20 @@
 
 ```text
 dist/BepInEx/plugins/SecretFlasherManakaVR.dll
-dist/BepInEx/plugins/SecretFlasherManakaRingMenuLongPress.dll
 dist/BepInEx/plugins/openvr_api.dll
 dist/BepInEx/plugins/SecretFlasherManakaVR_Input/actions.json
 dist/BepInEx/plugins/SecretFlasherManakaVR_Input/bindings_oculus_touch.json
 dist/BepInEx/config/com.codex.secretflashermanaka.vr.cfg
-dist/BepInEx/config/com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 最终位置应该是：
 
 ```text
 <游戏根目录>/BepInEx/plugins/SecretFlasherManakaVR.dll
-<游戏根目录>/BepInEx/plugins/SecretFlasherManakaRingMenuLongPress.dll
 <游戏根目录>/BepInEx/plugins/openvr_api.dll
 <游戏根目录>/BepInEx/plugins/SecretFlasherManakaVR_Input/actions.json
 <游戏根目录>/BepInEx/plugins/SecretFlasherManakaVR_Input/bindings_oculus_touch.json
 <游戏根目录>/BepInEx/config/com.codex.secretflashermanaka.vr.cfg
-<游戏根目录>/BepInEx/config/com.codex.secretflashermanaka.ringmenulongpress.cfg
 ```
 
 不要删除或覆盖 `SecretFlasherManakaMod.dll`。
@@ -89,12 +83,11 @@ scripts\build.ps1 -GameRoot "<游戏根目录>" -Configuration Release
 scripts\install.ps1 -GameRoot "<游戏根目录>" -Configuration Release
 ```
 
-默认情况下，`build.ps1` 会构建两个项目：
+默认情况下，`build.ps1` 只构建 VR 插件项目：
 
 - `src/SecretFlasherManakaVR/SecretFlasherManakaVR.csproj`
-- `src/SecretFlasherManakaRingMenuLongPress/SecretFlasherManakaRingMenuLongPress.csproj`
 
-两个插件仍然会输出为两个独立 DLL。`install.ps1` 会复制两个插件 DLL、VR 插件的 OpenVR 依赖，以及 SteamVR Input JSON 文件。
+`install.ps1` 会复制 VR 插件 DLL、OpenVR 依赖，以及 SteamVR Input JSON 文件。
 
 ## 配置
 
@@ -206,23 +199,6 @@ NpcWorldSpaceUiMinScaleDistance = 3
 NpcWorldSpaceUiMaxScaleDistance = 7
 ```
 
-### 环形菜单长按配置
-
-文件：
-
-```text
-com.codex.secretflashermanaka.ringmenulongpress.cfg
-```
-
-配置项：
-
-```ini
-EnablePatch = true
-RingMenuLongPressCount = 20
-```
-
-原版环形菜单长按计数更短。提高这个值可以降低误开环形菜单的概率。
-
 ## JSON 配置和 VR 输入系统
 
 Quest 3 输入路径依赖安装在这里的 SteamVR Input JSON 资源：
@@ -293,11 +269,6 @@ UI 和输入：
 - `InputMouseAxisPatch.cs` 在 HMD 姿态接管视角时屏蔽 legacy 鼠标视角输入。
 - `BlackCensorControllerPatch.cs` 压制一个游戏侧会重复出现的空引用路径。
 
-环形菜单插件：
-
-- `SecretFlasherManakaRingMenuLongPress` 是独立 BepInEx 插件。
-- 它 patch `RingMenuParentView.GetLongDown`，并把长按计数切换到 `RingMenuLongPressCount`。
-
 ## 测试清单
 
 1. 启动 SteamVR，并连接头显的 PCVR 串流。
@@ -330,8 +301,7 @@ SecretFlasherManakaVR_Package/
 ├─ README.md
 ├─ README.zh-CN.md
 ├─ src/
-│  ├─ SecretFlasherManakaVR/
-│  └─ SecretFlasherManakaRingMenuLongPress/
+│  └─ SecretFlasherManakaVR/
 ├─ scripts/
 │  ├─ build.ps1
 │  └─ install.ps1
@@ -341,13 +311,11 @@ SecretFlasherManakaVR_Package/
 │  ├─ actions.json
 │  └─ bindings_oculus_touch.json
 ├─ config/
-│  ├─ com.codex.secretflashermanaka.vr.cfg
-│  └─ com.codex.secretflashermanaka.ringmenulongpress.cfg
+│  └─ com.codex.secretflashermanaka.vr.cfg
 └─ dist/
    ├─ BepInEx/
    │  ├─ plugins/
    │  │  ├─ SecretFlasherManakaVR.dll
-   │  │  ├─ SecretFlasherManakaRingMenuLongPress.dll
    │  │  ├─ openvr_api.dll
    │  │  └─ SecretFlasherManakaVR_Input/
    │  └─ config/

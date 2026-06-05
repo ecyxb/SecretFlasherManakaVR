@@ -134,14 +134,12 @@ $inputDir = Join-Path $pluginsDir "SecretFlasherManakaVR_Input"
 $configDir = Join-Path $stagingRoot "BepInEx\config"
 
 Copy-RequiredFile -Source (Join-Path $packageRoot "src\SecretFlasherManakaVR\bin\$Configuration\SecretFlasherManakaVR.dll") -Destination (Join-Path $pluginsDir "SecretFlasherManakaVR.dll")
-Copy-RequiredFile -Source (Join-Path $packageRoot "src\SecretFlasherManakaRingMenuLongPress\bin\$Configuration\SecretFlasherManakaRingMenuLongPress.dll") -Destination (Join-Path $pluginsDir "SecretFlasherManakaRingMenuLongPress.dll")
 Copy-RequiredFile -Source (Join-Path $packageRoot "dependencies\openvr_api.dll") -Destination (Join-Path $pluginsDir "openvr_api.dll")
 
 Copy-RequiredFile -Source (Join-Path $packageRoot "input\actions.json") -Destination (Join-Path $inputDir "actions.json")
 Copy-RequiredFile -Source (Join-Path $packageRoot "input\bindings_oculus_touch.json") -Destination (Join-Path $inputDir "bindings_oculus_touch.json")
 
 Copy-RequiredFile -Source (Join-Path $packageRoot "config\com.codex.secretflashermanaka.vr.cfg") -Destination (Join-Path $configDir "com.codex.secretflashermanaka.vr.cfg")
-Copy-RequiredFile -Source (Join-Path $packageRoot "config\com.codex.secretflashermanaka.ringmenulongpress.cfg") -Destination (Join-Path $configDir "com.codex.secretflashermanaka.ringmenulongpress.cfg")
 
 Copy-RequiredFile -Source (Join-Path $packageRoot "LICENSE") -Destination (Join-Path $stagingRoot "LICENSE")
 Copy-RequiredFile -Source (Join-Path $packageRoot "THIRD_PARTY_NOTICES.md") -Destination (Join-Path $stagingRoot "THIRD_PARTY_NOTICES.md")
@@ -151,7 +149,6 @@ Copy-RequiredFile -Source (Join-Path $packageRoot "README.zh-CN.md") -Destinatio
 if ($IncludeDebugSymbols) {
     $symbolsDir = Join-Path $stagingRoot "debug_symbols"
     Copy-RequiredFile -Source (Join-Path $packageRoot "src\SecretFlasherManakaVR\bin\$Configuration\SecretFlasherManakaVR.pdb") -Destination (Join-Path $symbolsDir "SecretFlasherManakaVR.pdb")
-    Copy-RequiredFile -Source (Join-Path $packageRoot "src\SecretFlasherManakaRingMenuLongPress\bin\$Configuration\SecretFlasherManakaRingMenuLongPress.pdb") -Destination (Join-Path $symbolsDir "SecretFlasherManakaRingMenuLongPress.pdb")
 }
 
 if (Test-Path -LiteralPath $zipPath -PathType Leaf) {
