@@ -11,22 +11,28 @@ namespace SecretFlasherManakaVR.Runtime
         private readonly IVrRuntimeLogger logger;
         private readonly List<MirrorEntry> entries = new List<MirrorEntry>();
         private readonly HashSet<int> skippedReflectiveObjectWarnings = new HashSet<int>();
+        private const int MaxConsecutiveRenderFailures = 3;
         private int nextEntryIndex;
-        private int lastScanFrame = -1;
+        private bool needsSceneMirrorScan = true;
 
         public VrMirrorRenderer(IVrRuntimeLogger logger)
         {
             this.logger = logger ?? NullVrRuntimeLogger.Instance;
         }
 
-        public void Tick(VrRuntimeSettings settings, Camera sourceCamera, Vector3 headPosition)
+        public void Tick(VrRuntimeSettings settings, Camera eyeCamera, Vector3 headPosition, RuntimeEye eye)
         {
-            if (settings == null || !settings.EnableVrMirrorRenderer || sourceCamera == null)
+            if (settings == null || !settings.EnableVrMirrorRenderer || eyeCamera == null)
             {
                 return;
             }
 
-            ScanMirrors();
+            if (needsSceneMirrorScan)
+            {
+                ScanMirrors();
+                needsSceneMirrorScan = false;
+            }
+
             RemoveInvalidEntries();
             if (entries.Count == 0)
             {
@@ -45,12 +51,12 @@ namespace SecretFlasherManakaVR.Runtime
 
                 MirrorEntry entry = entries[nextEntryIndex++];
                 checkedCount++;
-                if (!ShouldUpdate(entry, settings, headPosition))
+                if (!ShouldUpdate(entry, settings, headPosition, eye))
                 {
                     continue;
                 }
 
-                RenderMirror(entry, sourceCamera);
+                RenderMirror(entry, eyeCamera, eye);
                 updatesThisFrame++;
             }
         }
@@ -60,7 +66,7 @@ namespace SecretFlasherManakaVR.Runtime
             entries.Clear();
             skippedReflectiveObjectWarnings.Clear();
             nextEntryIndex = 0;
-            lastScanFrame = -1;
+            needsSceneMirrorScan = true;
         }
 
         public void Shutdown()
@@ -70,12 +76,6 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void ScanMirrors()
         {
-            if (Time.frameCount == lastScanFrame)
-            {
-                return;
-            }
-
-            lastScanFrame = Time.frameCount;
             MirrorManager[] managers = UnityEngine.Object.FindObjectsOfType<MirrorManager>();
             for (int i = 0; i < managers.Length; i++)
             {
@@ -95,7 +95,7 @@ namespace SecretFlasherManakaVR.Runtime
                 logger.Info(
                     "VR mirror renderer attached to original MirrorManager " +
                     ReflectionBlocker.GetPath(manager.gameObject) +
-                    ". The original setup path will run with renderCam=false.");
+                    ". The original render path will run from VRMod's controlled mirror pass.");
             }
         }
 
@@ -151,20 +151,27 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        private void RenderMirror(MirrorEntry entry, Camera sourceCamera)
+        private void RenderMirror(MirrorEntry entry, Camera eyeCamera, RuntimeEye eye)
         {
             VrRuntimeState.BeginVrMirrorRender(null);
             try
             {
-                entry.Manager.RenderReflective(sourceCamera, true, true);
-                entry.LastRenderFrame = Time.frameCount;
+                entry.Manager.RenderReflective(eyeCamera, true, true);
+                entry.MarkRenderSuccess();
+                entry.SetLastRenderFrame(eye, Time.frameCount);
             }
             catch (Exception ex)
             {
-                logger.Warning(
-                    "Original VR mirror render failed for " +
-                    ReflectionBlocker.GetPath(entry.Manager.gameObject) +
-                    ": " + ex.Message);
+                if (entry.MarkRenderFailure(MaxConsecutiveRenderFailures))
+                {
+                    logger.Warning(
+                        "Disabling VR mirror renderer for " +
+                        ReflectionBlocker.GetPath(entry.Manager.gameObject) +
+                        " after " +
+                        entry.ConsecutiveRenderFailures +
+                        " consecutive original RenderReflective failures: " +
+                        CompactException(ex));
+                }
             }
             finally
             {
@@ -186,9 +193,9 @@ namespace SecretFlasherManakaVR.Runtime
                 " because MirrorManager.ReflectiveObjects is empty or has no renderers.");
         }
 
-        private bool ShouldUpdate(MirrorEntry entry, VrRuntimeSettings settings, Vector3 headPosition)
+        private bool ShouldUpdate(MirrorEntry entry, VrRuntimeSettings settings, Vector3 headPosition, RuntimeEye eye)
         {
-            if (!entry.IsValid)
+            if (!entry.IsValid || entry.RenderDisabled)
             {
                 return false;
             }
@@ -201,7 +208,8 @@ namespace SecretFlasherManakaVR.Runtime
             }
 
             int interval = Mathf.Max(1, settings.VrMirrorUpdateIntervalFrames);
-            return entry.LastRenderFrame < 0 || Time.frameCount - entry.LastRenderFrame >= interval;
+            int lastRenderFrame = entry.GetLastRenderFrame(eye);
+            return lastRenderFrame < 0 || Time.frameCount - lastRenderFrame >= interval;
         }
 
         private void RemoveInvalidEntries()
@@ -230,6 +238,28 @@ namespace SecretFlasherManakaVR.Runtime
             return null;
         }
 
+        private static string CompactException(Exception ex)
+        {
+            if (ex == null)
+            {
+                return "unknown exception";
+            }
+
+            string message = ex.Message ?? string.Empty;
+            int newline = message.IndexOfAny(new[] { '\r', '\n' });
+            if (newline >= 0)
+            {
+                message = message.Substring(0, newline);
+            }
+
+            if (message.Length == 0)
+            {
+                return ex.GetType().Name;
+            }
+
+            return ex.GetType().Name + ": " + message;
+        }
+
         private static bool IsUsableMirrorManager(MirrorManager manager)
         {
             try
@@ -250,14 +280,60 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 Manager = manager;
                 FirstRenderer = firstRenderer;
-                LastRenderFrame = -1;
+                LastLeftRenderFrame = -1;
+                LastRightRenderFrame = -1;
             }
 
             public MirrorManager Manager { get; }
 
             public Renderer FirstRenderer { get; }
 
-            public int LastRenderFrame { get; set; }
+            public int LastLeftRenderFrame { get; private set; }
+
+            public int LastRightRenderFrame { get; private set; }
+
+            public int ConsecutiveRenderFailures { get; private set; }
+
+            public bool RenderDisabled { get; private set; }
+
+            public int GetLastRenderFrame(RuntimeEye eye)
+            {
+                return eye == RuntimeEye.Left ? LastLeftRenderFrame : LastRightRenderFrame;
+            }
+
+            public void SetLastRenderFrame(RuntimeEye eye, int frame)
+            {
+                if (eye == RuntimeEye.Left)
+                {
+                    LastLeftRenderFrame = frame;
+                }
+                else
+                {
+                    LastRightRenderFrame = frame;
+                }
+            }
+
+            public void MarkRenderSuccess()
+            {
+                ConsecutiveRenderFailures = 0;
+            }
+
+            public bool MarkRenderFailure(int maxConsecutiveFailures)
+            {
+                if (RenderDisabled)
+                {
+                    return false;
+                }
+
+                ConsecutiveRenderFailures++;
+                if (ConsecutiveRenderFailures < maxConsecutiveFailures)
+                {
+                    return false;
+                }
+
+                RenderDisabled = true;
+                return true;
+            }
 
             public bool IsValid
             {

@@ -227,10 +227,17 @@ namespace SecretFlasherManakaVR.Runtime
 
             if (mirrorRenderer != null)
             {
-                mirrorRenderer.Tick(settings, sourceCamera, rig.HeadPosition);
+                mirrorRenderer.Tick(settings, rig.LeftEyeCamera, rig.HeadPosition, RuntimeEye.Left);
             }
 
-            rig.Render(uiOverlayLayerMask);
+            rig.RenderLeftEye(uiOverlayLayerMask);
+
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.Tick(settings, rig.RightEyeCamera, rig.HeadPosition, RuntimeEye.Right);
+            }
+
+            rig.RenderRightEye(uiOverlayLayerMask);
             if (eyeMaskFinalComposite != null && uiBridge != null)
             {
                 eyeMaskFinalComposite.Apply(rig.LeftTexture, rig.RightTexture, uiBridge.EyeMaskOverlayTexture);

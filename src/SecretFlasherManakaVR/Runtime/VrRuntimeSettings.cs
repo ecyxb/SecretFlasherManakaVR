@@ -61,7 +61,7 @@ namespace SecretFlasherManakaVR.Runtime
         public bool DisableReflectionProbes = false;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
         public bool EnableVrMirrorRenderer = true;
-        public int VrMirrorUpdateIntervalFrames = 2;
+        public int VrMirrorUpdateIntervalFrames = 1;
         public int VrMirrorMaxUpdatesPerFrame = 1;
         public float VrMirrorMaxDistance = 12.0f;
         public bool EnableVrCameraPostProcessing = true;

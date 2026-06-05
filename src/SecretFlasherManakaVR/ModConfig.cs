@@ -283,9 +283,9 @@ public sealed class ModConfig
         VrMirrorUpdateIntervalFrames = config.Bind(
             StereoSection,
             nameof(VrMirrorUpdateIntervalFrames),
-            2,
+            1,
             new ConfigDescription(
-                "Render each scene mirror once every N frames. Higher values reduce GPU work.",
+                "Render each scene mirror once every N frames per eye. Keep this at 1 for stable VR mirrors.",
                 new AcceptableValueRange<int>(1, 30)));
 
         VrMirrorMaxUpdatesPerFrame = config.Bind(
