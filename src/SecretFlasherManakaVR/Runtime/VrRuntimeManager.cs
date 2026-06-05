@@ -100,7 +100,6 @@ namespace SecretFlasherManakaVR.Runtime
                 $"EnableVR={settings.EnableVR}, " +
                 $"AutoStartSteamVR={settings.AutoStartSteamVR}, " +
                 $"RenderScale={settings.RenderScale}, " +
-                $"MirrorMode={settings.MirrorMode}, " +
                 $"EnableVrUiBridge={settings.EnableVrUiBridge}.");
 
             if (!settings.EnableVR)
@@ -246,11 +245,6 @@ namespace SecretFlasherManakaVR.Runtime
             SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out _);
             SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out _);
             bridge.PostPresentHandoff();
-
-            if (settings.MirrorMode == VrMirrorMode.LeftEye || settings.MirrorMode == VrMirrorMode.RightEye)
-            {
-                rig.Mirror(settings.MirrorMode);
-            }
 
         }
 

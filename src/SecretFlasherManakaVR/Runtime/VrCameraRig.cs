@@ -278,18 +278,6 @@ namespace SecretFlasherManakaVR.Runtime
             RenderUiOverlay(eyeCamera, overlayCamera, targetTexture, uiOverlayLayerMask);
         }
 
-        public void Mirror(VrMirrorMode mode)
-        {
-            if (mode == VrMirrorMode.LeftEye && leftTexture != null)
-            {
-                Graphics.Blit(leftTexture, (RenderTexture)null);
-            }
-            else if (mode == VrMirrorMode.RightEye && rightTexture != null)
-            {
-                Graphics.Blit(rightTexture, (RenderTexture)null);
-            }
-        }
-
         public void Shutdown()
         {
             ReleaseRenderTextures();

@@ -3,14 +3,6 @@ using SecretFlasherManakaVR.OpenVR;
 
 namespace SecretFlasherManakaVR.Runtime
 {
-    public enum VrMirrorMode
-    {
-        SourceCamera = 0,
-        Disabled = 1,
-        LeftEye = 2,
-        RightEye = 3
-    }
-
     public enum VrSourceRotationMode
     {
         FullSourceCamera = 0,
@@ -46,7 +38,6 @@ namespace SecretFlasherManakaVR.Runtime
         public float VrCameraBasePositionSmoothFactor = 18.0f;
         public float VrCameraBaseRotationSmoothFactor = 24.0f;
         public VrSourceRotationMode SourceRotationMode = VrSourceRotationMode.SourceYawOnly;
-        public VrMirrorMode MirrorMode = VrMirrorMode.SourceCamera;
         public float SceneTransitionVrPauseSeconds = 1.5f;
         public bool UseOpenVRProjection = true;
         public OpenVRProjectionMode OpenVRProjectionMode = OpenVRProjectionMode.RawSwapVertical;

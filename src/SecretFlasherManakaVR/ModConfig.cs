@@ -5,14 +5,6 @@ using UnityEngine;
 
 namespace SecretFlasherManakaVR;
 
-public enum MirrorMode
-{
-    MainCamera,
-    LeftEye,
-    RightEye,
-    Disabled
-}
-
 public enum Quest3CursorRayDirection
 {
     Forward,
@@ -267,12 +259,6 @@ public sealed class ModConfig
             "When enabled, hide neck-weighted triangles from the player body mesh while VR first-person head pose control is active.");
 
         SourceRotationMode = Fixed(VrSourceRotationMode.SourceYawOnly);
-
-        MirrorMode = config.Bind(
-            CoreSection,
-            nameof(MirrorMode),
-            SecretFlasherManakaVR.MirrorMode.MainCamera,
-            "Controls what the normal desktop window shows while VR output is active.");
 
         EnableVrMirrorRenderer = config.Bind(
             StereoSection,
@@ -613,7 +599,6 @@ public sealed class ModConfig
     public ConfigEntry<float> PlayerHeadPoseSmoothFactor { get; }
     public ConfigEntry<bool> HidePlayerNeckInVrFirstPerson { get; }
     public FixedConfigValue<VrSourceRotationMode> SourceRotationMode { get; }
-    public ConfigEntry<MirrorMode> MirrorMode { get; }
     public ConfigEntry<bool> EnableVrMirrorRenderer { get; }
     public ConfigEntry<int> VrMirrorUpdateIntervalFrames { get; }
     public ConfigEntry<int> VrMirrorMaxUpdatesPerFrame { get; }
