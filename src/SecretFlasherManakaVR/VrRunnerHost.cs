@@ -340,6 +340,7 @@ public sealed class VrRunnerHost : MonoBehaviour
             VrMirrorMaxDistance = settings.VrMirrorMaxDistance.Value,
             EnableVrUiBridge = settings.EnableVrUiBridge.Value,
             ConvertOverlayCanvasToWorldSpace = settings.ConvertOverlayCanvasToWorldSpace.Value,
+            EnableCustomMissionCameraPreviewFix = settings.EnableCustomMissionCameraPreviewFix.Value,
             VrUiFollowMode = settings.VrUiFollowMode.Value,
             IgnoreHeadRollForVrUi = settings.IgnoreHeadRollForVrUi.Value,
             VrUiDistance = settings.VrUiDistance.Value,

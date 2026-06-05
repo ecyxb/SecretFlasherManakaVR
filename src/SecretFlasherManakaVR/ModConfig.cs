@@ -352,6 +352,12 @@ public sealed class ModConfig
             true,
             "Capture supported screen-space canvases into a VR texture panel while VR is active.");
 
+        EnableCustomMissionCameraPreviewFix = config.Bind(
+            VrUiSection,
+            nameof(EnableCustomMissionCameraPreviewFix),
+            true,
+            "Enable compatibility for Custom Missions v2 CameraApp preview in VR UI. This lets its RenderTexture camera keep running and renders its RawImage with a standard Unity UI shader.");
+
         VrUiFollowMode = config.Bind(
             VrUiSection,
             nameof(VrUiFollowMode),
@@ -624,6 +630,7 @@ public sealed class ModConfig
     public FixedConfigValue<string> ReflectionCameraNameKeywords { get; }
     public ConfigEntry<bool> EnableVrUiBridge { get; }
     public ConfigEntry<bool> ConvertOverlayCanvasToWorldSpace { get; }
+    public ConfigEntry<bool> EnableCustomMissionCameraPreviewFix { get; }
     public ConfigEntry<VrUiFollowMode> VrUiFollowMode { get; }
     public ConfigEntry<bool> IgnoreHeadRollForVrUi { get; }
     public ConfigEntry<float> VrUiDistance { get; }

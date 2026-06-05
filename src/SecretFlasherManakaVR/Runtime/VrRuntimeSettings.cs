@@ -65,6 +65,7 @@ namespace SecretFlasherManakaVR.Runtime
         public int VrPp2VolumeLayer = 30;
         public bool EnableVrUiBridge = true;
         public bool ConvertOverlayCanvasToWorldSpace = true;
+        public bool EnableCustomMissionCameraPreviewFix = true;
         public VrUiFollowMode VrUiFollowMode = VrUiFollowMode.HeadLocked;
         public bool IgnoreHeadRollForVrUi = true;
         public float VrUiDistance = 1.4f;

@@ -364,7 +364,7 @@ namespace SecretFlasherManakaVR.Runtime
             bool hasDefaultCanvas = whitelist.Length == 0 && HasDefaultCapturedCanvas(canvases, blacklist);
             if (whitelist.Length == 0 && TryAddDefaultCapturedCanvas(blacklist))
             {
-                SyncCapturedCanvasStates();
+                SyncCapturedCanvasStates(settings.EnableCustomMissionCameraPreviewFix);
                 ClearFullscreenEffectCacheIfInactive();
                 return;
             }
@@ -378,7 +378,7 @@ namespace SecretFlasherManakaVR.Runtime
                 }
             }
 
-            SyncCapturedCanvasStates();
+            SyncCapturedCanvasStates(settings.EnableCustomMissionCameraPreviewFix);
             ClearFullscreenEffectCacheIfInactive();
         }
 
@@ -489,7 +489,7 @@ namespace SecretFlasherManakaVR.Runtime
             }
         }
 
-        private void SyncCapturedCanvasStates()
+        private void SyncCapturedCanvasStates(bool enableCustomMissionCameraPreviewFix)
         {
             for (int i = capturedCanvasStates.Count - 1; i >= 0; i--)
             {
@@ -503,11 +503,11 @@ namespace SecretFlasherManakaVR.Runtime
 
             for (int i = 0; i < activeCanvases.Count; i++)
             {
-                EnsureCanvasCaptured(activeCanvases[i]);
+                EnsureCanvasCaptured(activeCanvases[i], enableCustomMissionCameraPreviewFix);
             }
         }
 
-        private void EnsureCanvasCaptured(Canvas canvas)
+        private void EnsureCanvasCaptured(Canvas canvas, bool enableCustomMissionCameraPreviewFix)
         {
             if (canvas == null || captureCamera == null)
             {
@@ -521,7 +521,7 @@ namespace SecretFlasherManakaVR.Runtime
                 capturedCanvasStates.Add(state);
             }
 
-            state.Apply(captureCamera);
+            state.Apply(captureCamera, enableCustomMissionCameraPreviewFix);
         }
 
         private CanvasCaptureState GetCapturedCanvasState(Canvas canvas)
@@ -649,7 +649,7 @@ namespace SecretFlasherManakaVR.Runtime
                         continue;
                     }
 
-                    EnsureCanvasCaptured(canvas);
+                    EnsureCanvasCaptured(canvas, settings.EnableCustomMissionCameraPreviewFix);
                     hudLayout.Apply(canvas);
                     if (fullscreenEffects == null && canvas.name == "InGameCanvas")
                     {
@@ -2390,6 +2390,7 @@ namespace SecretFlasherManakaVR.Runtime
             private readonly Camera worldCamera;
             private readonly float planeDistance;
             private readonly CustomMissionLayerTargetCache[] customMissionLayerTargets;
+            private Material? customMissionCameraPreviewMaterial;
             private float nextCustomMissionLayerTargetScanTime;
             private bool applied;
 
@@ -2407,7 +2408,7 @@ namespace SecretFlasherManakaVR.Runtime
                 get { return canvas; }
             }
 
-            public void Apply(Camera captureCamera)
+            public void Apply(Camera captureCamera, bool enableCustomMissionCameraPreviewFix)
             {
                 if (canvas == null || captureCamera == null)
                 {
@@ -2431,16 +2432,20 @@ namespace SecretFlasherManakaVR.Runtime
 
                 if (string.Equals(canvas.name ?? string.Empty, DefaultCapturedCanvasName, StringComparison.Ordinal))
                 {
-                    ApplyCustomMissionUiCompatibility();
+                    ApplyCustomMissionUiCompatibility(enableCustomMissionCameraPreviewFix);
                 }
 
                 applied = true;
             }
 
-            private void ApplyCustomMissionUiCompatibility()
+            private void ApplyCustomMissionUiCompatibility(bool enableCustomMissionCameraPreviewFix)
             {
                 bool shouldForceLayer = RefreshCustomMissionLayerTargets();
-                NormalizeCachedCustomMissionPhoneSubtree();
+                NormalizeCachedCustomMissionPhoneSubtree(enableCustomMissionCameraPreviewFix);
+                if (enableCustomMissionCameraPreviewFix)
+                {
+                    ApplyCustomMissionCameraPreviewCompatibility();
+                }
                 if (!shouldForceLayer)
                 {
                     return;
@@ -2534,7 +2539,7 @@ namespace SecretFlasherManakaVR.Runtime
                 return false;
             }
 
-            private void NormalizeCachedCustomMissionPhoneSubtree()
+            private void NormalizeCachedCustomMissionPhoneSubtree(bool forceDynamicUiLayer)
             {
                 Transform? phoneRoot = GetCachedCustomMissionLayerTarget("MyPhoneGUI");
                 if (phoneRoot == null)
@@ -2543,6 +2548,146 @@ namespace SecretFlasherManakaVR.Runtime
                 }
 
                 NormalizeCustomMissionPhoneSubtree(phoneRoot);
+                if (forceDynamicUiLayer)
+                {
+                    int subtreeTotal;
+                    ForceUiLayer(phoneRoot, out subtreeTotal);
+                }
+            }
+
+            private void ApplyCustomMissionCameraPreviewCompatibility()
+            {
+                Transform? phoneRoot = GetCachedCustomMissionLayerTarget("MyPhoneGUI");
+                if (phoneRoot == null)
+                {
+                    return;
+                }
+
+                RawImage[] rawImages = phoneRoot.GetComponentsInChildren<RawImage>(true);
+                for (int i = 0; i < rawImages.Length; i++)
+                {
+                    RawImage rawImage = rawImages[i];
+                    if (rawImage == null)
+                    {
+                        continue;
+                    }
+
+                    GameObject obj = rawImage.gameObject;
+                    if (obj == null || !string.Equals(obj.name ?? string.Empty, "Display", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    Transform? cameraAppTransform = FindAncestor(rawImage.transform, "CameraApp");
+                    if (cameraAppTransform == null ||
+                        cameraAppTransform.gameObject == null ||
+                        !cameraAppTransform.gameObject.activeInHierarchy)
+                    {
+                        continue;
+                    }
+
+                    if (rawImage.texture is not RenderTexture renderTexture)
+                    {
+                        continue;
+                    }
+
+                    Material material = GetOrCreateCustomMissionCameraPreviewMaterial();
+                    if (material == null)
+                    {
+                        return;
+                    }
+
+                    RenderCustomMissionCameraPreview(renderTexture);
+                    material.mainTexture = renderTexture;
+                    if (rawImage.material != material)
+                    {
+                        rawImage.material = material;
+                    }
+                }
+            }
+
+            private void RenderCustomMissionCameraPreview(RenderTexture renderTexture)
+            {
+                if (renderTexture == null)
+                {
+                    return;
+                }
+
+                Camera? camera = FindCustomMissionCameraRenderingTo(renderTexture);
+                if (camera == null)
+                {
+                    return;
+                }
+
+                if (!renderTexture.IsCreated())
+                {
+                    renderTexture.Create();
+                }
+
+                if (camera.stereoTargetEye != StereoTargetEyeMask.None)
+                {
+                    camera.stereoTargetEye = StereoTargetEyeMask.None;
+                }
+
+                camera.Render();
+            }
+
+            private static Transform? FindAncestor(Transform transform, string name)
+            {
+                Transform? current = transform;
+                while (current != null)
+                {
+                    GameObject obj = current.gameObject;
+                    if (obj != null && string.Equals(obj.name ?? string.Empty, name, StringComparison.Ordinal))
+                    {
+                        return current;
+                    }
+
+                    current = current.parent;
+                }
+
+                return null;
+            }
+
+            private static Camera? FindCustomMissionCameraRenderingTo(RenderTexture renderTexture)
+            {
+                if (renderTexture == null)
+                {
+                    return null;
+                }
+
+                Camera[] cameras = UnityEngine.Object.FindObjectsOfType<Camera>();
+                for (int i = 0; i < cameras.Length; i++)
+                {
+                    Camera camera = cameras[i];
+                    if (camera != null &&
+                        camera.targetTexture == renderTexture &&
+                        ReflectionBlocker.IsCustomMissionSnapshotCamera(camera))
+                    {
+                        return camera;
+                    }
+                }
+
+                return null;
+            }
+
+            private Material? GetOrCreateCustomMissionCameraPreviewMaterial()
+            {
+                if (customMissionCameraPreviewMaterial != null)
+                {
+                    return customMissionCameraPreviewMaterial;
+                }
+
+                Shader shader = Shader.Find("UI/Default");
+                if (shader == null)
+                {
+                    Plugin.Logger.LogWarning("UI/Default shader was not found; Custom Missions camera preview compatibility was not applied.");
+                    return null;
+                }
+
+                customMissionCameraPreviewMaterial = new Material(shader);
+                customMissionCameraPreviewMaterial.name = "SecretFlasherManakaVR Custom Missions Camera Preview Material";
+                return customMissionCameraPreviewMaterial;
             }
 
             private void CollectCustomMissionLayerTargets(Transform transform)
@@ -2739,6 +2884,12 @@ namespace SecretFlasherManakaVR.Runtime
                 canvas.renderMode = renderMode;
                 canvas.worldCamera = worldCamera;
                 canvas.planeDistance = planeDistance;
+                if (customMissionCameraPreviewMaterial != null)
+                {
+                    UnityEngine.Object.Destroy(customMissionCameraPreviewMaterial);
+                    customMissionCameraPreviewMaterial = null;
+                }
+
                 applied = false;
             }
         }

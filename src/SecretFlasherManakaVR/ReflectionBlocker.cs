@@ -7,7 +7,11 @@ internal static class ReflectionBlocker
 {
     public static bool IsReflectionCameraCandidate(Camera camera)
     {
-        if (camera == null || camera.gameObject == null || IsPluginEyeCamera(camera) || IsUiPreviewCamera(camera))
+        if (camera == null ||
+            camera.gameObject == null ||
+            IsPluginEyeCamera(camera) ||
+            IsUiPreviewCamera(camera) ||
+            IsCustomMissionSnapshotCamera(camera))
         {
             return false;
         }
@@ -22,6 +26,23 @@ internal static class ReflectionBlocker
             Plugin.Settings.DisableTargetTextureCameras.Value &&
             target != null &&
             !IsPluginEyeTexture(target);
+    }
+
+    public static bool IsCustomMissionSnapshotCamera(Camera camera)
+    {
+        if (camera == null || camera.gameObject == null || camera.targetTexture == null)
+        {
+            return false;
+        }
+
+        if (NameContainsReflectionKeyword(camera.gameObject.name))
+        {
+            return false;
+        }
+
+        return camera.clearFlags == CameraClearFlags.Skybox &&
+            camera.cullingMask == 205520855 &&
+            Math.Abs(camera.farClipPlane - 1000.0f) < 0.01f;
     }
 
     public static bool IsUiPreviewCamera(Camera camera)
