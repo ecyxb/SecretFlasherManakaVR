@@ -210,10 +210,18 @@ internal static class Quest3InputSystem
         if (!Quest3CursorRay.TryCreate(state, out var ray) ||
             !VrUiBridge.TryRaycastCapturedScreen(ray.Origin, ray.Direction, out var screenPoint))
         {
+            if (SfmCustomMissionGalleryInputCompatibility.TryUseLockedPosition(state, out Vector3 lockedPosition))
+            {
+                state.HasVirtualMousePosition = true;
+                state.VirtualMousePosition = lockedPosition;
+            }
+
             return;
         }
 
+        Vector3 mousePosition = new Vector3(screenPoint.x, screenPoint.y, 0.0f);
+        mousePosition = SfmCustomMissionGalleryInputCompatibility.StabilizeVirtualMousePosition(state, mousePosition);
         state.HasVirtualMousePosition = true;
-        state.VirtualMousePosition = new Vector3(screenPoint.x, screenPoint.y, 0.0f);
+        state.VirtualMousePosition = mousePosition;
     }
 }

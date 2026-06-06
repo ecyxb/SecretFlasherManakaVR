@@ -15,12 +15,7 @@ internal static class CameraRenderPatch
 
     private static bool Prefix(Camera __instance)
     {
-        if (!ShouldBlock(__instance))
-        {
-            return true;
-        }
-
-        return false;
+        return !ShouldBlock(__instance);
     }
 
     private static bool ShouldBlock(Camera camera)
@@ -31,6 +26,11 @@ internal static class CameraRenderPatch
         }
 
         if (VrRuntimeState.IsAllowedVrEyeRenderCamera(camera))
+        {
+            return false;
+        }
+
+        if (VrRuntimeState.IsRenderingVrMirror)
         {
             return false;
         }

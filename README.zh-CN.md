@@ -28,7 +28,7 @@
 ## 功能说明
 
 - 使用注入的左右眼相机输出 SteamVR/OpenVR 立体画面。
-- 桌面窗口可显示源相机、左眼、右眼，或关闭镜像输出。
+- 普通桌面窗口仍通过游戏源相机路径保留。
 - 通过 SteamVR Input 支持 Quest 3 手柄映射，并保留 OpenVR legacy controller state 兜底。
 - 支持 HMD 驱动相机姿态、玩家头/颈/胸骨骼姿态，以及移动时由 HMD 朝向带动身体转向。
 - 支持把部分屏幕空间 UI 捕获到 VR 面板，包括 HUD 位置、全屏特效覆盖层和 NPC 头顶标记重投影。
@@ -110,7 +110,6 @@ com.codex.secretflashermanaka.vr.cfg
 ```ini
 EnableVR = true
 AutoStartSteamVR = true
-MirrorMode = MainCamera
 ```
 
 立体渲染：
@@ -251,7 +250,7 @@ VR 运行时：
 - `Plugin.cs` 是 BepInEx 入口，负责绑定配置、注册 Harmony patch、创建 runtime host。
 - `VrRunnerHost.cs` 把 BepInEx 配置转换成 runtime settings。
 - `Runtime/VrRuntimeManager.cs` 管理 OpenVR 初始化、HMD 姿态、重置视角、场景切换、镜子防护和帧提交。
-- `Runtime/VrCameraRig.cs` 创建左右眼相机、RenderTexture 和桌面镜像输出。
+- `Runtime/VrCameraRig.cs` 创建左右眼相机和 RenderTexture。
 - `OpenVR/OpenVRBridge.cs` 通过 Valve C# binding 调用 OpenVR，并把左右眼纹理提交给 compositor。
 
 UI 和输入：

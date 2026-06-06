@@ -9,6 +9,8 @@ internal static class VrRuntimeState
 
     public static bool IsRenderingVrEyes { get; private set; }
 
+    public static bool IsRenderingVrMirror { get; private set; }
+
     public static bool IsRestoringSuppressedObjects { get; private set; }
 
     public static bool HasHeadPose { get; private set; }
@@ -139,9 +141,26 @@ internal static class VrRuntimeState
         IsRenderingVrEyes = true;
     }
 
+    public static void BeginVrMirrorRender(Camera camera)
+    {
+        AllowedRenderCameraIds.Clear();
+        if (camera != null)
+        {
+            AllowedRenderCameraIds.Add(camera.GetInstanceID());
+        }
+
+        IsRenderingVrMirror = true;
+    }
+
     public static void EndVrEyeRender()
     {
         IsRenderingVrEyes = false;
+        AllowedRenderCameraIds.Clear();
+    }
+
+    public static void EndVrMirrorRender()
+    {
+        IsRenderingVrMirror = false;
         AllowedRenderCameraIds.Clear();
     }
 

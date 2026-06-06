@@ -28,7 +28,7 @@ During scene transitions, special cutscene cameras, or GameOver cameras, the VR 
 ## Features
 
 - SteamVR/OpenVR stereo output using injected left/right eye cameras.
-- Desktop mirror output using the source camera, left eye, right eye, or disabled mirror mode.
+- The normal desktop window remains available through the game's source-camera path.
 - Quest 3 controller mapping through SteamVR Input, with a legacy OpenVR controller-state fallback.
 - HMD-driven camera pose, optional player head/neck/chest pose adjustment, and optional body yaw turning while moving.
 - VR UI capture for supported screen-space canvases, including HUD positioning, fullscreen-effect overlay separation, and NPC marker reprojection.
@@ -110,7 +110,6 @@ Core:
 ```ini
 EnableVR = true
 AutoStartSteamVR = true
-MirrorMode = MainCamera
 ```
 
 Stereo rendering:
@@ -251,7 +250,7 @@ VR runtime:
 - `Plugin.cs` is the BepInEx entry point. It binds config, registers Harmony patches, and creates the runtime host.
 - `VrRunnerHost.cs` converts BepInEx config into runtime settings.
 - `Runtime/VrRuntimeManager.cs` owns OpenVR initialization, HMD pose updates, recentering, scene transition handling, mirror safeguards, and frame submission.
-- `Runtime/VrCameraRig.cs` creates left/right eye cameras, render textures, and desktop mirror output.
+- `Runtime/VrCameraRig.cs` creates left/right eye cameras and render textures.
 - `OpenVR/OpenVRBridge.cs` calls OpenVR through the Valve C# binding and submits eye textures to the compositor.
 
 UI and input:

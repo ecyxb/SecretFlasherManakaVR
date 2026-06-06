@@ -3,14 +3,6 @@ using SecretFlasherManakaVR.OpenVR;
 
 namespace SecretFlasherManakaVR.Runtime
 {
-    public enum VrMirrorMode
-    {
-        SourceCamera = 0,
-        Disabled = 1,
-        LeftEye = 2,
-        RightEye = 3
-    }
-
     public enum VrSourceRotationMode
     {
         FullSourceCamera = 0,
@@ -46,7 +38,6 @@ namespace SecretFlasherManakaVR.Runtime
         public float VrCameraBasePositionSmoothFactor = 18.0f;
         public float VrCameraBaseRotationSmoothFactor = 24.0f;
         public VrSourceRotationMode SourceRotationMode = VrSourceRotationMode.SourceYawOnly;
-        public VrMirrorMode MirrorMode = VrMirrorMode.SourceCamera;
         public float SceneTransitionVrPauseSeconds = 1.5f;
         public bool UseOpenVRProjection = true;
         public OpenVRProjectionMode OpenVRProjectionMode = OpenVRProjectionMode.RawSwapVertical;
@@ -60,6 +51,10 @@ namespace SecretFlasherManakaVR.Runtime
         public bool BlockNestedCameraRenderDuringVrRender = true;
         public bool DisableReflectionProbes = false;
         public string ReflectionCameraNameKeywords = "mirror,reflect,reflection,planar,water";
+        public bool EnableVrMirrorRenderer = true;
+        public int VrMirrorUpdateIntervalFrames = 1;
+        public int VrMirrorMaxUpdatesPerFrame = 1;
+        public float VrMirrorMaxDistance = 12.0f;
         public bool EnableVrCameraPostProcessing = true;
         public string VrCameraPostProcessingWhitelist =
             "UB.VignettesPE," +
@@ -70,6 +65,7 @@ namespace SecretFlasherManakaVR.Runtime
         public int VrPp2VolumeLayer = 30;
         public bool EnableVrUiBridge = true;
         public bool ConvertOverlayCanvasToWorldSpace = true;
+        public bool EnableCustomMissionCameraPreviewFix = true;
         public VrUiFollowMode VrUiFollowMode = VrUiFollowMode.HeadLocked;
         public bool IgnoreHeadRollForVrUi = true;
         public float VrUiDistance = 1.4f;
@@ -115,6 +111,9 @@ namespace SecretFlasherManakaVR.Runtime
             FallbackRenderHeight = Mathf.Clamp(FallbackRenderHeight, 256, 8192);
             AntiAliasing = Mathf.Clamp(AntiAliasing, 1, 8);
             MissingCameraRetrySeconds = Mathf.Clamp(MissingCameraRetrySeconds, 0.1f, 10.0f);
+            VrMirrorUpdateIntervalFrames = Mathf.Clamp(VrMirrorUpdateIntervalFrames, 1, 30);
+            VrMirrorMaxUpdatesPerFrame = Mathf.Clamp(VrMirrorMaxUpdatesPerFrame, 1, 4);
+            VrMirrorMaxDistance = Mathf.Clamp(VrMirrorMaxDistance, 0.0f, 100.0f);
             SanitizeRange(ref HeadPositionCameraOffsetMinX, ref HeadPositionCameraOffsetMaxX);
             SanitizeRange(ref HeadPositionCameraOffsetMinY, ref HeadPositionCameraOffsetMaxY);
             SanitizeRange(ref HeadPositionCameraOffsetMinZ, ref HeadPositionCameraOffsetMaxZ);

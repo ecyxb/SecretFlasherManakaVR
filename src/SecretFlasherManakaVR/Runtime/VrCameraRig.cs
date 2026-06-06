@@ -208,27 +208,8 @@ namespace SecretFlasherManakaVR.Runtime
             try
             {
                 PlayerNeckVisibilityController.BeginVrEyeRender();
-                if (leftEye != null && leftTexture != null)
-                {
-                    if (!leftTexture.IsCreated())
-                    {
-                        leftTexture.Create();
-                    }
-
-                    leftEye.Render();
-                    RenderUiOverlay(leftEye, leftUiOverlay, leftTexture, uiOverlayLayerMask);
-                }
-
-                if (rightEye != null && rightTexture != null)
-                {
-                    if (!rightTexture.IsCreated())
-                    {
-                        rightTexture.Create();
-                    }
-
-                    rightEye.Render();
-                    RenderUiOverlay(rightEye, rightUiOverlay, rightTexture, uiOverlayLayerMask);
-                }
+                RenderLeftEyeOnly(uiOverlayLayerMask);
+                RenderRightEyeOnly(uiOverlayLayerMask);
             }
             finally
             {
@@ -241,16 +222,60 @@ namespace SecretFlasherManakaVR.Runtime
             // driver on some runs.
         }
 
-        public void Mirror(VrMirrorMode mode)
+        public void RenderLeftEye(int uiOverlayLayerMask)
         {
-            if (mode == VrMirrorMode.LeftEye && leftTexture != null)
+            VrRuntimeState.BeginVrEyeRender(leftEye, leftUiOverlay);
+            try
             {
-                Graphics.Blit(leftTexture, (RenderTexture)null);
+                PlayerNeckVisibilityController.BeginVrEyeRender();
+                RenderLeftEyeOnly(uiOverlayLayerMask);
             }
-            else if (mode == VrMirrorMode.RightEye && rightTexture != null)
+            finally
             {
-                Graphics.Blit(rightTexture, (RenderTexture)null);
+                PlayerNeckVisibilityController.EndVrEyeRender();
+                VrRuntimeState.EndVrEyeRender();
             }
+        }
+
+        public void RenderRightEye(int uiOverlayLayerMask)
+        {
+            VrRuntimeState.BeginVrEyeRender(rightEye, rightUiOverlay);
+            try
+            {
+                PlayerNeckVisibilityController.BeginVrEyeRender();
+                RenderRightEyeOnly(uiOverlayLayerMask);
+            }
+            finally
+            {
+                PlayerNeckVisibilityController.EndVrEyeRender();
+                VrRuntimeState.EndVrEyeRender();
+            }
+        }
+
+        private void RenderLeftEyeOnly(int uiOverlayLayerMask)
+        {
+            RenderEye(leftEye, leftUiOverlay, leftTexture, uiOverlayLayerMask);
+        }
+
+        private void RenderRightEyeOnly(int uiOverlayLayerMask)
+        {
+            RenderEye(rightEye, rightUiOverlay, rightTexture, uiOverlayLayerMask);
+        }
+
+        private void RenderEye(Camera eyeCamera, Camera overlayCamera, RenderTexture targetTexture, int uiOverlayLayerMask)
+        {
+            if (eyeCamera == null || targetTexture == null)
+            {
+                return;
+            }
+
+            if (!targetTexture.IsCreated())
+            {
+                targetTexture.Create();
+            }
+
+            eyeCamera.Render();
+            RenderUiOverlay(eyeCamera, overlayCamera, targetTexture, uiOverlayLayerMask);
         }
 
         public void Shutdown()

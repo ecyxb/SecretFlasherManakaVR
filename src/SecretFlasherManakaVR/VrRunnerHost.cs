@@ -316,7 +316,6 @@ public sealed class VrRunnerHost : MonoBehaviour
             VrCameraBasePositionSmoothFactor = settings.VrCameraBasePositionSmoothFactor.Value,
             VrCameraBaseRotationSmoothFactor = settings.VrCameraBaseRotationSmoothFactor.Value,
             SourceRotationMode = settings.SourceRotationMode.Value,
-            MirrorMode = VrMirrorMode.Disabled,
             SceneTransitionVrPauseSeconds = settings.SceneTransitionVrPauseSeconds.Value,
             RenderScale = settings.RenderScale.Value,
             EnableVrCameraPostProcessing = settings.EnableVrCameraPostProcessing.Value,
@@ -335,8 +334,13 @@ public sealed class VrRunnerHost : MonoBehaviour
             BlockNestedCameraRenderDuringVrRender = settings.BlockNestedCameraRenderDuringVrRender.Value,
             DisableReflectionProbes = settings.DisableReflectionProbes.Value,
             ReflectionCameraNameKeywords = settings.ReflectionCameraNameKeywords.Value,
+            EnableVrMirrorRenderer = settings.EnableVrMirrorRenderer.Value,
+            VrMirrorUpdateIntervalFrames = settings.VrMirrorUpdateIntervalFrames.Value,
+            VrMirrorMaxUpdatesPerFrame = settings.VrMirrorMaxUpdatesPerFrame.Value,
+            VrMirrorMaxDistance = settings.VrMirrorMaxDistance.Value,
             EnableVrUiBridge = settings.EnableVrUiBridge.Value,
             ConvertOverlayCanvasToWorldSpace = settings.ConvertOverlayCanvasToWorldSpace.Value,
+            EnableCustomMissionCameraPreviewFix = settings.EnableCustomMissionCameraPreviewFix.Value,
             VrUiFollowMode = settings.VrUiFollowMode.Value,
             IgnoreHeadRollForVrUi = settings.IgnoreHeadRollForVrUi.Value,
             VrUiDistance = settings.VrUiDistance.Value,
@@ -364,17 +368,6 @@ public sealed class VrRunnerHost : MonoBehaviour
             NpcWorldSpaceUiScale = settings.NpcWorldSpaceUiScale.Value,
             NpcWorldSpaceUiMinScaleDistance = settings.NpcWorldSpaceUiMinScaleDistance.Value,
             NpcWorldSpaceUiMaxScaleDistance = settings.NpcWorldSpaceUiMaxScaleDistance.Value,
-        };
-    }
-
-    private static VrMirrorMode ConvertMirrorMode(MirrorMode mode)
-    {
-        return mode switch
-        {
-            MirrorMode.Disabled => VrMirrorMode.Disabled,
-            MirrorMode.LeftEye => VrMirrorMode.LeftEye,
-            MirrorMode.RightEye => VrMirrorMode.RightEye,
-            _ => VrMirrorMode.SourceCamera
         };
     }
 

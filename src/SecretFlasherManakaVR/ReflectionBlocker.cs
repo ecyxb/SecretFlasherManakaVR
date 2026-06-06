@@ -7,7 +7,11 @@ internal static class ReflectionBlocker
 {
     public static bool IsReflectionCameraCandidate(Camera camera)
     {
-        if (camera == null || camera.gameObject == null || IsPluginEyeCamera(camera) || IsUiPreviewCamera(camera))
+        if (camera == null ||
+            camera.gameObject == null ||
+            IsPluginEyeCamera(camera) ||
+            IsUiPreviewCamera(camera) ||
+            IsCustomMissionSnapshotCamera(camera))
         {
             return false;
         }
@@ -22,6 +26,23 @@ internal static class ReflectionBlocker
             Plugin.Settings.DisableTargetTextureCameras.Value &&
             target != null &&
             !IsPluginEyeTexture(target);
+    }
+
+    public static bool IsCustomMissionSnapshotCamera(Camera camera)
+    {
+        if (camera == null || camera.gameObject == null || camera.targetTexture == null)
+        {
+            return false;
+        }
+
+        if (NameContainsReflectionKeyword(camera.gameObject.name))
+        {
+            return false;
+        }
+
+        return camera.clearFlags == CameraClearFlags.Skybox &&
+            camera.cullingMask == 205520855 &&
+            Math.Abs(camera.farClipPlane - 1000.0f) < 0.01f;
     }
 
     public static bool IsUiPreviewCamera(Camera camera)
@@ -95,7 +116,8 @@ internal static class ReflectionBlocker
         string targetName = target == null
             ? "none"
             : (string.IsNullOrEmpty(target.name) ? "<unnamed>" : target.name);
-        return camera.gameObject.name + " targetTexture=" + targetName;
+        string targetSize = target == null ? string.Empty : " " + target.width + "x" + target.height;
+        return camera.gameObject.name + " targetTexture=" + targetName + targetSize;
     }
 
     public static string ProbeDescription(ReflectionProbe probe)

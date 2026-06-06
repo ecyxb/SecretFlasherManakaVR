@@ -23,6 +23,7 @@ namespace SecretFlasherManakaVR.Runtime
         private NpcWorldSpaceUiFixer npcWorldSpaceUiFixer;
         private PlayerSkinningPreRenderRefresher playerSkinningPreRenderRefresher;
         private VrCameraPostProcessingSynchronizer cameraPostProcessingSynchronizer;
+        private VrMirrorRenderer mirrorRenderer;
         private Camera sourceCamera;
         private readonly IVrRuntimeLogger logger;
         private RuntimePose lastPose;
@@ -99,7 +100,6 @@ namespace SecretFlasherManakaVR.Runtime
                 $"EnableVR={settings.EnableVR}, " +
                 $"AutoStartSteamVR={settings.AutoStartSteamVR}, " +
                 $"RenderScale={settings.RenderScale}, " +
-                $"MirrorMode={settings.MirrorMode}, " +
                 $"EnableVrUiBridge={settings.EnableVrUiBridge}.");
 
             if (!settings.EnableVR)
@@ -224,7 +224,19 @@ namespace SecretFlasherManakaVR.Runtime
                 eyeMaskWeatherFogSuppressor.Tick();
             }
 
-            rig.Render(uiOverlayLayerMask);
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.Tick(settings, rig.LeftEyeCamera, rig.HeadPosition, RuntimeEye.Left);
+            }
+
+            rig.RenderLeftEye(uiOverlayLayerMask);
+
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.Tick(settings, rig.RightEyeCamera, rig.HeadPosition, RuntimeEye.Right);
+            }
+
+            rig.RenderRightEye(uiOverlayLayerMask);
             if (eyeMaskFinalComposite != null && uiBridge != null)
             {
                 eyeMaskFinalComposite.Apply(rig.LeftTexture, rig.RightTexture, uiBridge.EyeMaskOverlayTexture);
@@ -233,11 +245,6 @@ namespace SecretFlasherManakaVR.Runtime
             SubmitEye(RuntimeEye.Left, rig.LeftSubmitTexturePtr, rig.LeftSubmitTextureType, out _);
             SubmitEye(RuntimeEye.Right, rig.RightSubmitTexturePtr, rig.RightSubmitTextureType, out _);
             bridge.PostPresentHandoff();
-
-            if (settings.MirrorMode == VrMirrorMode.LeftEye || settings.MirrorMode == VrMirrorMode.RightEye)
-            {
-                rig.Mirror(settings.MirrorMode);
-            }
 
         }
 
@@ -257,6 +264,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 uiBridge.OnSceneChanged(settings);
             }
+
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.OnSceneChanged();
+            }
+
             ResetSourceBaseSmoothing();
 
             if (npcWorldSpaceUiFixer != null)
@@ -341,6 +354,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 cameraPostProcessingSynchronizer.Clear();
                 cameraPostProcessingSynchronizer = null;
+            }
+
+            if (mirrorRenderer != null)
+            {
+                mirrorRenderer.Shutdown();
+                mirrorRenderer = null;
             }
 
             if (rig != null)
@@ -447,6 +466,12 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 cameraPostProcessingSynchronizer = new VrCameraPostProcessingSynchronizer();
                 logger.Info("VR camera post-processing synchronizer component created.");
+            }
+
+            if (mirrorRenderer == null)
+            {
+                mirrorRenderer = new VrMirrorRenderer(logger);
+                logger.Info("VR mirror renderer component created.");
             }
 
             vrReady = true;
