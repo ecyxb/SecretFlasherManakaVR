@@ -228,7 +228,7 @@ BepInEx/plugins/SecretFlasherManakaVR_Input/
 | L2 / Left Trigger | 非菜单短按松开 = Start；长按超过 1.5s 不输出；配合 ABXY/R2 进入 mode1 | 松开 L2 回到 mode0 | 短按松开 = Start | 非菜单 = Start；菜单 = L2 |
 | L1 / Left Grip | 非菜单短按松开 = Select；长按超过 1.5s 不输出；配合 ABXY/R2 进入 mode2 | 短按松开 = Select | 松开 L1 回到 mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | R2 / Right Trigger | R2；按住 L2 会进入 mode1，按住 L1 会进入 mode2 | `DrinkWater` | `EyeMask` | 鼠标左键 + `LeftClick` |
-| Right Grip | R1 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
+| Right Grip | R1；按住 L1 时 = L3 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
 | Left Stick | 虚拟左摇杆；菜单面板下映射为 DPad | 虚拟左摇杆；菜单面板下映射为 DPad | 虚拟左摇杆；菜单面板下映射为 DPad | 虚拟左摇杆；衣橱/任务清单下用于子级滚动和衣橱 Slider |
 | Right Stick | 虚拟右摇杆；部分头控场景会屏蔽 Y 轴 | 虚拟右摇杆 | 虚拟右摇杆 | 虚拟右摇杆；不做滚轮或 `UIScrollA/B` 特殊映射 |
 | L3 / Left Stick Click | 单独按下再松开 = 重置视角；和 R3 同按 = 切换光标模式 | 同 mode0 | 同 mode0 | 和 R3 同按 = 退出光标模式并回 mode0 |

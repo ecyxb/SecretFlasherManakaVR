@@ -1805,10 +1805,10 @@ namespace SecretFlasherManakaVR.Runtime
                     HideComponent(manager.ingameUiManualView);
                     HideComponent(manager.ecstasyHeartIcon);
 
-                    RectTransform? staminaGauge = MovePathToRoot(root, "MiddleLayer/PlayerInfo/StaminaGauge", ReferencePointToRoot(root, 1135.0f, 1315.0f), null, 1.0f, 0.0f, true);
-                    RectTransform? moistureIcon = MovePathToRoot(root, "MiddleLayer/PlayerInfo/MoistureIcon", ReferencePointToRoot(root, 980.0f, 1327.0f), null, 0.72f, 0.0f, true);
-                    RectTransform? ecstasyGauge = MoveComponentToRoot(root, manager.ecstasyGauge, ReferencePointToRoot(root, 700.0f, 1300.0f), null, 1.65f, 0.0f);
-                    RectTransform? heartRateInfoPanel = MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1495.0f, 1326.0f), null, 0.46f, 0.0f, true);
+                    RectTransform? staminaGauge = MovePathToRoot(root, "MiddleLayer/PlayerInfo/StaminaGauge", ReferencePointToRoot(root, 1135.0f, 1385.0f), null, 1.0f, 0.0f, true);
+                    RectTransform? moistureIcon = MovePathToRoot(root, "MiddleLayer/PlayerInfo/MoistureIcon", ReferencePointToRoot(root, 980.0f, 1412.0f), null, 0.56f, 0.0f, true);
+                    RectTransform? ecstasyGauge = MoveComponentToRoot(root, manager.ecstasyGauge, ReferencePointToRoot(root, 700.0f, 1240.0f), null, 1.65f, 0.0f);
+                    RectTransform? heartRateInfoPanel = MovePathToRoot(root, "MiddleLayer/HeartBeatPanel/HeartRateInfoPanel", ReferencePointToRoot(root, 1595.0f, 1416.0f), null, 0.46f, 0.0f, true);
                     SetTemporaryRenderable(staminaGauge, heartRateVisible);
                     SetTemporaryRenderable(moistureIcon, heartRateVisible);
                     SetTemporaryRenderable(heartRateInfoPanel, heartRateVisible);

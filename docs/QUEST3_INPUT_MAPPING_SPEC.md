@@ -68,7 +68,7 @@ Quest 3 肩键约定：
 | Left Grip 短按松开 | Select |
 | Left Grip 长按超过 `1.5s` 后松开 | 不输出 |
 | Left Grip + `ABXY` / `R2` | 进入 `mode2` |
-| Right Grip | R1 |
+| Right Grip | R1; with Left Grip held = L3 |
 | Right Trigger | R2 |
 | Right Stick Click | L1 |
 
@@ -238,7 +238,7 @@ If L3 and R3 overlap during the same press, the mapper treats it as the combo on
 | Left Grip short release | Select |
 | Left Grip release after a hold longer than `1.5s` | No output |
 | Left Grip + `ABXY` / `R2` | Enter `mode2` |
-| Right Grip | R1 |
+| Right Grip | R1; with Left Grip held = L3 |
 | Right Trigger | R2 |
 | Right Stick Click | L1 |
 

@@ -14,6 +14,7 @@ internal enum Quest3VirtualGamepadButton
     L2,
     R1,
     R2,
+    L3,
     R3,
     Start,
     Select
