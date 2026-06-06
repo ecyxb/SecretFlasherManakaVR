@@ -534,13 +534,14 @@ internal sealed class Quest3InputMapper
             state.Gamepad.Press(Quest3VirtualGamepadButton.Triangle);
         }
 
+        state.CursorStickDirection = ResolveStickDirection(
+            snapshot.Left.Stick,
+            settings.Quest3RightStickDeadzone.Value,
+            settings.Quest3RightStickDiagonalGuardDegrees.Value);
+
         if (uiContext.ShouldScrollChildScrollRect)
         {
             state.LeftStick = Vector2.zero;
-            state.CursorStickDirection = ResolveStickDirection(
-                snapshot.Left.Stick,
-                settings.Quest3RightStickDeadzone.Value,
-                settings.Quest3RightStickDiagonalGuardDegrees.Value);
             AddScrollDirection(state, state.CursorStickDirection);
             if (uiContext.ShouldDriveChildSlider)
             {

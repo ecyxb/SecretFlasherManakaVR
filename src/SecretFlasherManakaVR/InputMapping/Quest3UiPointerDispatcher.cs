@@ -8,6 +8,7 @@ namespace SecretFlasherManakaVR.InputMapping;
 
 internal sealed class Quest3UiPointerDispatcher
 {
+    private const float CustomMissionPhoneScrollStep = 60.0f;
     private const float ChildSliderStepNormalized = 0.005f;
     private const float ChildSliderInitialRepeatSeconds = 0.33f;
     private const float ChildSliderMinimumRepeatSeconds = 0.06f;
@@ -78,7 +79,8 @@ internal sealed class Quest3UiPointerDispatcher
 
             DispatchHover(currentObject, eventData);
             TryDriveChildSlider(state, currentObject);
-            if (!TryDispatchChildScrollRectScroll(state, screenPoint))
+            if (!TryDispatchChildScrollRectScroll(state, screenPoint) &&
+                !TryDispatchCustomMissionPhoneScroll(state, currentObject, eventData))
             {
                 DispatchScroll(currentObject, eventData, state.MouseScrollDelta);
             }
@@ -230,6 +232,51 @@ internal sealed class Quest3UiPointerDispatcher
         eventData.scrollDelta = state.MouseScrollDelta;
         ExecuteEvents.Execute(scrollRect.gameObject, eventData, ExecuteEvents.scrollHandler);
         return true;
+    }
+
+    private static bool TryDispatchCustomMissionPhoneScroll(
+        Quest3VirtualInputState state,
+        GameObject? currentObject,
+        PointerEventData eventData)
+    {
+        if (!state.IsCursorMode || currentObject == null || !IsInsideCustomMissionPhone(currentObject))
+        {
+            return false;
+        }
+
+        Vector2 scrollDelta;
+        switch (state.CursorStickDirection)
+        {
+            case Quest3StickDirection.Up:
+                scrollDelta = new Vector2(0.0f, CustomMissionPhoneScrollStep);
+                break;
+            case Quest3StickDirection.Down:
+                scrollDelta = new Vector2(0.0f, -CustomMissionPhoneScrollStep);
+                break;
+            default:
+                return false;
+        }
+
+        eventData.scrollDelta = scrollDelta;
+        return ExecuteEvents.ExecuteHierarchy(currentObject, eventData, ExecuteEvents.scrollHandler) != null;
+    }
+
+    private static bool IsInsideCustomMissionPhone(GameObject gameObject)
+    {
+        Transform? transform = gameObject.transform;
+        while (transform != null)
+        {
+            GameObject current = transform.gameObject;
+            if (current != null &&
+                string.Equals(current.name ?? string.Empty, "MyPhoneGUI", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            transform = transform.parent;
+        }
+
+        return false;
     }
 
     private static bool TryDriveChildSlider(Quest3VirtualInputState state, GameObject? currentObject)
