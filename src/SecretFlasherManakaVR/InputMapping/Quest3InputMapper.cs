@@ -23,6 +23,7 @@ internal sealed class Quest3InputMapper
     private bool l3PressOverlappedR3;
     private bool r3PressOverlappedL3;
     private bool stickClickComboConsumed;
+    private bool leftGripRightGripComboConsumed;
     private Quest3Button? activeMomentaryModeButton;
     private readonly bool[] suppressedFaceButtonsUntilUp = new bool[4];
     private bool suppressRightTriggerUntilUp;
@@ -139,10 +140,16 @@ internal sealed class Quest3InputMapper
 
         var l1 = buttons[Quest3Button.LeftGrip];
         var l2 = buttons[Quest3Button.LeftTrigger];
+        var r1 = buttons[Quest3Button.RightGrip];
         var r2 = buttons[Quest3Button.RightTrigger];
         bool isMenuContext = uiContext.Kind == Quest3UiContextKind.Menu;
         bool chordInputDownFrame = IsAnyFaceButtonDownFrame(buttons) || r2.IsDownFrame;
         bool chordInputDown = snapshot.PressedAbxyCount > 0 || r2.IsDown;
+
+        if (!isMenuContext && ControllerMode == Quest3ControllerMode.Mode0 && l1.IsDown && r1.IsDown)
+        {
+            leftGripRightGripComboConsumed = true;
+        }
 
         if (ControllerMode == Quest3ControllerMode.Mode0)
         {
@@ -174,10 +181,12 @@ internal sealed class Quest3InputMapper
             {
                 EndMomentaryMode(snapshot, rightStickDeadzone);
             }
-            else if (!isMenuContext && l1.WasShortPress(ModeButtonShortPressSeconds))
+            else if (!isMenuContext && !leftGripRightGripComboConsumed && l1.WasShortPress(ModeButtonShortPressSeconds))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.Select);
             }
+
+            leftGripRightGripComboConsumed = false;
         }
 
         if (!IsMappedRightTriggerPressed(snapshot))
@@ -204,7 +213,15 @@ internal sealed class Quest3InputMapper
     {
         if (state.ControllerMode == Quest3ControllerMode.Mode0)
         {
-            if (snapshot.IsPressed(Quest3Button.RightGrip))
+            bool leftGripRightGripCombo =
+                state.UiContext.Kind != Quest3UiContextKind.Menu &&
+                snapshot.IsPressed(Quest3Button.LeftGrip) &&
+                snapshot.IsPressed(Quest3Button.RightGrip);
+            if (leftGripRightGripCombo)
+            {
+                state.Gamepad.Press(Quest3VirtualGamepadButton.L3);
+            }
+            else if (snapshot.IsPressed(Quest3Button.RightGrip))
             {
                 state.Gamepad.Press(Quest3VirtualGamepadButton.R1);
             }

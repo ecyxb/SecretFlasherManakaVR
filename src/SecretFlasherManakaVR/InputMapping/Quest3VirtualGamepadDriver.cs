@@ -112,6 +112,7 @@ internal sealed class Quest3VirtualGamepadDriver
         ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.L2);
         ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.R1);
         ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.R2);
+        ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.L3);
         ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.R3);
         ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Start);
         ApplyButtonIfPressed(ref state, buttons, Quest3VirtualGamepadButton.Select);
@@ -164,6 +165,9 @@ internal sealed class Quest3VirtualGamepadDriver
                 break;
             case Quest3VirtualGamepadButton.R2:
                 state.rightTrigger = 1.0f;
+                break;
+            case Quest3VirtualGamepadButton.L3:
+                state = state.WithButton(GamepadButton.LeftStick, true);
                 break;
             case Quest3VirtualGamepadButton.R3:
                 state = state.WithButton(GamepadButton.RightStick, true);

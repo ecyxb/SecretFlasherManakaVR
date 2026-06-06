@@ -228,7 +228,7 @@ If `actions.json` is missing, SteamVR action input cannot initialize. If `bindin
 | L2 / Left Trigger | Outside menus: short release = Start; holds over 1.5s output nothing; chord with ABXY/R2 enters mode1 | Release L2 to return to mode0 | Short release = Start | Outside menus = Start; menus = L2 |
 | L1 / Left Grip | Outside menus: short release = Select; holds over 1.5s output nothing; chord with ABXY/R2 enters mode2 | Short release = Select | Release L1 to return to mode0 | `UiRingLeft` / `TabLeft` / `Tab2Left` |
 | R2 / Right Trigger | R2; enters mode1 with L2 held, or mode2 with L1 held | `DrinkWater` | `EyeMask` | Left mouse button + `LeftClick` |
-| Right Grip | R1 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
+| Right Grip | R1; with L1 held = L3 | R1 | R1 | `UiRingRight` / `TabRight` / `Tab2Right` |
 | Left Stick | Virtual left stick; maps to DPad in menu panels | Virtual left stick; maps to DPad in menu panels | Virtual left stick; maps to DPad in menu panels | Virtual left stick; drives child scrolling and Closet sliders in supported panels |
 | Right Stick | Virtual right stick; Y may be suppressed in some HMD-driven view states | Virtual right stick | Virtual right stick | Virtual right stick; no mouse-wheel or `UIScrollA/B` special mapping |
 | L3 / Left Stick Click | Press and release alone = recenter view; with R3 = toggle cursor mode | Same as mode0 | Same as mode0 | With R3 = exit cursor mode and return to mode0 |
