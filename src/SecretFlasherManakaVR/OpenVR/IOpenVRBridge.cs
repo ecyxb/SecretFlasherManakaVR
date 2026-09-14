@@ -19,6 +19,8 @@ namespace SecretFlasherManakaVR.OpenVR
 
         bool TryGetHmdPose(out OpenVRPose pose, out string error);
 
+        bool TryGetControllerPose(bool left, out OpenVRPose pose, out string error);
+
         bool TryGetEyeProjection(OpenVREye eye, float nearClip, float farClip, OpenVRProjectionMode mode, out Matrix4x4 projection, out string error);
 
         bool TryGetEyeToHeadTransform(OpenVREye eye, out Vector3 position, out Quaternion rotation, out Matrix4x4 matrix, out string error);

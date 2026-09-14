@@ -27,6 +27,9 @@ namespace SecretFlasherManakaVR.Runtime
         private Camera sourceCamera;
         private readonly IVrRuntimeLogger logger;
         private RuntimePose lastPose;
+        private OpenVRPose latestHead;
+        private BodyTrackingMode? viewTrackingMode;
+        private bool hadTrackedBody;
         private Quaternion recenterYaw = Quaternion.identity;
         private Vector3 recenterPosition = Vector3.zero;
         private Quaternion recenterSourceYaw = Quaternion.identity;
@@ -175,13 +178,20 @@ namespace SecretFlasherManakaVR.Runtime
             RefreshRenderTargetSize(false);
             bridge.BeginFrame();
 
-            if (!TryGetHmdPose(out lastPose))
+            bool headValid = TryGetHmdPose(out lastPose);
+            if (!headValid || !lastPose.IsValid)
             {
+                ThreePointBodyController.Prepare(bridge, latestHead);
+                // Never present identity as a valid measurement or calibrate from a lost headset.
+                VrRuntimeState.ClearHeadPose();
+                return;
             }
-
-            if (!lastPose.IsValid)
+            var mode = Plugin.Settings.TrackingMode.Value;
+            if (TrackingModePolicy.NeedsViewReset(viewTrackingMode, mode, hadTrackedBody, ThreePointBodyController.Active))
             {
-                lastPose = RuntimePose.Identity;
+                ResetSourceBaseSmoothing();
+                recenterPending = true;
+                viewTrackingMode = mode;
             }
             if (recenterPending)
             {
@@ -193,11 +203,21 @@ namespace SecretFlasherManakaVR.Runtime
                 ApplyRecenter(lastPose);
             }
 
+            ThreePointBodyController.Prepare(bridge, latestHead);
+            if (hadTrackedBody && !ThreePointBodyController.Active)
+            {
+                ResetSourceBaseSmoothing();
+                ApplyRecenter(lastPose);
+            }
+            hadTrackedBody = ThreePointBodyController.Active;
+
             rig.EnsureCreated();
             rig.EnsureRenderTextures(renderWidth, renderHeight, settings.AntiAliasing);
             DisableReflectionProbesForCurrentScene();
             rig.CopyFromSource(sourceCamera);
             ApplyPoseToRig();
+            VrRuntimeState.MeasureHeadTrackingAlignment(latestHead.Position, rig.HeadPosition);
+            ThreePointBodyController.Apply();
             if (playerSkinningPreRenderRefresher != null)
             {
                 playerSkinningPreRenderRefresher.RefreshBeforeManualRender();
@@ -205,7 +225,7 @@ namespace SecretFlasherManakaVR.Runtime
 
             SyncCameraPostProcessingIfNeeded();
 
-            SecretFlasherManakaVR.PlayerHeadPoseController.Apply();
+            if (!ThreePointBodyController.Active) SecretFlasherManakaVR.PlayerHeadPoseController.Apply();
             ApplyProjectionOrCameraFallback();
             if (npcWorldSpaceUiFixer != null)
             {
@@ -218,6 +238,8 @@ namespace SecretFlasherManakaVR.Runtime
                 uiBridge.Tick(settings, sourceCamera, rig.HeadPosition, rig.HeadRotation);
                 uiOverlayLayerMask |= uiBridge.ConvertedLayerMask;
             }
+
+            InputMapping.Quest3InputSystem.RefreshTrackingVisual();
 
             if (eyeMaskWeatherFogSuppressor != null)
             {
@@ -255,6 +277,10 @@ namespace SecretFlasherManakaVR.Runtime
             {
                 return;
             }
+
+            ThreePointBodyController.Release("Scene changed; press F6 after loading.");
+            if (!Plugin.Settings.UseLegacyView) recenterPending = true;
+            VrRuntimeState.ClearHeadPose();
 
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
@@ -315,6 +341,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void Shutdown()
         {
+            ThreePointBodyController.Release("VR runtime shutdown.");
             logger.Info("VrRuntimeManager.Shutdown started.");
             RestorePersistentReflectionProbes();
             RestorePersistentMirrorManagers();
@@ -498,6 +525,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void ApplyRecenter(RuntimePose pose)
         {
+            if (ThreePointBodyController.Active) ThreePointBodyController.Release("View recentered; press F6 to calibrate body again.");
             recenterYaw = Quaternion.Inverse(Quaternion.Euler(0.0f, pose.Rotation.eulerAngles.y, 0.0f));
             recenterPosition = pose.Position * settings.WorldScale;
             recenterSourceYaw = sourceCamera == null ? Quaternion.identity : ExtractYaw(sourceCamera.transform.rotation);
@@ -851,6 +879,17 @@ namespace SecretFlasherManakaVR.Runtime
 
         private void ApplyPoseToRig()
         {
+            if (ThreePointBodyController.TryView(latestHead, out var trackedPosition, out var trackedRotation))
+            {
+                float trackedIpd = bridge == null ? DefaultIpdMeters : GetIpdMeters(DefaultIpdMeters);
+                // Device positions and stereo eye separation must share the SAME world scale.
+                // Scaling only tracking distances makes hands appear closer and too high below eye level.
+                rig.ApplyPose(trackedPosition, trackedRotation, trackedIpd, settings.IPDScale, ThreePointBodyController.TrackingWorldScale);
+                ThreePointBodyController.RecordStereo(trackedIpd, rig.LeftEyeCamera.transform.position, rig.RightEyeCamera.transform.position);
+                VrRuntimeState.SetHeadPose(trackedPosition, trackedRotation, latestHead.Rotation);
+                return;
+            }
+
             RuntimePose pose = lastPose;
             Vector3 rawPosition = pose.Position * settings.WorldScale;
             Quaternion rawRotation = pose.Rotation;
@@ -861,17 +900,23 @@ namespace SecretFlasherManakaVR.Runtime
                 rawRotation = recenterYaw * rawRotation;
             }
 
-            if (settings.IgnoreHeadPositionForVrCamera)
-            {
-                rawPosition = new Vector3(
-                    Mathf.Clamp(rawPosition.x, settings.HeadPositionCameraOffsetMinX, settings.HeadPositionCameraOffsetMaxX),
-                    Mathf.Clamp(rawPosition.y, settings.HeadPositionCameraOffsetMinY, settings.HeadPositionCameraOffsetMaxY),
-                    Mathf.Clamp(rawPosition.z, settings.HeadPositionCameraOffsetMinZ, settings.HeadPositionCameraOffsetMaxZ));
-            }
+            bool legacyView = Plugin.Settings.UseLegacyView;
+            var cameraOffset = TrackingSpaceMath.CameraHeadOffset(Plugin.Settings.TrackingMode.Value,
+                new System.Numerics.Vector3(rawPosition.x, rawPosition.y, rawPosition.z), settings.IgnoreHeadPositionForVrCamera,
+                new System.Numerics.Vector3(settings.HeadPositionCameraOffsetMinX, settings.HeadPositionCameraOffsetMinY, settings.HeadPositionCameraOffsetMinZ),
+                new System.Numerics.Vector3(settings.HeadPositionCameraOffsetMaxX, settings.HeadPositionCameraOffsetMaxY, settings.HeadPositionCameraOffsetMaxZ));
+            rawPosition = new Vector3(cameraOffset.X, cameraOffset.Y, cameraOffset.Z);
 
-            Vector3 basePosition = sourceCamera.transform.position + sourceCamera.transform.up * settings.CameraHeightOffset;
-            Quaternion baseRotation = GetSourceBaseRotation();
-            ApplySourceBaseSmoothing(ref basePosition, ref baseRotation);
+            Vector3 basePosition = sourceCamera.transform.position;
+            Quaternion baseRotation = ExtractYaw(sourceCamera.transform.rotation);
+            if (legacyView)
+            {
+                basePosition += sourceCamera.transform.up * settings.CameraHeightOffset;
+                baseRotation = GetSourceBaseRotation();
+                ApplySourceBaseSmoothing(ref basePosition, ref baseRotation);
+            }
+            // Legacy retains the original mapping; tracked profiles use full HMD
+            // translation even in menus / before calibration.
             VrRuntimeState.SetTrackingToWorldTransform(
                 basePosition,
                 baseRotation,
@@ -1059,6 +1104,7 @@ namespace SecretFlasherManakaVR.Runtime
         private bool TryGetHmdPose(out RuntimePose pose)
         {
             pose = RuntimePose.Identity;
+            latestHead = OpenVRPose.Invalid("No current HMD pose");
             if (bridge == null || !bridge.TryGetHmdPose(out var openVrPose, out _))
             {
                 return false;
@@ -1070,6 +1116,7 @@ namespace SecretFlasherManakaVR.Runtime
                 Rotation = openVrPose.Rotation,
                 IsValid = openVrPose.IsValid
             };
+            latestHead = openVrPose;
             return pose.IsValid;
         }
 

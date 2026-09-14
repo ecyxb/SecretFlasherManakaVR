@@ -19,6 +19,16 @@ internal static class Quest3InputSystem
     private static int lastTickFrame = -1;
 
     public static Quest3VirtualInputState Current => State;
+    internal static bool RayVisible => cursorRay?.Visible ?? false;
+    internal static string RayError => cursorRay?.Error ?? string.Empty;
+
+    internal static void RefreshTrackingVisual()
+    {
+        // Update only geometry after the new camera mapping. Never dispatch button
+        // events twice or change the user's L3 + R3 cursor-mode selection.
+        if (settings != null && settings.EnableQuest3InputMapping.Value && !settings.UseLegacyView)
+            cursorRay?.Tick(State);
+    }
 
     public static void Configure(ModConfig config)
     {

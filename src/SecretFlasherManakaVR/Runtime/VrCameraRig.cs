@@ -154,7 +154,7 @@ namespace SecretFlasherManakaVR.Runtime
 
         public void ApplyPose(Vector3 headPosition, Quaternion headRotation, float ipdMeters, float ipdScale, float worldScale)
         {
-            Vector3 halfIpd = Vector3.right * (ipdMeters * 0.5f * ipdScale * worldScale);
+            Vector3 halfIpd = Vector3.right * (TrackingSpaceMath.EyeSeparation(ipdMeters, ipdScale, worldScale) * .5f);
             leftEye.transform.SetPositionAndRotation(headPosition + headRotation * -halfIpd, headRotation);
             rightEye.transform.SetPositionAndRotation(headPosition + headRotation * halfIpd, headRotation);
         }

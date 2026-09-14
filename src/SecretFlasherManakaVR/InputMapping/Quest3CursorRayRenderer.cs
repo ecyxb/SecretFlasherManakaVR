@@ -8,6 +8,8 @@ internal sealed class Quest3CursorRayRenderer
     private GameObject? rayObject;
     private LineRenderer? line;
     private bool creationFailed;
+    internal bool Visible => line != null && line.enabled;
+    internal string Error { get; private set; } = string.Empty;
 
     public void Tick(Quest3VirtualInputState state)
     {
@@ -65,9 +67,11 @@ internal sealed class Quest3CursorRayRenderer
             line.sortingOrder = 1000;
             SetVisible(false);
         }
-        catch (System.Exception)
+        catch (System.Exception e)
         {
             creationFailed = true;
+            Error = e.ToString();
+            Plugin.Logger.LogError("Quest 3 cursor ray creation failed: " + e);
         }
     }
 

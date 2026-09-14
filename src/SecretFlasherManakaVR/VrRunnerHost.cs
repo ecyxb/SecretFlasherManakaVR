@@ -89,6 +89,7 @@ public sealed class VrRunnerHost : MonoBehaviour
         }
 
         Quest3InputSystem.Tick();
+        ThreePointBodyController.Update();
         InvokeLifecycle(_updateMethod, "update");
     }
 
@@ -117,6 +118,7 @@ public sealed class VrRunnerHost : MonoBehaviour
 
     private void OnDestroy()
     {
+        ThreePointBodyController.Release("VR runner destroyed.");
         _runtimeLogger?.Info("VrRunnerHost OnDestroy: shutting down runtime.");
         ShutdownRuntime("VR runner host destroyed.");
         Quest3InputSystem.Shutdown();

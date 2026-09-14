@@ -1,0 +1,114 @@
+[
+  {
+    "key": "IPDScale",
+    "value": "1.0"
+  },
+  {
+    "key": "WorldScale",
+    "value": "1.0"
+  },
+  {
+    "key": "AutoRecenterOnStart",
+    "value": "true"
+  },
+  {
+    "key": "SuppressMouseLookInput",
+    "value": "true"
+  },
+  {
+    "key": "Quest3InputActionManifestPath",
+    "value": ""
+  },
+  {
+    "key": "Quest3LongPressSeconds",
+    "value": "0.5"
+  },
+  {
+    "key": "Quest3RightStickDiagonalGuardDegrees",
+    "value": "15.0"
+  },
+  {
+    "key": "Quest3TriggerPressThreshold",
+    "value": "0.35"
+  },
+  {
+    "key": "Quest3CursorRayDirection",
+    "value": "Forward"
+  },
+  {
+    "key": "Quest3CursorRayLength",
+    "value": "6.0"
+  },
+  {
+    "key": "Quest3CursorRayPitchOffsetDegrees",
+    "value": "0.0"
+  },
+  {
+    "key": "Quest3CursorRayYawOffsetDegrees",
+    "value": "0.0"
+  },
+  {
+    "key": "Quest3CursorRayRollOffsetDegrees",
+    "value": "0.0"
+  },
+  {
+    "key": "SourceRotationMode",
+    "value": "SourceYawOnly"
+  },
+  {
+    "key": "SceneTransitionVrPauseSeconds",
+    "value": "1.5"
+  },
+  {
+    "key": "UseOpenVRProjection",
+    "value": "true"
+  },
+  {
+    "key": "OpenVRProjectionMode",
+    "value": "RawSwapVertical"
+  },
+  {
+    "key": "UseSourceProjectionForCulling",
+    "value": "true"
+  },
+  {
+    "key": "FlipSubmitV",
+    "value": "true"
+  },
+  {
+    "key": "SuppressBlackCensorOnChangeNullRefs",
+    "value": "true"
+  },
+  {
+    "key": "DisableSourceCameraRendering",
+    "value": "false"
+  },
+  {
+    "key": "DisableMirrorManagersWhileVrActive",
+    "value": "true"
+  },
+  {
+    "key": "DisableTargetTextureCameras",
+    "value": "true"
+  },
+  {
+    "key": "PreventReflectionReenableWhileVrActive",
+    "value": "true"
+  },
+  {
+    "key": "BlockReflectionCameraRenderWhileVrActive",
+    "value": "true"
+  },
+  {
+    "key": "BlockNestedCameraRenderDuringVrRender",
+    "value": "true"
+  },
+  {
+    "key": "DisableReflectionProbes",
+    "value": "false"
+  },
+  {
+    "key": "ReflectionCameraNameKeywords",
+    "value": "mirror,reflect,reflection,planar,water"
+  }
+]

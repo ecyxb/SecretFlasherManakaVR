@@ -145,6 +145,7 @@ namespace SecretFlasherManakaVR.OpenVR
 
         public bool TryUpdatePoses(out string error)
         {
+            poseFrameAvailable = false;
             if (!EnsureInitialized(out error) || compositor == null)
             {
                 return false;
@@ -211,6 +212,28 @@ namespace SecretFlasherManakaVR.OpenVR
                 error = SetError("Failed to read OpenVR HMD pose: " + ex.Message);
                 return false;
             }
+        }
+
+        // Read the same compositor frame as the HMD; do not initialize another OpenVR client.
+        public bool TryGetControllerPose(bool left, out OpenVRPose pose, out string error)
+        {
+            pose = OpenVRPose.Invalid("Unavailable");
+            if (!EnsureInitialized(out error)) return false;
+            try
+            {
+                if (!poseFrameAvailable) { error = "No current compositor frame."; return false; }
+                uint index = Valve.VR.OpenVR.System.GetTrackedDeviceIndexForControllerRole(left
+                    ? Valve.VR.ETrackedControllerRole.LeftHand : Valve.VR.ETrackedControllerRole.RightHand);
+                if (index >= poses.Length) { error = "Controller role not connected."; return false; }
+                var native = poses[index];
+                if (!native.bDeviceIsConnected || !native.bPoseIsValid)
+                { error = native.eTrackingResult.ToString(); return false; }
+                var matrix = ToUnityMatrix(native.mDeviceToAbsoluteTracking);
+                pose = new OpenVRPose(true, true, MatrixPosition(matrix), MatrixRotation(matrix), matrix, native.eTrackingResult.ToString());
+                error = string.Empty;
+                return true;
+            }
+            catch (Exception ex) { error = ex.Message; return false; }
         }
 
         public bool GetRecommendedRenderTargetSize(out uint width, out uint height)

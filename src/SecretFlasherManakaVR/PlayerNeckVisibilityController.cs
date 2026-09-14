@@ -28,7 +28,7 @@ internal static class PlayerNeckVisibilityController
         desiredHidden = shouldHide &&
             neck != null &&
             Plugin.Settings != null &&
-            Plugin.Settings.HidePlayerNeckInVrFirstPerson.Value;
+            Plugin.Settings.HideHeadForSelectedMode;
         desiredFrame = Time.frameCount;
 
         if (!desiredHidden)
@@ -67,7 +67,7 @@ internal static class PlayerNeckVisibilityController
             desiredFrame == Time.frameCount &&
             neck != null &&
             Plugin.Settings != null &&
-            Plugin.Settings.HidePlayerNeckInVrFirstPerson.Value;
+            Plugin.Settings.HideHeadForSelectedMode;
     }
 
     private static void ApplyScale()

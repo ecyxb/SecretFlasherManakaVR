@@ -13,7 +13,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "com.codex.secretflashermanaka.vr";
     public const string PluginName = "SecretFlasherManaka VR";
-    public const string PluginVersion = "0.1.0";
+    public const string PluginVersion = "0.2.1";
 
     internal static ManualLogSource Logger { get; private set; } = null!;
     internal static ModConfig Settings { get; private set; } = null!;

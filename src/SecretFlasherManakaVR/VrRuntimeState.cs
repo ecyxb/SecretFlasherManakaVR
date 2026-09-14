@@ -24,6 +24,13 @@ internal static class VrRuntimeState
     public static Camera? SourceCamera { get; private set; }
 
     public static int RecenterSerial { get; private set; }
+    public static float? HeadTrackingAlignmentErrorMetres { get; private set; }
+
+    public static void MeasureHeadTrackingAlignment(Vector3 trackedHead, Vector3 renderedHead)
+    {
+        HeadTrackingAlignmentErrorMetres = TryTransformTrackingPose(trackedHead, Quaternion.identity, out var mappedHead, out _)
+            ? Vector3.Distance(mappedHead, renderedHead) : null;
+    }
 
     private static bool recenterRequested;
     private static Vector3 trackingBasePosition;
@@ -59,6 +66,7 @@ internal static class VrRuntimeState
         HeadTrackingRotation = Quaternion.identity;
         HasHeadPose = false;
         hasTrackingToWorldTransform = false;
+        HeadTrackingAlignmentErrorMetres = null;
     }
 
     public static void SetSourceCamera(Camera? camera)

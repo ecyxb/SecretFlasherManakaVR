@@ -56,7 +56,7 @@ internal static class PlayerHeadPoseController
 
     public static bool ShouldSuppressMode0RightStickY
     {
-        get { return CanApply(); }
+        get { return ThreePointBodyController.Active || CanApply(); }
     }
 
     public static void CapturePlayer(PlayerController player)
@@ -152,9 +152,10 @@ internal static class PlayerHeadPoseController
 
     private static bool CanApply()
     {
-        if (!VrRuntimeState.IsVrReady ||
+        if (ThreePointBodyController.Active || !VrRuntimeState.IsVrReady ||
             !VrRuntimeState.HasHeadPose ||
             Plugin.Settings == null ||
+            !Plugin.Settings.AllowLegacyBones ||
             !Plugin.Settings.EnablePlayerHeadPoseControl.Value ||
             cachedHead == null ||
             cachedNeck == null ||
@@ -476,6 +477,28 @@ internal static class PlayerHeadPoseController
         chestOffsetState.RestoreIfStillApplied();
         neckOffsetState.RestoreIfStillApplied();
         headOffsetState.RestoreIfStillApplied();
+    }
+
+    internal static bool IsTrackingFirstPersonView()
+    {
+        try
+        {
+            var player = PlayerController.Instance;
+            if (player == null || !player.gameObject.activeInHierarchy) return false;
+            if (!IsCachedPlayer(player)) CapturePlayer(player);
+            // Use the game's camera mode rather than distance to the IK-driven head,
+            // which can move metres while the source camera stays behind.
+            var camera = VrRuntimeState.SourceCamera;
+            return camera != null && IsFirstPersonView(camera);
+        }
+        catch (Exception) { return false; }
+    }
+
+    internal static void SuspendForBodyTracking()
+    {
+        RestoreAppliedOffsets();
+        PlayerNeckVisibilityController.SetDesired(false);
+        hasReset = false;
     }
 
     private static void ApplyWeightedOffset(Transform? bone, Quaternion delta, float weight, ref BoneOffsetState state)

@@ -8,6 +8,14 @@
 
 这个包不包含游戏本体、BepInEx，也不会覆盖 `SecretFlasherManakaMod.dll`。它面向已经安装好 BepInEx IL2CPP 的游戏目录。
 
+另有独立的[桌面全身骨骼控制原型](docs/DESKTOP_POSE_LAB.zh-CN.md)：用伪造的头、手、髋、脚输入验证 IK 和逐骨骼控制，无需进入 VR 模式。它有独立的构建、安装和恢复脚本。
+
+0.2.0 新增[Steam Link 三点身体追踪](docs/VR_THREE_POINT.zh-CN.md)：真实头显和双手柄驱动骨骼，F6 校准/启停，F7 重新校准。请使用 `scripts/vr-body.ps1` 从桌面实验切换安装。
+
+0.2.1 将原版 VR 行为与新身体追踪分为独立模式，配置和相机规则见 [追踪模式与相机规则](docs/TRACKING_MODES.zh-CN.md)。真实设备当前支持三点；6/8/10/11 点保留独立配置入口。
+
+现提供[外部可视化配置工具](docs/CONFIGURATOR.zh-CN.md)：双击仓库根目录的 `打开VR配置.cmd` 自动打开，覆盖所有配置，无需进入游戏或导入文件。首次使用可运行 `scripts/config-ui.ps1 -GameRoot "游戏目录" -Action Launch` 记住游戏位置；源码和启动入口随本 Mod 仓库维护。
+
 ## 已知问题
 
 - 安装本 Mod 包前，请先为游戏安装最新版 BepInEx 6 IL2CPP。旧版 BepInEx 可能导致插件加载、interop 生成或初始化失败。

@@ -98,6 +98,22 @@ public sealed class ModConfig
         Quest3CursorRayYawOffsetDegrees = Fixed(0.0f);
         Quest3CursorRayRollOffsetDegrees = Fixed(0.0f);
 
+        EnableThreePointBody = config.Bind(BodySection, nameof(EnableThreePointBody), false,
+            "Migration only: used to initialize TrackingMode if it does not exist. Change TrackingMode in section 07 instead.");
+        ThreePointTrackingScale = config.Bind(BodySection, nameof(ThreePointTrackingScale), 1f,
+            new ConfigDescription("Migration only: initializes section 08 TrackingScale once. Use the profile setting afterwards.", new AcceptableValueRange<float>(.5f, 1.5f)));
+        ThreePointAutoScale = config.Bind(BodySection, nameof(ThreePointAutoScale), true,
+            "Migration only: initializes section 08 AutoScale once. Use the profile setting afterwards.");
+
+        TrackingMode = config.Bind("07 Tracking Mode - 追踪模式", nameof(TrackingMode),
+            EnableThreePointBody.Value ? BodyTrackingMode.ThreePoint : BodyTrackingMode.Legacy,
+            "Legacy restores the original VR behavior. ThreePoint uses HMD + two controllers. Six/Eight/Ten/ElevenPoint are reserved and cannot calibrate yet. This selector supersedes EnableThreePointBody.");
+        ThreePointProfile = new BodyTrackingProfile(config, "08 Three Point - 三点追踪", ThreePointTrackingScale.Value, ThreePointAutoScale.Value);
+        SixPointProfile = new BodyTrackingProfile(config, "09 Six Point - 六点追踪（预留）");
+        EightPointProfile = new BodyTrackingProfile(config, "10 Eight Point - 八点追踪（预留）");
+        TenPointProfile = new BodyTrackingProfile(config, "11 Ten Point - 十点追踪（预留）");
+        ElevenPointProfile = new BodyTrackingProfile(config, "12 Eleven Point - 十一点追踪（预留）");
+
         EnablePlayerHeadPoseControl = config.Bind(
             BodySection,
             nameof(EnablePlayerHeadPoseControl),
@@ -584,6 +600,26 @@ public sealed class ModConfig
     public FixedConfigValue<float> Quest3CursorRayYawOffsetDegrees { get; }
     public FixedConfigValue<float> Quest3CursorRayRollOffsetDegrees { get; }
     public ConfigEntry<bool> EnablePlayerHeadPoseControl { get; }
+    public ConfigEntry<bool> EnableThreePointBody { get; }
+    public ConfigEntry<BodyTrackingMode> TrackingMode { get; }
+    public BodyTrackingProfile ThreePointProfile { get; }
+    public BodyTrackingProfile SixPointProfile { get; }
+    public BodyTrackingProfile EightPointProfile { get; }
+    public BodyTrackingProfile TenPointProfile { get; }
+    public BodyTrackingProfile ElevenPointProfile { get; }
+    public BodyTrackingProfile SelectedTrackingProfile => TrackingMode.Value switch
+    {
+        BodyTrackingMode.SixPoint => SixPointProfile,
+        BodyTrackingMode.EightPoint => EightPointProfile,
+        BodyTrackingMode.TenPoint => TenPointProfile,
+        BodyTrackingMode.ElevenPoint => ElevenPointProfile,
+        _ => ThreePointProfile
+    };
+    public bool UseLegacyView => TrackingModePolicy.UsesLegacyView(TrackingMode.Value);
+    public bool AllowLegacyBones => TrackingModePolicy.AllowsLegacyBones(TrackingMode.Value);
+    public bool HideHeadForSelectedMode => UseLegacyView ? HidePlayerNeckInVrFirstPerson.Value : SelectedTrackingProfile.HideHeadInFirstPerson.Value;
+    public ConfigEntry<float> ThreePointTrackingScale { get; }
+    public ConfigEntry<bool> ThreePointAutoScale { get; }
     public ConfigEntry<float> PlayerHeadPoseFollowDistance { get; }
     public ConfigEntry<float> PlayerHeadPoseYawLimitDegrees { get; }
     public ConfigEntry<float> PlayerHeadPosePitchLimitDegrees { get; }

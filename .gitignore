@@ -1,6 +1,9 @@
 # Build intermediates
 src/**/bin/
 src/**/obj/
+tests/**/bin/
+tests/**/obj/
+artifacts/
 release
 dist/BepInEx/plugins/*.dll
 dist/debug_symbols/*.pdb

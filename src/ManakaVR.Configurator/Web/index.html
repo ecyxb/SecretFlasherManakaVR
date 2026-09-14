@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manaka VR · 配置工作台</title>
+  <link rel="stylesheet" href="style.css"><script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 9h22v13h-7l-4-4-4 4H5z"/><path d="M10 14h3m6 0h3"/></svg><span>MANAKA <b>VR</b><small>配置工作台</small></span></a>
+    <div class="workspace"><span class="dot"></span><div>本地工作区<small>配置自动连接 · 无需导入</small></div><span class="workspace-icon">↗</span></div>
+    <nav id="nav" aria-label="配置分类"></nav>
+    <div class="sidebar-bottom"><span>CONFIGURATOR <b>0.1</b></span><p>你的设置，只保存在这台电脑。</p></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div class="breadcrumb">工作区 <span>/</span> <b id="breadcrumb">追踪模式</b></div><div class="top-actions"><span id="game-badge" class="badge">正在连接</span><button id="history" class="quiet">备份历史</button><button id="quit" class="quiet">退出工具</button></div></header>
+    <main>
+      <div class="page-heading"><div><div class="eyebrow">MAKE IT FEEL RIGHT</div><h1 id="page-title">配置你的 VR 体验</h1><p id="page-subtitle">选择追踪方式，再调整适合你的视角与操作。</p></div><button id="reload" class="secondary">↻ 重新读取</button></div>
+      <div id="connection" class="connection"><span class="dot"></span><span id="config-path">正在读取游戏配置…</span><span class="connection-label">自动连接</span></div>
+      <div id="notice" class="notice" hidden></div>
+      <div class="toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索所有配置：高度、光标、RenderScale…" aria-label="搜索所有配置"><kbd>/</kbd></label><label class="modified-filter"><input id="modified-only" type="checkbox">仅看已修改</label><button id="reset-section" class="quiet">本页恢复默认</button></div>
+      <div id="content"><div class="empty">正在连接配置文件…</div></div>
+      <div class="page-bottom">修改先保留为草稿，点击保存后写入游戏配置。下次启动游戏生效。</div>
+    </main>
+    <footer class="savebar"><div><span id="dirty-dot" class="dot"></span><b id="dirty-label">尚无修改</b><small id="save-hint">已读取本地配置</small></div><div class="save-actions"><button id="discard" class="secondary" disabled>放弃修改</button><button id="reset-all" class="quiet">全部恢复默认</button><button id="save" class="primary" disabled>预览并保存 <span>↗</span></button></div></footer>
+  </div>
+  <dialog id="dialog"><div id="dialog-body"></div></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

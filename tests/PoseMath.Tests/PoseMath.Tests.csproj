@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup><Compile Include="../../src/SecretFlasherManakaPoseLab/PoseMath.cs" Link="PoseMath.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/SecretFlasherManakaPoseLab/TrackingLayout.cs" Link="TrackingLayout.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/SecretFlasherManakaVR/BodyTracking/TrackingSpaceMath.cs" Link="TrackingSpaceMath.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../src/SecretFlasherManakaVR/BodyTracking/TrackingModePolicy.cs" Link="TrackingModePolicy.cs" /></ItemGroup>
+</Project>
